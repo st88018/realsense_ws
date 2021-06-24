@@ -1,5 +1,31 @@
-#include "test.h"
-#include "fsm.cpp"
+#include <ros/ros.h>
+#include <image_transport/image_transport.h>
+#include <sensor_msgs/image_encodings.h>
+#include <cv_bridge/cv_bridge.h>
+#include <opencv2/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/aruco.hpp>
+#include <chrono>
+#include <iomanip>
+#include <string>
+#include <algorithm>
+#include <fstream>
+#include <iostream>
+#include <istream>
+#include <sstream>
+#include <message_filters/subscriber.h>
+#include <message_filters/time_synchronizer.h>
+#include <message_filters/sync_policies/exact_time.h>
+#include <message_filters/sync_policies/approximate_time.h>
+#include <sensor_msgs/Image.h>
+#include <sensor_msgs/CameraInfo.h>
+#include <geometry_msgs/PoseStamped.h>
+#include <numeric>
+#include <Eigen/Core>
+#include <Eigen/Geometry>
+#include <fstream>
+#include "utils/kinetic_math.h"
 
 using namespace std;
 using namespace cv;
@@ -11,20 +37,17 @@ static double fx, fy, cx, cy; //focal length and principal point
 static Vec4 CamParameters;
 bool ArucoYes;
 int ArucoLostcounter;
-
 /*uav local parameter*/
 static geometry_msgs::PoseStamped Aruco_pose_realsense;
 static geometry_msgs::PoseStamped Depth_pose_realsense;
 static geometry_msgs::PoseStamped UAV_pose_vicon;
 static geometry_msgs::PoseStamped Camera_pose_vicon;
 static geometry_msgs::PoseStamped UAV_pose_pub;
-Vec7 UAV_lp; 
-
+Vec7 UAV_lp;
 /*IRR filter parameter*/
 cv::Mat cameraMatrix = cv::Mat::eye(3,3, CV_64F);
 cv::Mat depthcameraMatrix = cv::Mat::eye(3,3, CV_64F);
 cv::Mat distCoeffs = cv::Mat::zeros(8, 1, CV_64F);
-
 /* FSM */
 Vec7 UAV_desP,UAV_takeoffP;
 int    Mission_state = 0;
@@ -32,21 +55,20 @@ int    Mission_stage = 0;
 int    Current_Mission_stage = 0;
 bool   Initialfromtakeoffpos;
 double velocity_takeoff,velocity_angular, velocity_mission, altitude_mission;
-
 /* Traj */
 deque<Vec8> trajectory1;
 Vec2 traj1_information;
 double Trajectory_timestep = 0.02;
-
 /*Timer*/
 double callback_LastT,System_LastT;
 int LowSpeedcounter;
 
-void constantVtraj( Vec6 EndPose,Vec7 UAV_lp,double velocity,double angular_velocity){
-  Quaterniond q(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]);
-  Vec3 start_rpy = Q2rpy(q);
+void constantVtraj( Vec7 EndPose,double velocity,double angular_velocity){
+  Quaterniond startq(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]);
+  Vec3 start_rpy = Q2rpy(startq);
   Vec3 start_xyz(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
-  Vec3 des_rpy = Vec3(0,0,EndPose[5]);
+  Quaterniond endq(EndPose[3],EndPose[4],EndPose[5],EndPose[6]);
+  Vec3 des_rpy = Q2rpy(endq);
 
   double dist = sqrt(pow((EndPose[0]-start_xyz[0]),2)+pow((EndPose[1]-start_xyz[1]),2)+pow((EndPose[2]-start_xyz[2]),2));
   double dist_duration = dist/velocity; // In seconds
@@ -171,7 +193,6 @@ void depth_calc(cv::Mat rgbframe, cv::Mat depthframe){
     // cv::waitKey(1);
 }
 */
-
 void Aruco_PosePub(Vec3 rpyW, Vec3 TranslationW)
 {
     Quaterniond Q = rpy2Q(rpyW);
@@ -250,8 +271,7 @@ void estimatedpose_calc(){
     // cout << " DifferenceDV: " << DifferenceDepthVicon[0] << " " << DifferenceDepthVicon[1] << " " << DifferenceDepthVicon[2] << endl;
     
 }*/
-void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs::ImageConstPtr &depth)
-{
+void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs::ImageConstPtr &depth){
     // cout<<"hello callback "<<endl;
     cv::Mat image_rgb;
     try{
@@ -374,11 +394,11 @@ int main(int argc, char **argv)
     ros::Rate loop_rate(50); /* ROS system Hz */
     while(ros::ok())
     {
+        // cout << " ROS ROS " << endl;
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
         local_pos_pub.publish(UAV_pose_pub);
-        // Finite_state_machine(UAV_lp,UAV_desP);
-
+        // Finite_state_machine();
         /* ROS timer */
         // auto currentT = ros::Time::now().toSec();
         // cout << "System_Hz: " << 1/(currentT-System_LastT) << endl;
