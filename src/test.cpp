@@ -39,6 +39,8 @@ using namespace message_filters;
 static double fx, fy, cx, cy; //focal length and principal point
 static Vec4 CamParameters;
 int ArucoLostcounter;
+bool Aruco_found = false;
+bool Aruco_init = false;
 /*uav local parameter*/
 static geometry_msgs::PoseStamped Aruco_pose_realsense;
 static geometry_msgs::PoseStamped Depth_pose_realsense;
@@ -63,7 +65,6 @@ Vec2 traj1_information;
 double Trajectory_timestep = 0.02;
 /* System */
 bool ROS_init = true;
-bool Aruco_found = false;
 double System_initT,callback_LastT,System_LastT;
 ros::Time last_request;
 ros::Time init_time;
@@ -314,8 +315,8 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     std::vector<int> markerIds;
     std::vector<Vec2I> markerCenter;
     std::vector<Vec8I> markerConerABCDs;
-    Vec2I markerCenterXY;
-    Vec8I markerConerABCD;
+    Vec2I markerCenterXY,last_markerCenterXY;
+    Vec8I markerConerABCD,last_markerConerABCD;
     std::vector<std::vector<cv::Point2f>> markerCorners, rejectedCandidates;
     std::vector<cv::Vec3d> rvecs, tvecs;
     rvecs.clear();tvecs.clear();
@@ -324,6 +325,7 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     cv::aruco::detectMarkers(image_rgb, dictionary, markerCorners, markerIds, parameters, rejectedCandidates);
     markerCenter.push_back(markerCenterXY);
     if (markerIds.size() > 0){
+        Aruco_init = true;
         Aruco_found = true;
         cv::aruco::drawDetectedMarkers(ArucoOutput, markerCorners, markerIds);
         cv::aruco::estimatePoseSingleMarkers(markerCorners, 0.06, cameraMatrix, distCoeffs, rvecs, tvecs);
@@ -346,16 +348,20 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
             // cout <<"ID: "<< i << endl;
             // cout <<"translational: "<< tvecs[i] << endl;
         }
-    }else{ArucoLostcounter++;}
+    }else{Aruco_found = false; ArucoLostcounter++;}
     /* Pose in World Calc */
-    if (Aruco_found){
+    if (Aruco_init){
         cv_bridge::CvImagePtr depth_ptr  = cv_bridge::toCvCopy(depth, depth->encoding);
         cv::Mat image_dep = depth_ptr->image;
-        markerCenterXY = markerCenter.back();
-        markerConerABCD = markerConerABCDs.back();
-        double ArucoDepth = find_depth(image_dep,markerCenterXY,markerConerABCD);
-        Pose_calc_Aruco(rvecs.front(), tvecs.front());
-        Pose_calc_Depth(rvecs.front(), camerapixel2tvec(markerCenterXY,ArucoDepth,CamParameters));
+        cv::Vec3d Depthrvec;
+        if(Aruco_found){
+            Depthrvec = rvecs.front();
+            last_markerCenterXY = markerCenter.back();
+            last_markerConerABCD = markerConerABCDs.back();
+            Pose_calc_Aruco(rvecs.front(), tvecs.front());
+        }
+        double ArucoDepth = find_depth(image_dep,last_markerCenterXY,last_markerConerABCD);
+        Pose_calc_Depth(Depthrvec, camerapixel2tvec(last_markerCenterXY,ArucoDepth,CamParameters));
     }
     /* ROS timer */
     // auto currentT = ros::Time::now().toSec();
