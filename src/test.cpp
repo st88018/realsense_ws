@@ -38,7 +38,6 @@ using namespace message_filters;
 /*camera pramater*/
 static double fx, fy, cx, cy; //focal length and principal point
 static Vec4 CamParameters;
-bool ArucoYes;
 int ArucoLostcounter;
 /*uav local parameter*/
 static geometry_msgs::PoseStamped Aruco_pose_realsense;
@@ -64,6 +63,7 @@ Vec2 traj1_information;
 double Trajectory_timestep = 0.02;
 /* System */
 bool ROS_init = true;
+bool Aruco_found = false;
 double System_initT,callback_LastT,System_LastT;
 ros::Time last_request;
 ros::Time init_time;
@@ -295,6 +295,10 @@ void Pose_calc_Depth(const cv::Vec3d rvecs, const Vec3 Depth_translation_camera)
     // cout << " DifferenceDV: " << DifferenceDepthVicon[0] << " " << DifferenceDepthVicon[1] << " " << DifferenceDepthVicon[2] << endl;
     
 }*/
+double find_depth(cv::Mat image_dep,Vec2I markerCenterXY,Vec8I markerConerABCD){
+    double MidDepth = 0.001 * image_dep.at<ushort>(markerCenterXY[1],markerCenterXY[0]);
+    return(MidDepth);
+}
 void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs::ImageConstPtr &depth){
     // cout<<"hello callback "<<endl;
     cv::Mat image_rgb;
@@ -309,7 +313,9 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     cv::Mat ArucoOutput = image_rgb.clone();
     std::vector<int> markerIds;
     std::vector<Vec2I> markerCenter;
+    std::vector<Vec8I> markerConerABCDs;
     Vec2I markerCenterXY;
+    Vec8I markerConerABCD;
     std::vector<std::vector<cv::Point2f>> markerCorners, rejectedCandidates;
     std::vector<cv::Vec3d> rvecs, tvecs;
     rvecs.clear();tvecs.clear();
@@ -318,7 +324,7 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     cv::aruco::detectMarkers(image_rgb, dictionary, markerCorners, markerIds, parameters, rejectedCandidates);
     markerCenter.push_back(markerCenterXY);
     if (markerIds.size() > 0){
-        ArucoYes = true;
+        Aruco_found = true;
         cv::aruco::drawDetectedMarkers(ArucoOutput, markerCorners, markerIds);
         cv::aruco::estimatePoseSingleMarkers(markerCorners, 0.06, cameraMatrix, distCoeffs, rvecs, tvecs);
         markerCenter.clear();
@@ -330,30 +336,27 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
                 cv::Point2f MC = markerCorner[j];
                 markerCenterXY[0] += MC.x;
                 markerCenterXY[1] += MC.y;
+                markerConerABCD[j*2] = MC.x;
+                markerConerABCD[j*2+1] = MC.y;
             }
             markerCenterXY[0] = markerCenterXY[0]/markerCorner.size();
             markerCenterXY[1] = markerCenterXY[1]/markerCorner.size();
             markerCenter.push_back(markerCenterXY);
+            markerConerABCDs.push_back(markerConerABCD);
             // cout <<"ID: "<< i << endl;
             // cout <<"translational: "<< tvecs[i] << endl;
         }
-    }else{ArucoYes = false;ArucoLostcounter++;}
-    /* depth call back */
-    cv_bridge::CvImagePtr depth_ptr  = cv_bridge::toCvCopy(depth, depth->encoding);
-    cv::Mat image_dep = depth_ptr->image;
-    markerCenterXY = markerCenter.back();
-    auto ArucoDepth = 0.001 * image_dep.at<ushort>(markerCenterXY[1],markerCenterXY[0]);
+    }else{ArucoLostcounter++;}
     /* Pose in World Calc */
-
-    cv::Vec3d Depthrvecs;
-    if (tvecs.size() > 0){
+    if (Aruco_found){
+        cv_bridge::CvImagePtr depth_ptr  = cv_bridge::toCvCopy(depth, depth->encoding);
+        cv::Mat image_dep = depth_ptr->image;
+        markerCenterXY = markerCenter.back();
+        markerConerABCD = markerConerABCDs.back();
+        double ArucoDepth = find_depth(image_dep,markerCenterXY,markerConerABCD);
         Pose_calc_Aruco(rvecs.front(), tvecs.front());
-        Depthrvecs = rvecs.front();
+        Pose_calc_Depth(rvecs.front(), camerapixel2tvec(markerCenterXY,ArucoDepth,CamParameters));
     }
-    if (ArucoDepth != 0){
-        Pose_calc_Depth(Depthrvecs, camerapixel2tvec(markerCenterXY,ArucoDepth,CamParameters));
-    }
-
     /* ROS timer */
     // auto currentT = ros::Time::now().toSec();
     // cout << "callback_Hz: " << 1/(currentT-callback_LastT) << endl;
@@ -371,11 +374,6 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
         ArucoLostcounter = 0;
         LowSpeedcounter = 0;
     }
-}
-double pid(Vec3 pid_gain, double error){
-
-
-    return(111);
 }
 void Finite_stage_mission(){
 
