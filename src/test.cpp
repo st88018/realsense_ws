@@ -25,6 +25,9 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <fstream>
+#include <mavros_msgs/CommandBool.h>
+#include <mavros_msgs/SetMode.h>
+#include <mavros_msgs/State.h>
 #include "utils/kinetic_math.h"
 
 using namespace std;
@@ -63,6 +66,7 @@ double Trajectory_timestep = 0.02;
 bool ROS_init = true;
 double System_initT,callback_LastT,System_LastT;
 ros::Time last_request;
+ros::Time init_time;
 int LowSpeedcounter;
 mavros_msgs::State current_state;
 
@@ -385,6 +389,9 @@ int main(int argc, char **argv)
     ros::Subscriber uavpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_small/pose", 1, UAVPose_cb);
     ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>("/mavros/state", 10, state_cb);
 
+    ros::ServiceClient arming_client = nh.serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");
+    ros::ServiceClient set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("/mavros/set_mode");
+
     ros::Publisher ArucoPose_pub = nh.advertise<geometry_msgs::PoseStamped>("ArucoPose",1);
     ros::Publisher DepthPose_pub = nh.advertise<geometry_msgs::PoseStamped>("DepthPose",1);
     ros::Publisher local_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
@@ -396,11 +403,16 @@ int main(int argc, char **argv)
     Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), rgb_sub, dep_sub);
     sync.registerCallback(boost::bind(&callback, _1, _2));
 
+    mavros_msgs::SetMode offb_set_mode;
+    offb_set_mode.request.custom_mode = "OFFBOARD";
+    mavros_msgs::CommandBool arm_cmd;
+    arm_cmd.request.value = true;
     ros::Rate loop_rate(50); /* ROS system Hz */
     while(ros::ok())
     {
         if (ROS_init){
             System_initT = ros::Time::now().toSec();
+            init_time = ros::Time::now();
             UAV_takeoffP = UAV_lp;
             ROS_init = false;
             cout << " System Initialized" << endl;
@@ -421,29 +433,19 @@ int main(int argc, char **argv)
             }
         }
         /*offboard and arm*****************************************************/
-        if( current_state.mode != "OFFBOARD" && 
-                (ros::Time::now() - last_request > ros::Duration(1.0)) &&
-                (ros::Time::now() - init_time < ros::Duration(10.0))){ //Set Offboard trigger duration here
-            if( set_mode_client.call(offb_set_mode) &&
-                offb_set_mode.response.mode_sent){
+        if( current_state.mode != "OFFBOARD" && (ros::Time::now() - last_request > ros::Duration(1.0)) && (ros::Time::now() - init_time < ros::Duration(10.0))){
+            if( set_mode_client.call(offb_set_mode) && offb_set_mode.response.mode_sent){
                 ROS_INFO("Offboard enabled");
             }
-        last_request = ros::Time::now();
+            last_request = ros::Time::now();
+        }else{
+            if( !current_state.armed && (ros::Time::now() - last_request > ros::Duration(1.0)) && (ros::Time::now() - init_time < ros::Duration(10.0))){
+                if( arming_client.call(arm_cmd) && arm_cmd.response.success){
+                ROS_INFO("Vehicle armed");
+                }
+            }
+            last_request = ros::Time::now();
         }
-      else{
-        if( !current_state.armed &&
-            (ros::Time::now() - last_request > ros::Duration(1.0)) &&
-          (ros::Time::now() - init_time < ros::Duration(10.0))){
-          if( arming_client.call(arm_cmd) &&
-              arm_cmd.response.success){
-            ROS_INFO("Vehicle armed");
-            // mission_state = TAKEOFFP1;
-            Mission_stage = 1;
-            cout << "Mission stage = 1 Mission start!" <<endl;
-          }
-          last_request = ros::Time::now();
-        }
-      }
         // cout << " ROS ROS " << ros::Time::now().toSec() - System_initT << endl;
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
