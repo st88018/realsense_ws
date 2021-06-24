@@ -56,8 +56,8 @@ Vec7 UAV_desP,UAV_takeoffP;
 int    Mission_state = 0;
 int    Mission_stage = 0;
 int    Current_Mission_stage = 0;
-bool   Initialfromtakeoffpos;
 double velocity_takeoff,velocity_angular, velocity_mission, altitude_mission;
+bool   UAV_flying = false;
 /* Traj */
 deque<Vec8> trajectory1;
 Vec2 traj1_information;
@@ -377,10 +377,11 @@ double pid(Vec3 pid_gain, double error){
 
     return(111);
 }
+void Finite_stage_mission(){
+
+}
 int main(int argc, char **argv)
 {
-    cout<<"hello camera "<<endl;
-    
     ros::init(argc, argv, "camera");
     ros::NodeHandle nh;
    
@@ -405,52 +406,55 @@ int main(int argc, char **argv)
 
     mavros_msgs::SetMode offb_set_mode;
     offb_set_mode.request.custom_mode = "OFFBOARD";
+    mavros_msgs::SetMode posctl_set_mode;
+    posctl_set_mode.request.custom_mode = "POSCTL";
     mavros_msgs::CommandBool arm_cmd;
     arm_cmd.request.value = true;
     ros::Rate loop_rate(50); /* ROS system Hz */
-    while(ros::ok())
-    {
-        if (ROS_init){
-            System_initT = ros::Time::now().toSec();
-            init_time = ros::Time::now();
-            UAV_takeoffP = UAV_lp;
-            ROS_init = false;
-            cout << " System Initialized" << endl;
-            cout << "UAV_takeoffP: " << UAV_takeoffP[0] << " " << UAV_takeoffP[1] << " " << UAV_takeoffP[2] << endl;
-            /* Waypoints before starting */
-            UAV_pose_pub.header.frame_id = "world";
-            UAV_pose_pub.pose.position.x = UAV_takeoffP[0];
-            UAV_pose_pub.pose.position.y = UAV_takeoffP[1];
-            UAV_pose_pub.pose.position.z = UAV_takeoffP[2];
-            UAV_pose_pub.pose.orientation.w = UAV_takeoffP[3];
-            UAV_pose_pub.pose.orientation.x = UAV_takeoffP[4];
-            UAV_pose_pub.pose.orientation.y = UAV_takeoffP[5];
-            UAV_pose_pub.pose.orientation.z = UAV_takeoffP[6];
-            for(int i = 100; ros::ok() && i > 0; --i){
-                local_pos_pub.publish(UAV_pose_pub);
-                ros::spinOnce();
-                loop_rate.sleep();
-            }
-        }
-        /*offboard and arm*****************************************************/
-        if( current_state.mode != "OFFBOARD" && (ros::Time::now() - last_request > ros::Duration(1.0)) && (ros::Time::now() - init_time < ros::Duration(10.0))){
-            if( set_mode_client.call(offb_set_mode) && offb_set_mode.response.mode_sent){
-                ROS_INFO("Offboard enabled");
-            }
-            last_request = ros::Time::now();
-        }else{
-            if( !current_state.armed && (ros::Time::now() - last_request > ros::Duration(1.0)) && (ros::Time::now() - init_time < ros::Duration(10.0))){
-                if( arming_client.call(arm_cmd) && arm_cmd.response.success){
-                ROS_INFO("Vehicle armed");
-                }
-            }
-            last_request = ros::Time::now();
-        }
-        // cout << " ROS ROS " << ros::Time::now().toSec() - System_initT << endl;
+
+    while(ros::ok()){
+
+        // if (ROS_init){
+        //     System_initT = ros::Time::now().toSec();
+        //     init_time = ros::Time::now();
+        //     UAV_takeoffP = UAV_lp;
+        //     ROS_init = false;
+        //     cout << " System Initialized" << endl;
+        //     cout << "UAV_takeoffP: " << UAV_takeoffP[0] << " " << UAV_takeoffP[1] << " " << UAV_takeoffP[2] << endl;
+        //     /* Waypoints before starting */
+        //     UAV_pose_pub.header.frame_id = "world";
+        //     UAV_pose_pub.pose.position.x = UAV_takeoffP[0];
+        //     UAV_pose_pub.pose.position.y = UAV_takeoffP[1];
+        //     UAV_pose_pub.pose.position.z = UAV_takeoffP[2];
+        //     UAV_pose_pub.pose.orientation.w = UAV_takeoffP[3];
+        //     UAV_pose_pub.pose.orientation.x = UAV_takeoffP[4];
+        //     UAV_pose_pub.pose.orientation.y = UAV_takeoffP[5];
+        //     UAV_pose_pub.pose.orientation.z = UAV_takeoffP[6];
+        //     for(int i = 100; ros::ok() && i > 0; --i){
+        //         local_pos_pub.publish(UAV_pose_pub);
+        //         ros::spinOnce();
+        //         loop_rate.sleep();
+        //     }
+        // }
+        // /*offboard and arm*****************************************************/
+        // if( current_state.mode != "OFFBOARD" && (ros::Time::now() - last_request > ros::Duration(1.0)) && (ros::Time::now() - init_time < ros::Duration(10.0))){
+        //     if( set_mode_client.call(offb_set_mode) && offb_set_mode.response.mode_sent){
+        //         ROS_INFO("Offboard enabled");
+        //     }
+        //     last_request = ros::Time::now();
+        // }else{
+        //     if( !current_state.armed && (ros::Time::now() - last_request > ros::Duration(1.0)) && (ros::Time::now() - init_time < ros::Duration(10.0))){
+        //         if( arming_client.call(arm_cmd) && arm_cmd.response.success){
+        //         ROS_INFO("Vehicle armed");
+        //         }
+        //     }
+        //     last_request = ros::Time::now();
+        // }
+        // Finite_stage_mission();
+        
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
         local_pos_pub.publish(UAV_pose_pub);
-        // Finite_state_machine();
         /* ROS timer */
         // auto currentT = ros::Time::now().toSec();
         // cout << "System_Hz: " << 1/(currentT-System_LastT) << endl;
