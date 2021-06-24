@@ -59,11 +59,14 @@ double velocity_takeoff,velocity_angular, velocity_mission, altitude_mission;
 deque<Vec8> trajectory1;
 Vec2 traj1_information;
 double Trajectory_timestep = 0.02;
-/*Timer*/
-double callback_LastT,System_LastT;
+/* System */
+bool ROS_init = true;
+double System_initT,callback_LastT,System_LastT;
+ros::Time last_request;
 int LowSpeedcounter;
+mavros_msgs::State current_state;
 
-void constantVtraj( Vec7 EndPose,double velocity,double angular_velocity){
+/*void constantVtraj( Vec7 EndPose,double velocity,double angular_velocity){
   Quaterniond startq(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]);
   Vec3 start_rpy = Q2rpy(startq);
   Vec3 start_xyz(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
@@ -112,6 +115,30 @@ void constantVtraj( Vec7 EndPose,double velocity,double angular_velocity){
     traj1 << dt+init_time, xyz[0], xyz[1], xyz[2], q.w(), q.x(), q.y(), q.z();
     trajectory1.push_back(traj1);
   }
+}*/
+/*void traj_pub(){
+  double current_time = ros::Time::now().toSec();
+  Vec8 traj1_deque_front = trajectory1.front();
+
+  while (current_time - traj1_deque_front[0] > 0){
+    trajectory1.pop_front();
+    traj1_deque_front = trajectory1.front();
+  }
+  
+  UAV_pose_pub.header.frame_id = "world";
+  UAV_pose_pub.pose.position.x = traj1_deque_front[1];
+  UAV_pose_pub.pose.position.y = traj1_deque_front[2];
+  UAV_pose_pub.pose.position.z = traj1_deque_front[3];
+  UAV_pose_pub.pose.orientation.w = traj1_deque_front[4];
+  UAV_pose_pub.pose.orientation.x = traj1_deque_front[5];
+  UAV_pose_pub.pose.orientation.y = traj1_deque_front[6];
+  UAV_pose_pub.pose.orientation.z = traj1_deque_front[7];
+
+  // Trajectory current time > duration than goes on to next stage
+  if (traj1_deque_front[0] > traj1_information[1]){ Mission_stage++;}
+}*/
+void state_cb(const mavros_msgs::State::ConstPtr& msg){
+  current_state = *msg;
 }
 void camera_info_cb(const sensor_msgs::CameraInfoPtr& msg){
     fx = msg->K[0];
@@ -143,8 +170,60 @@ void UAVPose_cb(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UAV_pose_vicon.pose.orientation.w = pose->pose.orientation.w;
     UAV_lp << UAV_pose_vicon.pose.position.x,UAV_pose_vicon.pose.position.y,UAV_pose_vicon.pose.position.z,UAV_pose_vicon.pose.orientation.x,UAV_pose_vicon.pose.orientation.y,UAV_pose_vicon.pose.orientation.z,UAV_pose_vicon.pose.orientation.w;
 }
-/*
-void depth_calc(cv::Mat rgbframe, cv::Mat depthframe){
+void Aruco_PosePub(Vec3 rpyW, Vec3 TranslationW){
+    Quaterniond Q = rpy2Q(rpyW);
+    Aruco_pose_realsense.header.frame_id = "world";
+    Aruco_pose_realsense.pose.position.x = TranslationW(0);
+    Aruco_pose_realsense.pose.position.y = TranslationW(1);
+    Aruco_pose_realsense.pose.position.z = TranslationW(2);
+    Aruco_pose_realsense.pose.orientation.w = Q.w();
+    Aruco_pose_realsense.pose.orientation.x = Q.x();
+    Aruco_pose_realsense.pose.orientation.y = Q.y();
+    Aruco_pose_realsense.pose.orientation.z = Q.z();
+}
+void Depth_PosePub(Vec3 rpyW, Vec3 TranslationW){
+    Quaterniond Q = rpy2Q(rpyW);
+    Depth_pose_realsense.header.frame_id = "world";
+    Depth_pose_realsense.pose.position.x = TranslationW(0);
+    Depth_pose_realsense.pose.position.y = TranslationW(1);
+    Depth_pose_realsense.pose.position.z = TranslationW(2);
+    Depth_pose_realsense.pose.orientation.w = Q.w();
+    Depth_pose_realsense.pose.orientation.x = Q.x();
+    Depth_pose_realsense.pose.orientation.y = Q.y();
+    Depth_pose_realsense.pose.orientation.z = Q.z();
+}
+void Pose_calc_Aruco(const cv::Vec3d rvecs, const cv::Vec3d tvecs){
+    Eigen::Quaterniond q;
+    q.w() = Camera_pose_vicon.pose.orientation.w;
+    q.x() = Camera_pose_vicon.pose.orientation.x;
+    q.y() = Camera_pose_vicon.pose.orientation.y;
+    q.z() = Camera_pose_vicon.pose.orientation.z;
+    Eigen::Matrix3d Camera_Rotation_world = Eigen::Matrix3d::Identity();
+    Camera_Rotation_world = q.matrix();
+    Vec3 Camera_Translation_world(Camera_pose_vicon.pose.position.x, Camera_pose_vicon.pose.position.y, Camera_pose_vicon.pose.position.z);
+    Vec3 Aruco_translation_camera(tvecs(0),tvecs(1),tvecs(2));
+    Vec3 Aruco_rpy_camera(rvecs[0],rvecs[1],rvecs[2]);
+    Vec3 Aruco_translation_world = Camera_Rotation_world * Aruco_translation_camera + Camera_Translation_world;
+    Vec3 Aruco_rpy_world = Camera_Rotation_world*Aruco_rpy_camera;
+    /* Aruco Pos rpy Pub */
+    Aruco_PosePub(Aruco_rpy_world,Aruco_translation_world);
+}
+void Pose_calc_Depth(const cv::Vec3d rvecs, const Vec3 Depth_translation_camera){
+    Eigen::Quaterniond q;
+    q.w() = Camera_pose_vicon.pose.orientation.w;
+    q.x() = Camera_pose_vicon.pose.orientation.x;
+    q.y() = Camera_pose_vicon.pose.orientation.y;
+    q.z() = Camera_pose_vicon.pose.orientation.z;
+    Eigen::Matrix3d Camera_Rotation_world = Eigen::Matrix3d::Identity();
+    Camera_Rotation_world = q.matrix();
+    Vec3 Camera_Translation_world(Camera_pose_vicon.pose.position.x, Camera_pose_vicon.pose.position.y, Camera_pose_vicon.pose.position.z);
+    Vec3 Depth_rpy_camera(rvecs[0],rvecs[1],rvecs[2]);
+    Vec3 Depth_translation_world = Camera_Rotation_world * Depth_translation_camera + Camera_Translation_world;
+    Vec3 Depth_rpy_world = Camera_Rotation_world*Depth_rpy_camera;
+    /* Depth Pos rpy Pub */
+    Depth_PosePub(Depth_rpy_world,Depth_translation_world);
+}
+/*void depth_calc(cv::Mat rgbframe, cv::Mat depthframe){
     // auto depthsize = frame.size;
     // cout << "size: " << depthsize << endl;
     // auto depth = 0.001 * frame.at<ushort>(640,360);
@@ -191,67 +270,8 @@ void depth_calc(cv::Mat rgbframe, cv::Mat depthframe){
 
     // cv::imshow("out", depthframe2);
     // cv::waitKey(1);
-}
-*/
-void Aruco_PosePub(Vec3 rpyW, Vec3 TranslationW)
-{
-    Quaterniond Q = rpy2Q(rpyW);
-    Aruco_pose_realsense.header.frame_id = "world";
-    Aruco_pose_realsense.pose.position.x = TranslationW(0);
-    Aruco_pose_realsense.pose.position.y = TranslationW(1);
-    Aruco_pose_realsense.pose.position.z = TranslationW(2);
-    Aruco_pose_realsense.pose.orientation.w = Q.w();
-    Aruco_pose_realsense.pose.orientation.x = Q.x();
-    Aruco_pose_realsense.pose.orientation.y = Q.y();
-    Aruco_pose_realsense.pose.orientation.z = Q.z();
-}
-void Depth_PosePub(Vec3 rpyW, Vec3 TranslationW)
-{
-    Quaterniond Q = rpy2Q(rpyW);
-    Depth_pose_realsense.header.frame_id = "world";
-    Depth_pose_realsense.pose.position.x = TranslationW(0);
-    Depth_pose_realsense.pose.position.y = TranslationW(1);
-    Depth_pose_realsense.pose.position.z = TranslationW(2);
-    Depth_pose_realsense.pose.orientation.w = Q.w();
-    Depth_pose_realsense.pose.orientation.x = Q.x();
-    Depth_pose_realsense.pose.orientation.y = Q.y();
-    Depth_pose_realsense.pose.orientation.z = Q.z();
-}
-void Pose_calc_Aruco(const cv::Vec3d rvecs, const cv::Vec3d tvecs)
-{
-    Eigen::Quaterniond q;
-    q.w() = Camera_pose_vicon.pose.orientation.w;
-    q.x() = Camera_pose_vicon.pose.orientation.x;
-    q.y() = Camera_pose_vicon.pose.orientation.y;
-    q.z() = Camera_pose_vicon.pose.orientation.z;
-    Eigen::Matrix3d Camera_Rotation_world = Eigen::Matrix3d::Identity();
-    Camera_Rotation_world = q.matrix();
-    Vec3 Camera_Translation_world(Camera_pose_vicon.pose.position.x, Camera_pose_vicon.pose.position.y, Camera_pose_vicon.pose.position.z);
-    Vec3 Aruco_translation_camera(tvecs(0),tvecs(1),tvecs(2));
-    Vec3 Aruco_rpy_camera(rvecs[0],rvecs[1],rvecs[2]);
-    Vec3 Aruco_translation_world = Camera_Rotation_world * Aruco_translation_camera + Camera_Translation_world;
-    Vec3 Aruco_rpy_world = Camera_Rotation_world*Aruco_rpy_camera;
-    /* Aruco Pos rpy Pub */
-    Aruco_PosePub(Aruco_rpy_world,Aruco_translation_world);
-}
-void Pose_calc_Depth(const cv::Vec3d rvecs, const Vec3 Depth_translation_camera)
-{
-    Eigen::Quaterniond q;
-    q.w() = Camera_pose_vicon.pose.orientation.w;
-    q.x() = Camera_pose_vicon.pose.orientation.x;
-    q.y() = Camera_pose_vicon.pose.orientation.y;
-    q.z() = Camera_pose_vicon.pose.orientation.z;
-    Eigen::Matrix3d Camera_Rotation_world = Eigen::Matrix3d::Identity();
-    Camera_Rotation_world = q.matrix();
-    Vec3 Camera_Translation_world(Camera_pose_vicon.pose.position.x, Camera_pose_vicon.pose.position.y, Camera_pose_vicon.pose.position.z);
-    Vec3 Depth_rpy_camera(rvecs[0],rvecs[1],rvecs[2]);
-    Vec3 Depth_translation_world = Camera_Rotation_world * Depth_translation_camera + Camera_Translation_world;
-    Vec3 Depth_rpy_world = Camera_Rotation_world*Depth_rpy_camera;
-    /* Depth Pos rpy Pub */
-    Depth_PosePub(Depth_rpy_world,Depth_translation_world);
-}
-/*
-void estimatedpose_calc(){
+}*/
+/*void estimatedpose_calc(){
     Vec3 PosefromAruco,PosefromDepth,PosefromVicon;
     PosefromAruco << Aruco_pose_realsense.pose.position.x,Aruco_pose_realsense.pose.position.y,Aruco_pose_realsense.pose.position.z;
     PosefromDepth << Depth_pose_realsense.pose.position.x,Depth_pose_realsense.pose.position.y,Depth_pose_realsense.pose.position.z;
@@ -348,26 +368,10 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
         LowSpeedcounter = 0;
     }
 }
-void traj_pub(){
-  double current_time = ros::Time::now().toSec();
-  Vec8 traj1_deque_front = trajectory1.front();
+double pid(Vec3 pid_gain, double error){
 
-  while (current_time - traj1_deque_front[0] > 0){
-    trajectory1.pop_front();
-    traj1_deque_front = trajectory1.front();
-  }
-  
-  UAV_pose_pub.header.frame_id = "world";
-  UAV_pose_pub.pose.position.x = traj1_deque_front[1];
-  UAV_pose_pub.pose.position.y = traj1_deque_front[2];
-  UAV_pose_pub.pose.position.z = traj1_deque_front[3];
-  UAV_pose_pub.pose.orientation.w = traj1_deque_front[4];
-  UAV_pose_pub.pose.orientation.x = traj1_deque_front[5];
-  UAV_pose_pub.pose.orientation.y = traj1_deque_front[6];
-  UAV_pose_pub.pose.orientation.z = traj1_deque_front[7];
 
-  // Trajectory current time > duration than goes on to next stage
-  if (traj1_deque_front[0] > traj1_information[1]){ Mission_stage++;}
+    return(111);
 }
 int main(int argc, char **argv)
 {
@@ -379,22 +383,68 @@ int main(int argc, char **argv)
     ros::Subscriber camera_info_sub = nh.subscribe("/camera/aligned_depth_to_color/camera_info",1,camera_info_cb);
     ros::Subscriber camerapose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_l515/pose", 1, CameraPose_cb);
     ros::Subscriber uavpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_small/pose", 1, UAVPose_cb);
-    
+    ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>("/mavros/state", 10, state_cb);
+
     ros::Publisher ArucoPose_pub = nh.advertise<geometry_msgs::PoseStamped>("ArucoPose",1);
     ros::Publisher DepthPose_pub = nh.advertise<geometry_msgs::PoseStamped>("DepthPose",1);
     ros::Publisher local_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
 
-   message_filters::Subscriber<CompressedImage> rgb_sub(nh, "/camera/color/image_raw/compressed", 1);
-   message_filters::Subscriber<Image> dep_sub(nh, "/camera/aligned_depth_to_color/image_raw", 1);
+    message_filters::Subscriber<CompressedImage> rgb_sub(nh, "/camera/color/image_raw/compressed", 1);
+    message_filters::Subscriber<Image> dep_sub(nh, "/camera/aligned_depth_to_color/image_raw", 1);
 
-   typedef sync_policies::ApproximateTime<CompressedImage, Image> MySyncPolicy;
-   Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), rgb_sub, dep_sub);
-   sync.registerCallback(boost::bind(&callback, _1, _2));
+    typedef sync_policies::ApproximateTime<CompressedImage, Image> MySyncPolicy;
+    Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), rgb_sub, dep_sub);
+    sync.registerCallback(boost::bind(&callback, _1, _2));
 
     ros::Rate loop_rate(50); /* ROS system Hz */
     while(ros::ok())
     {
-        // cout << " ROS ROS " << endl;
+        if (ROS_init){
+            System_initT = ros::Time::now().toSec();
+            UAV_takeoffP = UAV_lp;
+            ROS_init = false;
+            cout << " System Initialized" << endl;
+            cout << "UAV_takeoffP: " << UAV_takeoffP[0] << " " << UAV_takeoffP[1] << " " << UAV_takeoffP[2] << endl;
+            /* Waypoints before starting */
+            UAV_pose_pub.header.frame_id = "world";
+            UAV_pose_pub.pose.position.x = UAV_takeoffP[0];
+            UAV_pose_pub.pose.position.y = UAV_takeoffP[1];
+            UAV_pose_pub.pose.position.z = UAV_takeoffP[2];
+            UAV_pose_pub.pose.orientation.w = UAV_takeoffP[3];
+            UAV_pose_pub.pose.orientation.x = UAV_takeoffP[4];
+            UAV_pose_pub.pose.orientation.y = UAV_takeoffP[5];
+            UAV_pose_pub.pose.orientation.z = UAV_takeoffP[6];
+            for(int i = 100; ros::ok() && i > 0; --i){
+                local_pos_pub.publish(UAV_pose_pub);
+                ros::spinOnce();
+                loop_rate.sleep();
+            }
+        }
+        /*offboard and arm*****************************************************/
+        if( current_state.mode != "OFFBOARD" && 
+                (ros::Time::now() - last_request > ros::Duration(1.0)) &&
+                (ros::Time::now() - init_time < ros::Duration(10.0))){ //Set Offboard trigger duration here
+            if( set_mode_client.call(offb_set_mode) &&
+                offb_set_mode.response.mode_sent){
+                ROS_INFO("Offboard enabled");
+            }
+        last_request = ros::Time::now();
+        }
+      else{
+        if( !current_state.armed &&
+            (ros::Time::now() - last_request > ros::Duration(1.0)) &&
+          (ros::Time::now() - init_time < ros::Duration(10.0))){
+          if( arming_client.call(arm_cmd) &&
+              arm_cmd.response.success){
+            ROS_INFO("Vehicle armed");
+            // mission_state = TAKEOFFP1;
+            Mission_stage = 1;
+            cout << "Mission stage = 1 Mission start!" <<endl;
+          }
+          last_request = ros::Time::now();
+        }
+      }
+        // cout << " ROS ROS " << ros::Time::now().toSec() - System_initT << endl;
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
         local_pos_pub.publish(UAV_pose_pub);
