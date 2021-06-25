@@ -298,6 +298,7 @@ void Pose_calc_Depth(const cv::Vec3d rvecs, const Vec3 Depth_translation_camera)
 }*/
 double find_depth(cv::Mat image_dep,Vec2I markerCenterXY,Vec8I markerConerABCD){
     double MidDepth = 0.001 * image_dep.at<ushort>(markerCenterXY[1],markerCenterXY[0]);
+    cout << "markerConerABCD: " << markerConerABCD <<endl;
     return(MidDepth);
 }
 void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs::ImageConstPtr &depth){
@@ -323,7 +324,6 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     cv::Ptr<cv::aruco::DetectorParameters> parameters = cv::aruco::DetectorParameters::create();
     cv::Ptr<cv::aruco::Dictionary> dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_250);
     cv::aruco::detectMarkers(image_rgb, dictionary, markerCorners, markerIds, parameters, rejectedCandidates);
-    markerCenter.push_back(markerCenterXY);
     if (markerIds.size() > 0){
         Aruco_init = true;
         Aruco_found = true;
