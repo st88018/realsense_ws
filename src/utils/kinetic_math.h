@@ -140,8 +140,15 @@ inline Quaterniond q_plus_q(const Quaterniond a, const Quaterniond b)
   return q;
 }
 /* Add by Jeremy */
-inline Vec3 camerapixel2tvec ( const Vec2I& xy, double depth, Vec4 campaprameters )
+inline Vec2I FindMarkerCenter(const Vec8I& markerConerABCD){
+    Vec2I MarkerCenter;
+    MarkerCenter << (markerConerABCD[0]+markerConerABCD[2]+markerConerABCD[4]+markerConerABCD[6])/4,
+                    (markerConerABCD[1]+markerConerABCD[3]+markerConerABCD[5]+markerConerABCD[7])/4;
+    return(MarkerCenter);
+}
+inline Vec3 camerapixel2tvec (const Vec8I& markerConerABCD, double depth, Vec4 campaprameters )
 {
+    Vec2I xy = FindMarkerCenter(markerConerABCD);
     return Vec3 (
                 ( xy ( 0,0 )-campaprameters[2] ) *depth/campaprameters[0],
                 ( xy ( 1,0 )-campaprameters[3] ) *depth/campaprameters[1],
