@@ -175,59 +175,6 @@ void UAVPose_cb(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UAV_pose_vicon.pose.orientation.w = pose->pose.orientation.w;
     UAV_lp << UAV_pose_vicon.pose.position.x,UAV_pose_vicon.pose.position.y,UAV_pose_vicon.pose.position.z,UAV_pose_vicon.pose.orientation.x,UAV_pose_vicon.pose.orientation.y,UAV_pose_vicon.pose.orientation.z,UAV_pose_vicon.pose.orientation.w;
 }
-void Aruco_PosePub(Vec3 rpyW, Vec3 TranslationW){
-    Quaterniond Q = rpy2Q(rpyW);
-    Aruco_pose_realsense.header.frame_id = "world";
-    Aruco_pose_realsense.pose.position.x = TranslationW(0);
-    Aruco_pose_realsense.pose.position.y = TranslationW(1);
-    Aruco_pose_realsense.pose.position.z = TranslationW(2);
-    Aruco_pose_realsense.pose.orientation.w = Q.w();
-    Aruco_pose_realsense.pose.orientation.x = Q.x();
-    Aruco_pose_realsense.pose.orientation.y = Q.y();
-    Aruco_pose_realsense.pose.orientation.z = Q.z();
-}
-void Depth_PosePub(Vec3 rpyW, Vec3 TranslationW){
-    Quaterniond Q = rpy2Q(rpyW);
-    Depth_pose_realsense.header.frame_id = "world";
-    Depth_pose_realsense.pose.position.x = TranslationW(0);
-    Depth_pose_realsense.pose.position.y = TranslationW(1);
-    Depth_pose_realsense.pose.position.z = TranslationW(2);
-    Depth_pose_realsense.pose.orientation.w = Q.w();
-    Depth_pose_realsense.pose.orientation.x = Q.x();
-    Depth_pose_realsense.pose.orientation.y = Q.y();
-    Depth_pose_realsense.pose.orientation.z = Q.z();
-}
-void Pose_calc_Aruco(const cv::Vec3d rvecs, const cv::Vec3d tvecs){
-    Eigen::Quaterniond q;
-    q.w() = Camera_pose_vicon.pose.orientation.w;
-    q.x() = Camera_pose_vicon.pose.orientation.x;
-    q.y() = Camera_pose_vicon.pose.orientation.y;
-    q.z() = Camera_pose_vicon.pose.orientation.z;
-    Eigen::Matrix3d Camera_Rotation_world = Eigen::Matrix3d::Identity();
-    Camera_Rotation_world = q.matrix();
-    Vec3 Camera_Translation_world(Camera_pose_vicon.pose.position.x, Camera_pose_vicon.pose.position.y, Camera_pose_vicon.pose.position.z);
-    Vec3 Aruco_translation_camera(tvecs(0),tvecs(1),tvecs(2));
-    Vec3 Aruco_rpy_camera(rvecs[0],rvecs[1],rvecs[2]);
-    Vec3 Aruco_translation_world = Camera_Rotation_world * Aruco_translation_camera + Camera_Translation_world;
-    Vec3 Aruco_rpy_world = Camera_Rotation_world*Aruco_rpy_camera;
-    /* Aruco Pos rpy Pub */
-    Aruco_PosePub(Aruco_rpy_world,Aruco_translation_world);
-}
-void Pose_calc_Depth(const cv::Vec3d rvecs, const Vec3 Depth_translation_camera){
-    Eigen::Quaterniond q;
-    q.w() = Camera_pose_vicon.pose.orientation.w;
-    q.x() = Camera_pose_vicon.pose.orientation.x;
-    q.y() = Camera_pose_vicon.pose.orientation.y;
-    q.z() = Camera_pose_vicon.pose.orientation.z;
-    Eigen::Matrix3d Camera_Rotation_world = Eigen::Matrix3d::Identity();
-    Camera_Rotation_world = q.matrix();
-    Vec3 Camera_Translation_world(Camera_pose_vicon.pose.position.x, Camera_pose_vicon.pose.position.y, Camera_pose_vicon.pose.position.z);
-    Vec3 Depth_rpy_camera(rvecs[0],rvecs[1],rvecs[2]);
-    Vec3 Depth_translation_world = Camera_Rotation_world * Depth_translation_camera + Camera_Translation_world;
-    Vec3 Depth_rpy_world = Camera_Rotation_world*Depth_rpy_camera;
-    /* Depth Pos rpy Pub */
-    Depth_PosePub(Depth_rpy_world,Depth_translation_world);
-}
 /*void depth_calc(cv::Mat rgbframe, cv::Mat depthframe){
     // auto depthsize = frame.size;
     // cout << "size: " << depthsize << endl;
@@ -276,6 +223,83 @@ void Pose_calc_Depth(const cv::Vec3d rvecs, const Vec3 Depth_translation_camera)
     // cv::imshow("out", depthframe2);
     // cv::waitKey(1);
 }*/
+void Aruco_PosePub(Vec6 rpyxyz)
+// (Vec3 rpyW, Vec3 TranslationW)
+{
+    Quaterniond Q = rpy2Q(Vec3(rpyxyz(0),rpyxyz(1),rpyxyz(2)));
+    Aruco_pose_realsense.header.frame_id = "world";
+    Aruco_pose_realsense.pose.position.x = rpyxyz(3);
+    Aruco_pose_realsense.pose.position.y = rpyxyz(4);
+    Aruco_pose_realsense.pose.position.z = rpyxyz(5);
+    Aruco_pose_realsense.pose.orientation.w = Q.w();
+    Aruco_pose_realsense.pose.orientation.x = Q.x();
+    Aruco_pose_realsense.pose.orientation.y = Q.y();
+    Aruco_pose_realsense.pose.orientation.z = Q.z();
+}
+void Depth_PosePub(Vec6 rpyxyz)
+// (Vec3 rpyW, Vec3 TranslationW)
+{
+    Quaterniond Q = rpy2Q(Vec3(rpyxyz(0),rpyxyz(1),rpyxyz(2)));
+    Depth_pose_realsense.header.frame_id = "world";
+    Depth_pose_realsense.pose.position.x = rpyxyz(3);
+    Depth_pose_realsense.pose.position.y = rpyxyz(4);
+    Depth_pose_realsense.pose.position.z = rpyxyz(5);
+    Depth_pose_realsense.pose.orientation.w = Q.w();
+    Depth_pose_realsense.pose.orientation.x = Q.x();
+    Depth_pose_realsense.pose.orientation.y = Q.y();
+    Depth_pose_realsense.pose.orientation.z = Q.z();
+}
+Vec6 Pose_calc(geometry_msgs::PoseStamped pose,const Vec3 rvecs, const Vec3 tvecs)
+{
+    Eigen::Quaterniond q;
+    q.w() = pose.pose.orientation.w;
+    q.x() = pose.pose.orientation.x;
+    q.y() = pose.pose.orientation.y;
+    q.z() = pose.pose.orientation.z;
+    Eigen::Matrix3d Camera_Rotation_world = Eigen::Matrix3d::Identity();
+    Camera_Rotation_world = q.matrix();
+    Vec3 Translation_world(pose.pose.position.x, pose.pose.position.y, pose.pose.position.z);
+    Vec3 Target_translation(tvecs(0),tvecs(1),tvecs(2));
+    Vec3 Target_rpy_camera(rvecs[0],rvecs[1],rvecs[2]);
+    Vec3 translation_world = Camera_Rotation_world * tvecs + Translation_world;
+    Vec3 rpy_world = Camera_Rotation_world*rvecs;
+    Vec6 output;
+    output << rpy_world[0],rpy_world[1],rpy_world[2],translation_world[0],translation_world[1],translation_world[2];
+    return(output);
+}
+void Pose_calc_Aruco(const cv::Vec3d rvecs, const cv::Vec3d tvecs)
+{
+    Eigen::Quaterniond q;
+    q.w() = Camera_pose_vicon.pose.orientation.w;
+    q.x() = Camera_pose_vicon.pose.orientation.x;
+    q.y() = Camera_pose_vicon.pose.orientation.y;
+    q.z() = Camera_pose_vicon.pose.orientation.z;
+    Eigen::Matrix3d Camera_Rotation_world = Eigen::Matrix3d::Identity();
+    Camera_Rotation_world = q.matrix();
+    Vec3 Camera_Translation_world(Camera_pose_vicon.pose.position.x, Camera_pose_vicon.pose.position.y, Camera_pose_vicon.pose.position.z);
+    Vec3 Aruco_translation_camera(tvecs(0),tvecs(1),tvecs(2));
+    Vec3 Aruco_rpy_camera(rvecs[0],rvecs[1],rvecs[2]);
+    Vec3 Aruco_translation_world = Camera_Rotation_world * Aruco_translation_camera + Camera_Translation_world;
+    Vec3 Aruco_rpy_world = Camera_Rotation_world*Aruco_rpy_camera;
+    /* Aruco Pos rpy Pub */
+    // Aruco_PosePub(Aruco_rpy_world,Aruco_translation_world);
+}
+void Pose_calc_Depth(const cv::Vec3d rvecs, const Vec3 Depth_translation_camera)
+{
+    Eigen::Quaterniond q;
+    q.w() = Camera_pose_vicon.pose.orientation.w;
+    q.x() = Camera_pose_vicon.pose.orientation.x;
+    q.y() = Camera_pose_vicon.pose.orientation.y;
+    q.z() = Camera_pose_vicon.pose.orientation.z;
+    Eigen::Matrix3d Camera_Rotation_world = Eigen::Matrix3d::Identity();
+    Camera_Rotation_world = q.matrix();
+    Vec3 Camera_Translation_world(Camera_pose_vicon.pose.position.x, Camera_pose_vicon.pose.position.y, Camera_pose_vicon.pose.position.z);
+    Vec3 Depth_rpy_camera(rvecs[0],rvecs[1],rvecs[2]);
+    Vec3 Depth_translation_world = Camera_Rotation_world * Depth_translation_camera + Camera_Translation_world;
+    Vec3 Depth_rpy_world = Camera_Rotation_world*Depth_rpy_camera;
+    /* Depth Pos rpy Pub */
+    // Depth_PosePub(Depth_rpy_world,Depth_translation_world);
+}
 /*void estimatedpose_calc(){
     Vec3 PosefromAruco,PosefromDepth,PosefromVicon;
     PosefromAruco << Aruco_pose_realsense.pose.position.x,Aruco_pose_realsense.pose.position.y,Aruco_pose_realsense.pose.position.z;
@@ -347,18 +371,25 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     if (Aruco_init){
         cv_bridge::CvImagePtr depth_ptr  = cv_bridge::toCvCopy(depth, depth->encoding);
         cv::Mat image_dep = depth_ptr->image;
-        cv::Vec3d Depthrvec;
+        Vec3 Depthrvecs;
         if(Aruco_found){
-            Depthrvec = rvecs.front();
-            Pose_calc_Aruco(rvecs.front(), tvecs.front());
+            // Pose_calc_Aruco(rvecs.front(), tvecs.front());
+            cv::Vec3d rvec = rvecs.front();
+            cv::Vec3d tvec = tvecs.front();
+            Vec3 Aruco_translation_camera(tvec(0),tvec(1),tvec(2));
+            Vec3 Aruco_rpy_camera(rvec(0),rvec(1),rvec(2));
+            Aruco_PosePub(Pose_calc(Camera_pose_vicon,Aruco_translation_camera,Aruco_rpy_camera));
+            Depthrvecs = Aruco_rpy_camera;
             double ArucoDepth = find_depth_avg(image_dep,markerConerABCDs.back());
-            Pose_calc_Depth(Depthrvec, camerapixel2tvec(markerConerABCDs.back(),ArucoDepth,CamParameters));
+            // Pose_calc_Depth(Depthrvecs, camerapixel2tvec(markerConerABCDs.back(),ArucoDepth,CamParameters));
+            Depth_PosePub(Pose_calc(Camera_pose_vicon,camerapixel2tvec(markerConerABCDs.back(),ArucoDepth,CamParameters),Depthrvecs));
             ArucoLostcounter = 0;
             last_markerConerABCD = markerConerABCDs.back();
         }else{ //Aruco not found do constant-velocity estimate
             cout << "No Aruco: " << ArucoLostcounter << endl;
             Vec8I Estimated_markerConer = Constant_velocity_estimator(last_markerConerABCD,ArucoLostcounter);
             double ArucoDepth = find_depth_avg(image_dep,last_markerConerABCD);
+            Depth_PosePub(Pose_calc(Camera_pose_vicon,camerapixel2tvec(markerConerABCDs.back(),ArucoDepth,CamParameters),Depthrvecs));
             // Pose_calc_Depth(Depthrvec, camerapixel2tvec(last_markerConerABCD,ArucoDepth,CamParameters));
         }
     }
