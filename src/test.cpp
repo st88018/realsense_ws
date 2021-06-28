@@ -52,6 +52,8 @@ Vec7 UAV_lp;
 cv::Mat cameraMatrix = cv::Mat::eye(3,3, CV_64F);
 cv::Mat depthcameraMatrix = cv::Mat::eye(3,3, CV_64F);
 cv::Mat distCoeffs = cv::Mat::zeros(8, 1, CV_64F);
+/* Constant velocity estimator */
+std::vector<Vec8I> CornerSets;
 /* FSM */
 Vec7 UAV_desP,UAV_takeoffP;
 int    Mission_state = 0;
@@ -326,6 +328,12 @@ double find_depth_avg(cv::Mat image_dep,Vec8I markerConerABCD){
     return(MidDepth);
 }
 Vec8I Constant_velocity_estimator(const Vec8I last_markerConer,const int Lostcounter){
+    if (Lostcounter == 0){
+        CornerSets.clear();
+    }else{
+        CornerSets.push_back(last_markerConer);
+        FindMarkerCenter(last_markerConer);
+    }
     return(last_markerConer);
 }
 void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs::ImageConstPtr &depth){
@@ -385,11 +393,12 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
             Depth_PosePub(Pose_calc(Camera_pose_vicon,camerapixel2tvec(markerConerABCDs.back(),ArucoDepth,CamParameters),Depthrvecs));
             ArucoLostcounter = 0;
             last_markerConerABCD = markerConerABCDs.back();
+            Constant_velocity_estimator(markerConerABCDs.back(),ArucoLostcounter);
         }else{ //Aruco not found do constant-velocity estimate
             cout << "No Aruco: " << ArucoLostcounter << endl;
             Vec8I Estimated_markerConer = Constant_velocity_estimator(last_markerConerABCD,ArucoLostcounter);
             double ArucoDepth = find_depth_avg(image_dep,last_markerConerABCD);
-            Depth_PosePub(Pose_calc(Camera_pose_vicon,camerapixel2tvec(markerConerABCDs.back(),ArucoDepth,CamParameters),Depthrvecs));
+            Depth_PosePub(Pose_calc(Camera_pose_vicon,camerapixel2tvec(last_markerConerABCD,ArucoDepth,CamParameters),Depthrvecs));
             // Pose_calc_Depth(Depthrvec, camerapixel2tvec(last_markerConerABCD,ArucoDepth,CamParameters));
         }
     }
