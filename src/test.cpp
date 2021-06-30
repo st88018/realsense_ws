@@ -361,12 +361,12 @@ void Finite_stage_mission(){
 
 }
 Vec3 Poistion_controller_PID(Vec3 setpoint){ // From Depth calculate XYZ position only
-    Vec3 error,last_error,u_p,u_i,u_d,K_p,K_i,K_d,output; // Position Error
+    Vec3 error,last_error,u_p,u_i,u_d,output; // Position Error
     double Last_time = ros::Time::now().toSec();
     double iteration_time = ros::Time::now().toSec() - Last_time;
-    K_p << 1,1,1;
-    K_i << 1,1,1;
-    K_d << 1,1,1;
+    Vec3 K_p(1,1,1);
+    Vec3 K_i(1,1,1);
+    Vec3 K_d(1,1,1);
     error = setpoint-Vec3(Depth_pose_realsense.pose.position.x,
                           Depth_pose_realsense.pose.position.y,
                           Depth_pose_realsense.pose.position.z);
