@@ -252,9 +252,8 @@ double find_depth_avg(cv::Mat image_dep,Vec8I markerConerABCD){
     int valid_count = 0;
     for(int i = 0; i < max(CornerLength1,CornerLength2); i++){
         for(int j = 0; j < max(CornerLength1,CornerLength2); j++){
-            double MidDepthij = image_dep.at<ushort>(markerCenterXY[1]-max(CornerLength1,CornerLength2)+i,
+            double MidDepthij = 0.001 * image_dep.at<ushort>(markerCenterXY[1]-max(CornerLength1,CornerLength2)+i,
                                                      markerCenterXY[0]-max(CornerLength1,CornerLength2)+j);
-            cout << " MidDepthij: " << MidDepthij << endl;
             if (MidDepthij > 0 ){
                 MidDepthTotal += MidDepthij;
                 valid_count++;
@@ -265,10 +264,10 @@ double find_depth_avg(cv::Mat image_dep,Vec8I markerConerABCD){
     if (valid_count == 0){
         return(0);
     }else{
-        return(0.001 * MidDepthTotal/valid_count);
+        return(MidDepthTotal/valid_count);
     }
 }
-Vec2I Constant_velocity_estimator(const Vec8I last_markerConer,const int Lostcounter){
+Vec2I Constant_velocity_predictor(const Vec8I last_markerConer,const int Lostcounter){
     if (Lostcounter == 0){
         CVE_Corners.push_back(last_markerConer);
         if (CVE_Corners.size() > 5){ //calculate last five
@@ -346,11 +345,11 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
             Depthrvecs = Aruco_rpy_camera;
             double ArucoDepth = find_depth_avg(image_dep,markerConerABCDs.back());
             last_markerConerABCD = markerConerABCDs.back();
-            Depth_PosePub(Pose_calc(Depthrvecs,camerapixel2tvec(Constant_velocity_estimator(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters)));
+            Depth_PosePub(Pose_calc(Depthrvecs,camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters)));
             ArucoLostcounter = 0;
         }else{ //Aruco not found do constant-velocity estimate
             double ArucoDepth = find_depth_avg(image_dep,last_markerConerABCD);
-            Depth_PosePub(Pose_calc(Depthrvecs,camerapixel2tvec(Constant_velocity_estimator(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters)));
+            Depth_PosePub(Pose_calc(Depthrvecs,camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters)));
         }
     }
     /* ROS timer */
