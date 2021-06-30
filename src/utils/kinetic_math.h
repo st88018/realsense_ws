@@ -146,9 +146,8 @@ inline Vec2I FindMarkerCenter(const Vec8I& markerConerABCD){
                     (markerConerABCD[1]+markerConerABCD[3]+markerConerABCD[5]+markerConerABCD[7])/4;
     return(MarkerCenter);
 }
-inline Vec3 camerapixel2tvec (const Vec8I& markerConerABCD, double depth, Vec4 campaprameters )
+inline Vec3 camerapixel2tvec (const Vec2I xy, double depth, Vec4 campaprameters )
 {
-    Vec2I xy = FindMarkerCenter(markerConerABCD);
     return Vec3 (
                 ( xy ( 0,0 )-campaprameters[2] ) *depth/campaprameters[0],
                 ( xy ( 1,0 )-campaprameters[3] ) *depth/campaprameters[1],
