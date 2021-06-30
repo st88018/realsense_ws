@@ -361,18 +361,24 @@ void Finite_stage_mission(){
 
 }
 Vec3 Poistion_controller_PID(Vec3 setpoint){ // From Depth calculate XYZ position only
-    Vec3 error,last_error,u_pid,K_pid,output; // Position Error
-    double iteration_time;
-    K_pid << 1,1,1;
+    Vec3 error,last_error,u_p,u_i,u_d,K_p,K_i,K_d,output; // Position Error
+    double Last_time = ros::Time::now().toSec();
+    double iteration_time = ros::Time::now().toSec() - Last_time;
+    K_p << 1,1,1;
+    K_i << 1,1,1;
+    K_d << 1,1,1;
     error = setpoint-Vec3(Depth_pose_realsense.pose.position.x,
                           Depth_pose_realsense.pose.position.y,
                           Depth_pose_realsense.pose.position.z);
     last_error = error;
     Vec3 integral = integral+(error*iteration_time);
     Vec3 derivative = (error - last_error)/iteration_time;
-    // u_pid[0] = error*K_pid[0];        //P controller
-    // u_pid[1] = integral*K_pid[1];     //I controller
-    // u_pid[2] = derivative*K_pid[2];   //D controller
+    for (int i=0; i<3; i++){
+        u_p[i] = error[i]*K_p[i];        //P controller
+        u_i[i] = integral[i]*K_i[i];     //I controller
+        u_d[i] = derivative[i]*K_d[i];   //D controller
+        output[i] = u_p[i]+u_i[i]+u_d[i];
+    }
     return(output);
 }
 int main(int argc, char **argv)
