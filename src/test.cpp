@@ -178,9 +178,7 @@ void UAVPose_cb(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UAV_lp << UAV_pose_vicon.pose.position.x,UAV_pose_vicon.pose.position.y,UAV_pose_vicon.pose.position.z,
               UAV_pose_vicon.pose.orientation.x,UAV_pose_vicon.pose.orientation.y,UAV_pose_vicon.pose.orientation.z,UAV_pose_vicon.pose.orientation.w;
 }
-void Aruco_PosePub(Vec6 rpyxyz)
-// (Vec3 rpyW, Vec3 TranslationW)
-{
+void Aruco_PosePub(Vec6 rpyxyz){
     Quaterniond Q = rpy2Q(Vec3(rpyxyz(0),rpyxyz(1),rpyxyz(2)));
     Aruco_pose_realsense.header.stamp = ros::Time::now();
     Aruco_pose_realsense.header.frame_id = "world";
@@ -192,9 +190,7 @@ void Aruco_PosePub(Vec6 rpyxyz)
     Aruco_pose_realsense.pose.orientation.y = Q.y();
     Aruco_pose_realsense.pose.orientation.z = Q.z();
 }
-void Depth_PosePub(Vec6 rpyxyz)
-// (Vec3 rpyW, Vec3 TranslationW)
-{
+void Depth_PosePub(Vec6 rpyxyz){
     Quaterniond Q = rpy2Q(Vec3(rpyxyz(0),rpyxyz(1),rpyxyz(2)));
     Depth_pose_realsense.header.stamp = ros::Time::now();
     Depth_pose_realsense.header.frame_id = "world";
@@ -206,8 +202,7 @@ void Depth_PosePub(Vec6 rpyxyz)
     Depth_pose_realsense.pose.orientation.y = Q.y();
     Depth_pose_realsense.pose.orientation.z = Q.z();
 }
-Vec6 Pose_calc(const Vec3 rvecs, const Vec3 tvecs)
-{
+Vec6 Pose_calc(const Vec3 rvecs, const Vec3 tvecs){
     Eigen::Quaterniond q;
     q.w() = Camera_pose_vicon.pose.orientation.w;
     q.x() = Camera_pose_vicon.pose.orientation.x;
@@ -223,8 +218,7 @@ Vec6 Pose_calc(const Vec3 rvecs, const Vec3 tvecs)
               translation_world[0],translation_world[1],translation_world[2];
     return(output);
 }
-Vec6 Pose_calc_Aruco(const cv::Vec3d rvecs, const cv::Vec3d tvecs)
-{
+Vec6 Pose_calc_Aruco(const cv::Vec3d rvecs, const cv::Vec3d tvecs){
     Eigen::Quaterniond q;
     q.w() = Camera_pose_vicon.pose.orientation.w;
     q.x() = Camera_pose_vicon.pose.orientation.x;
@@ -242,7 +236,7 @@ Vec6 Pose_calc_Aruco(const cv::Vec3d rvecs, const cv::Vec3d tvecs)
               Aruco_translation_world[0],Aruco_translation_world[1],Aruco_translation_world[2];
     return(output);
 }
-double find_depth_avg(cv::Mat image_dep,Vec8I markerConerABCD){
+double find_depth_avg(cv::Mat image_dep, Vec8I markerConerABCD){
     Vec2I markerCenterXY = FindMarkerCenter(markerConerABCD);
     double CornerLength1 = sqrt((pow(markerConerABCD[0]-markerConerABCD[2],2))
                                 +(pow(markerConerABCD[1]-markerConerABCD[3],2))); // in pixel
@@ -347,7 +341,7 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
             last_markerConerABCD = markerConerABCDs.back();
             Depth_PosePub(Pose_calc(Depthrvecs,camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters)));
             ArucoLostcounter = 0;
-        }else{ //Aruco not found do constant-velocity estimate
+        }else{ //Aruco not found do constant-velocity predict
             double ArucoDepth = find_depth_avg(image_dep,last_markerConerABCD);
             Depth_PosePub(Pose_calc(Depthrvecs,camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters)));
         }
@@ -365,6 +359,21 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
 }
 void Finite_stage_mission(){
 
+}
+Vec3 Poistion_controller_PID(Vec3 setpoint){ // From Depth calculate XYZ position only
+    Vec3 error,last_error,u_pid,K_pid,output; // Position Error
+    double iteration_time;
+    K_pid << 1,1,1;
+    error = setpoint-Vec3(Depth_pose_realsense.pose.position.x,
+                          Depth_pose_realsense.pose.position.y,
+                          Depth_pose_realsense.pose.position.z);
+    last_error = error;
+    Vec3 integral = integral+(error*iteration_time);
+    Vec3 derivative = (error - last_error)/iteration_time;
+    // u_pid[0] = error*K_pid[0];        //P controller
+    // u_pid[1] = integral*K_pid[1];     //I controller
+    // u_pid[2] = derivative*K_pid[2];   //D controller
+    return(output);
 }
 int main(int argc, char **argv)
 {
