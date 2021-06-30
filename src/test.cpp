@@ -175,60 +175,14 @@ void UAVPose_cb(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UAV_pose_vicon.pose.orientation.y = pose->pose.orientation.y;
     UAV_pose_vicon.pose.orientation.z = pose->pose.orientation.z;
     UAV_pose_vicon.pose.orientation.w = pose->pose.orientation.w;
-    UAV_lp << UAV_pose_vicon.pose.position.x,UAV_pose_vicon.pose.position.y,UAV_pose_vicon.pose.position.z,UAV_pose_vicon.pose.orientation.x,UAV_pose_vicon.pose.orientation.y,UAV_pose_vicon.pose.orientation.z,UAV_pose_vicon.pose.orientation.w;
+    UAV_lp << UAV_pose_vicon.pose.position.x,UAV_pose_vicon.pose.position.y,UAV_pose_vicon.pose.position.z,
+              UAV_pose_vicon.pose.orientation.x,UAV_pose_vicon.pose.orientation.y,UAV_pose_vicon.pose.orientation.z,UAV_pose_vicon.pose.orientation.w;
 }
-/*void depth_calc(cv::Mat rgbframe, cv::Mat depthframe){
-    // auto depthsize = frame.size;
-    // cout << "size: " << depthsize << endl;
-    // auto depth = 0.001 * frame.at<ushort>(640,360);
-    // cout << "depth: " << depth << endl;
-    auto depthsizeR = depthframe.rows; // 720
-    auto depthsizeC = depthframe.cols; // 1280
-    std::vector<Point> target_point;
-    cv::Mat depthframe2;
-    depthframe2.create(depthsizeR,depthsizeC,CV_8U);
-
-    // cout << "depthsizeR: " << depthsizeR << endl;
-    // cout << "depthsizeC: " << depthsizeC << endl;
-    
-    for (auto i = 0; i<depthsizeR; i++){
-        for (auto j = 0; j<depthsizeC; j++){ 
-            auto depth = 0.001 * depthframe.at<ushort>(i,j);
-            if ( depth > 0.2 && depth < 2 ){
-                // target_point.push_back(Point(j,i));
-                // depthframe2.ptr<int>(i)[j] = 1; 
-            }else{
-                // depthframe2.ptr<int>(i)[j] = 0;
-            }
-        }
-    }
-    // Create CSV
-    // std::ofstream myFile("output.csv");
-    // for( int i=0; i<depthsizeR; i++ ){  
-    //     for( int j=0; j<depthsizeC; j++ ){  
-    //         myFile << depthframe.at<ushort>(i,j);
-    //         if(j != depthsizeC - 1) myFile << ","; 
-    //     }
-    //     myFile <<"\n";
-    // }
-    // myFile.close();
-    // cv::imwrite("output.bmp", depthframe);
-    // CSV end
-    // cout << depthframe2 << endl;
-    cv::Mat output = rgbframe.clone();
-    cv::Scalar point_color(255, 255, 255);
-    
-    // for (auto j : target_point){
-    //     cv::circle(output, j, 1, point_color, 4);
-    // }
-
-    // cv::imshow("out", depthframe2);
-    // cv::waitKey(1);
-}*/
 void Aruco_PosePub(Vec6 rpyxyz)
 // (Vec3 rpyW, Vec3 TranslationW)
 {
     Quaterniond Q = rpy2Q(Vec3(rpyxyz(0),rpyxyz(1),rpyxyz(2)));
+    Aruco_pose_realsense.header.stamp = ros::Time::now();
     Aruco_pose_realsense.header.frame_id = "world";
     Aruco_pose_realsense.pose.position.x = rpyxyz(3);
     Aruco_pose_realsense.pose.position.y = rpyxyz(4);
@@ -242,6 +196,7 @@ void Depth_PosePub(Vec6 rpyxyz)
 // (Vec3 rpyW, Vec3 TranslationW)
 {
     Quaterniond Q = rpy2Q(Vec3(rpyxyz(0),rpyxyz(1),rpyxyz(2)));
+    Depth_pose_realsense.header.stamp = ros::Time::now();
     Depth_pose_realsense.header.frame_id = "world";
     Depth_pose_realsense.pose.position.x = rpyxyz(3);
     Depth_pose_realsense.pose.position.y = rpyxyz(4);
@@ -264,7 +219,8 @@ Vec6 Pose_calc(const Vec3 rvecs, const Vec3 tvecs)
     Vec3 translation_world = Camera_Rotation_world * tvecs + Cam_Translation_world;
     Vec3 rpy_world = Camera_Rotation_world*rvecs;
     Vec6 output;
-    output << rpy_world[0],rpy_world[1],rpy_world[2],translation_world[0],translation_world[1],translation_world[2];
+    output << rpy_world[0],rpy_world[1],rpy_world[2],
+              translation_world[0],translation_world[1],translation_world[2];
     return(output);
 }
 Vec6 Pose_calc_Aruco(const cv::Vec3d rvecs, const cv::Vec3d tvecs)
@@ -282,53 +238,23 @@ Vec6 Pose_calc_Aruco(const cv::Vec3d rvecs, const cv::Vec3d tvecs)
     Vec3 Aruco_translation_world = Camera_Rotation_world * Aruco_translation_camera + Camera_Translation_world;
     Vec3 Aruco_rpy_world = Camera_Rotation_world*Aruco_rpy_camera;
     Vec6 output;
-    output << Aruco_rpy_world[0],Aruco_rpy_world[1],Aruco_rpy_world[2],Aruco_translation_world[0],Aruco_translation_world[1],Aruco_translation_world[2];
+    output << Aruco_rpy_world[0],Aruco_rpy_world[1],Aruco_rpy_world[2],
+              Aruco_translation_world[0],Aruco_translation_world[1],Aruco_translation_world[2];
     return(output);
 }
-/*void Pose_calc_Depth(const cv::Vec3d rvecs, const Vec3 Depth_translation_camera)
-{
-    Eigen::Quaterniond q;
-    q.w() = Camera_pose_vicon.pose.orientation.w;
-    q.x() = Camera_pose_vicon.pose.orientation.x;
-    q.y() = Camera_pose_vicon.pose.orientation.y;
-    q.z() = Camera_pose_vicon.pose.orientation.z;
-    Eigen::Matrix3d Camera_Rotation_world = Eigen::Matrix3d::Identity();
-    Camera_Rotation_world = q.matrix();
-    Vec3 Camera_Translation_world(Camera_pose_vicon.pose.position.x, Camera_pose_vicon.pose.position.y, Camera_pose_vicon.pose.position.z);
-    Vec3 Depth_rpy_camera(rvecs[0],rvecs[1],rvecs[2]);
-    Vec3 Depth_translation_world = Camera_Rotation_world * Depth_translation_camera + Camera_Translation_world;
-    Vec3 Depth_rpy_world = Camera_Rotation_world*Depth_rpy_camera;
-    // Depth_PosePub(Depth_rpy_world,Depth_translation_world);
-}*/
-/*void estimatedpose_calc(){
-    Vec3 PosefromAruco,PosefromDepth,PosefromVicon;
-    PosefromAruco << Aruco_pose_realsense.pose.position.x,Aruco_pose_realsense.pose.position.y,Aruco_pose_realsense.pose.position.z;
-    PosefromDepth << Depth_pose_realsense.pose.position.x,Depth_pose_realsense.pose.position.y,Depth_pose_realsense.pose.position.z;
-    PosefromVicon << UAV_pose_vicon.pose.position.x,UAV_pose_vicon.pose.position.y,UAV_pose_vicon.pose.position.z;
-    
-    Vec3 DifferenceArucoDepth = PosefromAruco-PosefromDepth;
-    Vec3 DifferenceArucoVicon = PosefromAruco-PosefromVicon;
-    Vec3 DifferenceDepthVicon = PosefromDepth-PosefromVicon;
-
-    cout << " PosefromAruco: " << PosefromAruco[0] << " " << PosefromAruco[1] << " " << PosefromAruco[2] << endl;
-    cout << " PosefromDepth: " << PosefromDepth[0] << " " << PosefromDepth[1] << " " << PosefromDepth[2] << endl;
-    cout << " PosefromVicon: " << PosefromVicon[0] << " " << PosefromVicon[1] << " " << PosefromVicon[2] << endl;
-    
-    // if(ArucoYes == false){
-    //     cout << "Aruco Lost" << endl;
-    // }else{ cout << " DifferenceAV: " << DifferenceArucoVicon[0] << " " << DifferenceArucoVicon[1] << " " << DifferenceArucoVicon[2] << endl; }
-    // cout << " DifferenceDV: " << DifferenceDepthVicon[0] << " " << DifferenceDepthVicon[1] << " " << DifferenceDepthVicon[2] << endl;
-    
-}*/
 double find_depth_avg(cv::Mat image_dep,Vec8I markerConerABCD){
     Vec2I markerCenterXY = FindMarkerCenter(markerConerABCD);
-    double CornerLength1 = sqrt((pow(markerConerABCD[0]-markerConerABCD[2],2))+(pow(markerConerABCD[1]-markerConerABCD[3],2))); // in pixel
-    double CornerLength2 = sqrt((pow(markerConerABCD[4]-markerConerABCD[6],2))+(pow(markerConerABCD[5]-markerConerABCD[7],2))); // in pixel
+    double CornerLength1 = sqrt((pow(markerConerABCD[0]-markerConerABCD[2],2))
+                                +(pow(markerConerABCD[1]-markerConerABCD[3],2))); // in pixel
+    double CornerLength2 = sqrt((pow(markerConerABCD[4]-markerConerABCD[6],2))
+                                +(pow(markerConerABCD[5]-markerConerABCD[7],2))); // in pixel
     double MidDepthTotal = 0;
     int valid_count = 0;
     for(int i = 0; i < max(CornerLength1,CornerLength2); i++){
         for(int j = 0; j < max(CornerLength1,CornerLength2); j++){
-            double MidDepthij = image_dep.at<ushort>(markerCenterXY[1]-max(CornerLength1,CornerLength2)+i,markerCenterXY[0]-max(CornerLength1,CornerLength2)+j);
+            double MidDepthij = image_dep.at<ushort>(markerCenterXY[1]-max(CornerLength1,CornerLength2)+i,
+                                                     markerCenterXY[0]-max(CornerLength1,CornerLength2)+j);
+            cout << " MidDepthij: " << MidDepthij << endl;
             if (MidDepthij > 0 ){
                 MidDepthTotal += MidDepthij;
                 valid_count++;
@@ -339,10 +265,7 @@ double find_depth_avg(cv::Mat image_dep,Vec8I markerConerABCD){
     if (valid_count == 0){
         return(0);
     }else{
-        // cout << " Depth: " << 0.001 * MidDepthTotal/valid_count << endl;
-        // cout << " Original: " << 0.001 * image_dep.at<ushort>(markerCenterXY[1],markerCenterXY[0]) << endl;
         return(0.001 * MidDepthTotal/valid_count);
-        // return(0.001 * image_dep.at<ushort>(markerCenterXY[1],markerCenterXY[0]));
     }
 }
 Vec2I Constant_velocity_estimator(const Vec8I last_markerConer,const int Lostcounter){
@@ -384,7 +307,8 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     std::vector<int> markerIds;
     std::vector<Vec8I> markerConerABCDs;
     Vec2I markerCenter,last_markerCenter;
-    Vec8I markerConerABCD,last_markerConerABCD;
+    Vec8I markerConerABCD;
+    Vec8I last_markerConerABCD;
     std::vector<std::vector<cv::Point2f>> markerCorners, rejectedCandidates;
     std::vector<cv::Vec3d> rvecs, tvecs;
     rvecs.clear();tvecs.clear();
@@ -474,6 +398,7 @@ int main(int argc, char **argv)
     mavros_msgs::CommandBool arm_cmd;
     arm_cmd.request.value = true;
     ros::Rate loop_rate(50); /* ROS system Hz */
+    
 
     while(ros::ok()){
 
