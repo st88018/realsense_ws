@@ -21,6 +21,7 @@
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/Twist.h>
 #include <numeric>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -47,6 +48,7 @@ static geometry_msgs::PoseStamped Depth_pose_realsense;
 static geometry_msgs::PoseStamped UAV_pose_vicon;
 static geometry_msgs::PoseStamped Camera_pose_vicon;
 static geometry_msgs::PoseStamped UAV_pose_pub;
+static geometry_msgs::Twist       UAV_twist_pub;
 Vec7 UAV_lp;
 /*IRR filter parameter*/
 cv::Mat cameraMatrix = cv::Mat::eye(3,3, CV_64F);
@@ -144,6 +146,9 @@ mavros_msgs::State current_state;
   // Trajectory current time > duration than goes on to next stage
   if (traj1_deque_front[0] > traj1_information[1]){ Mission_stage++;}
 }*/
+void twist_pub(){
+    // UAV_twist_pub.
+}
 void state_cb(const mavros_msgs::State::ConstPtr& msg){
   current_state = *msg;
 }
@@ -373,7 +378,7 @@ Vec3 Poistion_controller_PID(Vec3 setpoint){ // From Depth calculate XYZ positio
     last_error = error;
     Vec3 integral = integral+(error*iteration_time);
     Vec3 derivative = (error - last_error)/iteration_time;
-    for (int i=0; i<3; i++){
+    for (int i=0; i<3; i++){ // i = x,y,z
         u_p[i] = error[i]*K_p[i];        //P controller
         u_i[i] = integral[i]*K_i[i];     //I controller
         u_d[i] = derivative[i]*K_d[i];   //D controller
@@ -397,6 +402,7 @@ int main(int argc, char **argv)
     ros::Publisher ArucoPose_pub = nh.advertise<geometry_msgs::PoseStamped>("ArucoPose",1);
     ros::Publisher DepthPose_pub = nh.advertise<geometry_msgs::PoseStamped>("DepthPose",1);
     ros::Publisher local_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
+    ros::Publisher local_vel_pub = nh.advertise<geometry_msgs::Twist>("/mavros/setpoint_velocity/cmd_vel_unstamped", 100);
 
     message_filters::Subscriber<CompressedImage> rgb_sub(nh, "/camera/color/image_raw/compressed", 1);
     message_filters::Subscriber<Image> dep_sub(nh, "/camera/aligned_depth_to_color/image_raw", 1);
@@ -457,6 +463,8 @@ int main(int argc, char **argv)
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
         local_pos_pub.publish(UAV_pose_pub);
+        local_vel_pub.publish(UAV_twist_pub);
+
         /* ROS timer */
         // auto currentT = ros::Time::now().toSec();
         // cout << "System_Hz: " << 1/(currentT-System_LastT) << endl;
