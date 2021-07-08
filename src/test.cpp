@@ -48,7 +48,7 @@ static geometry_msgs::PoseStamped Depth_pose_realsense;
 static geometry_msgs::PoseStamped UAV_pose_vicon;
 static geometry_msgs::PoseStamped Camera_pose_vicon;
 static geometry_msgs::PoseStamped UAV_pose_pub;
-static geometry_msgs::Twist       UAV_twist_pub;
+static geometry_msgs::TwistStamped    UAV_twist_pub;
 Vec7 UAV_lp;
 /*IRR filter parameter*/
 cv::Mat cameraMatrix = cv::Mat::eye(3,3, CV_64F);
@@ -146,9 +146,6 @@ mavros_msgs::State current_state;
   // Trajectory current time > duration than goes on to next stage
   if (traj1_deque_front[0] > traj1_information[1]){ Mission_stage++;}
 }*/
-void twist_pub(){
-    // UAV_twist_pub.
-}
 void state_cb(const mavros_msgs::State::ConstPtr& msg){
   current_state = *msg;
 }
@@ -206,6 +203,13 @@ void Depth_PosePub(Vec6 rpyxyz){
     Depth_pose_realsense.pose.orientation.x = Q.x();
     Depth_pose_realsense.pose.orientation.y = Q.y();
     Depth_pose_realsense.pose.orientation.z = Q.z();
+}
+void twist_pub(Vec3 vxvyvz){
+    UAV_twist_pub.header.stamp = ros::Time::now();
+    UAV_twist_pub.header.frame_id = "world";
+    UAV_twist_pub.twist.linear.x = vxvyvz(0);
+    UAV_twist_pub.twist.linear.y = vxvyvz(1);
+    UAV_twist_pub.twist.linear.z = vxvyvz(2);
 }
 Vec6 Pose_calc(const Vec3 rvecs, const Vec3 tvecs){
     Eigen::Quaterniond q;
