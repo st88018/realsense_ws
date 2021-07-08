@@ -21,7 +21,7 @@
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <geometry_msgs/PoseStamped.h>
-#include <geometry_msgs/Twist.h>
+#include <geometry_msgs/TwistStamped.h>
 #include <numeric>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -402,7 +402,7 @@ int main(int argc, char **argv)
     ros::Publisher ArucoPose_pub = nh.advertise<geometry_msgs::PoseStamped>("ArucoPose",1);
     ros::Publisher DepthPose_pub = nh.advertise<geometry_msgs::PoseStamped>("DepthPose",1);
     ros::Publisher local_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
-    ros::Publisher local_vel_pub = nh.advertise<geometry_msgs::Twist>("/mavros/setpoint_velocity/cmd_vel_unstamped", 100);
+    ros::Publisher local_vel_pub = nh.advertise<geometry_msgs::TwistStamped>("/mavros/local_position/velocity", 100);
 
     message_filters::Subscriber<CompressedImage> rgb_sub(nh, "/camera/color/image_raw/compressed", 1);
     message_filters::Subscriber<Image> dep_sub(nh, "/camera/aligned_depth_to_color/image_raw", 1);
@@ -464,7 +464,7 @@ int main(int argc, char **argv)
         DepthPose_pub.publish(Depth_pose_realsense);
         local_pos_pub.publish(UAV_pose_pub);
         local_vel_pub.publish(UAV_twist_pub);
-
+        
         /* ROS timer */
         // auto currentT = ros::Time::now().toSec();
         // cout << "System_Hz: " << 1/(currentT-System_LastT) << endl;
