@@ -61,6 +61,7 @@ Vec7 UAV_desP,UAV_takeoffP;
 int    Mission_state = 0;
 int    Mission_stage = 0;
 int    Current_Mission_stage = 0;
+Vec8 Current_stage_mission;
 double velocity_takeoff,velocity_angular, velocity_mission, altitude_mission;
 bool   UAV_flying = false;
 bool   stage_finished = false;
@@ -68,6 +69,8 @@ bool   stage_finished = false;
 deque<Vec8> trajectory1;
 Vec2 traj1_information;
 double Trajectory_timestep = 0.02;
+/* Initial waypoints */
+deque<Vec8> waypoints;
 /* System */
 bool ROS_init = true;
 double System_initT,callback_LastT,System_LastT;
@@ -365,13 +368,82 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     cv::waitKey(1);
 }
 void Finite_stage_mission(){
-    VectorXd stages;
-    stages << 1,2,3,4,5,6; //setup the mission here
-    /* 1 takeoff 
-       2 hover ten seconds
-       3  */
-
-
+    // Waypoints
+    Vec8 stage; // state x y z yaw v av waittime
+    stage << 1, 0, 0 , 5, 0, 1, 1, 1 ;   // state = 1; takeoff no heading change.
+    waypoints.push_back(stage);
+    stage << 2, 5, 5, 5, 0,  1, 1, 1 ;   // state = 2; constant velocity trajectory.
+    waypoints.push_back(stage);
+    stage << 2,-5, 5, 5, 0,  1, 1, 1 ;
+    waypoints.push_back(stage);
+    stage << 2,-5,-5, 5, 0,  1, 1, 1 ;
+    waypoints.push_back(stage);
+    stage << 2, 5,-5, 5, 0,  1, 1, 1 ;
+    waypoints.push_back(stage);
+    stage << 4, 0, 0, 5, 0,  1, 1, 1 ;  // state = 4; constant velocity RTL but with altitude.
+    waypoints.push_back(stage);
+    stage << 5, 0, 0, 0, 0,  1, 1, 10;  // state = 5; land.
+    waypoints.push_back(stage);
+    cout << " Mission generated!" << " Stage count: " << waypoints.size() << endl;
+}
+void Finite_state_WP_mission(){ 
+  // Generate trajectory while mission stage change
+  if (Mission_stage != Current_Mission_stage){
+    Vec8 traj1;
+    Vec7 TargetPos;
+    Current_Mission_stage = Mission_stage;  //Update Current_Mission_stage
+    Current_stage_mission = waypoints.at(Mission_stage-1);
+    // Quaterniond q(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]);
+    // Vec3 current_rpy = Q2rpy(q);
+    Quaterniond Targetq;
+    Mission_state = Current_stage_mission[0];
+    if (Mission_state == 1){ //state = 1 take off with no heading change
+        TargetPos << UAV_lp[0],UAV_lp[1],Current_stage_mission[3],UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6];
+        constantVtraj(TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
+    }
+    if (Mission_state == 2){ //state = 2; constant velocity trajectory with desired heading.
+        Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
+        TargetPos << Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
+        constantVtraj(TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
+    }
+    if (Mission_state == 3){ //state = 3; constant velocity trajectory with no heading change.
+        TargetPos << Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3],UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6];
+        constantVtraj(TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
+    }
+    if (Mission_state == 4){ //state = 4; constant velocity RTL but with altitude return to the takeoff heading.
+        TargetPos << UAV_takeoffP[0],UAV_takeoffP[1],UAV_lp[2],UAV_takeoffP[3],UAV_takeoffP[4],UAV_takeoffP[5],UAV_takeoffP[6];
+        constantVtraj(TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
+    }
+    if (Mission_state == 5){ //state = 5; land.
+        TargetPos << UAV_takeoffP[0],UAV_takeoffP[1],UAV_takeoffP[2],UAV_takeoffP[3],UAV_takeoffP[4],UAV_takeoffP[5],UAV_takeoffP[6];
+        constantVtraj(TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
+    }
+    if (Current_stage_mission[7] != 0){ // Wait after finish stage.
+      traj1 = trajectory1.back();
+      int wpc = Current_stage_mission[7]/Trajectory_timestep;
+      for (int i=0; i<wpc; i++){
+        traj1[0] = traj1[0] + Trajectory_timestep;
+        trajectory1.push_back(traj1);
+      }
+    }
+    //Default generate 1 second of hover
+    int hovertime = 1;
+    traj1 = trajectory1.back();
+    for (int i=0; i<(hovertime/Trajectory_timestep); i++){
+        traj1[0] = traj1[0] + Trajectory_timestep;
+        trajectory1.push_back(traj1);
+    }
+    //Store the Trajectory information 
+    //Trajectory staring time, Trajectory duration
+    traj1_information = Vec2(ros::Time::now().toSec(),traj1[0]-hovertime);
+    // For Debug section plot the whole trajectory
+    // int trajectorysize = trajectory1.size();
+    // for (int i = 0; i < trajectorysize; i++){
+    //   Vec8 current_traj = trajectory1.at(i);
+    //   cout << "dt: " << current_traj[0] << " x: " << current_traj[1] << " y: " << current_traj[2] << " z: " << current_traj[3] << endl;
+    // }
+  }
+  if(trajectory1.size() > 0){traj_pub();}
 }
 Vec3 Poistion_controller_PID(Vec3 setpoint){ // From Depth calculate XYZ position only
     Vec3 error,last_error,u_p,u_i,u_d,output; // Position Error
@@ -400,7 +472,7 @@ int main(int argc, char **argv)
     ros::NodeHandle nh;
     ros::Subscriber camera_info_sub = nh.subscribe("/camera/aligned_depth_to_color/camera_info",1,camera_info_cb);
     ros::Subscriber camerapose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_l515/pose", 1, CameraPose_cb);
-    ros::Subscriber uavpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_small/pose", 1, UAVPose_cb);
+    ros::Subscriber uavpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 1, UAVPose_cb);
     ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>("/mavros/state", 10, state_cb);
     ros::ServiceClient arming_client = nh.serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");
     ros::ServiceClient set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("/mavros/set_mode");
@@ -428,6 +500,7 @@ int main(int argc, char **argv)
             init_time = ros::Time::now();
             UAV_takeoffP = UAV_lp;
             ROS_init = false;
+            Finite_stage_mission(); //Generate stages
             cout << " System Initialized" << endl;
             cout << "UAV_takeoff_Position: " << UAV_takeoffP[0] << " " << UAV_takeoffP[1] << " " << UAV_takeoffP[2] << endl;
             /* Waypoints before starting */
@@ -446,20 +519,60 @@ int main(int argc, char **argv)
             }
         }
         /*offboard and arm*****************************************************/
-        if( current_state.mode != "OFFBOARD" && (ros::Time::now() - last_request > ros::Duration(1.0)) && (ros::Time::now() - init_time < ros::Duration(10.0))){
-            if( set_mode_client.call(offb_set_mode) && offb_set_mode.response.mode_sent){
-                ROS_INFO("Offboard enabled");
-            }
-            last_request = ros::Time::now();
-        }else{
-            if( !current_state.armed && (ros::Time::now() - last_request > ros::Duration(1.0)) && (ros::Time::now() - init_time < ros::Duration(10.0))){
-                if( arming_client.call(arm_cmd) && arm_cmd.response.success){
-                ROS_INFO("Vehicle armed");
-                }
-            }
-            last_request = ros::Time::now();
+        // if( current_state.mode != "OFFBOARD" && (ros::Time::now() - last_request > ros::Duration(1.0)) && (ros::Time::now() - init_time < ros::Duration(10.0))){
+        //     if( set_mode_client.call(offb_set_mode) && offb_set_mode.response.mode_sent){
+        //         ROS_INFO("Offboard enabled");
+        //     }
+        //     last_request = ros::Time::now();
+        // }else{
+        //     if( !current_state.armed && (ros::Time::now() - last_request > ros::Duration(1.0)) && (ros::Time::now() - init_time < ros::Duration(10.0))){
+        //         if( arming_client.call(arm_cmd) && arm_cmd.response.success){
+        //         ROS_INFO("Vehicle armed");
+        //         Mission_stage = 1;
+        //         cout << "Mission stage = 1 Mission start!" <<endl;
+        //         }
+        //     }
+        //     last_request = ros::Time::now();
+        // }
+        if( current_state.mode != "OFFBOARD" && 
+          (ros::Time::now() - last_request > ros::Duration(1.0)) &&
+          (ros::Time::now() - init_time < ros::Duration(10.0))){ //Set Offboard trigger duration here
+        if( set_mode_client.call(offb_set_mode) &&
+            offb_set_mode.response.mode_sent){
+          ROS_INFO("Offboard enabled");
         }
-        Finite_stage_mission();
+        last_request = ros::Time::now();
+      }
+      else{
+        if( !current_state.armed &&
+            (ros::Time::now() - last_request > ros::Duration(1.0)) &&
+          (ros::Time::now() - init_time < ros::Duration(10.0))){
+          if( arming_client.call(arm_cmd) &&
+              arm_cmd.response.success){
+            ROS_INFO("Vehicle armed");
+            // mission_state = TAKEOFFP1;
+            Mission_stage = 1;
+            cout << "Mission stage = 1 Mission start!" <<endl;
+          }
+          last_request = ros::Time::now();
+        }
+      }
+        Finite_state_WP_mission();
+        /*Mission information cout*********************************************/
+
+        // if(coutcounter > 3){ //reduce cout rate
+            cout << "------------------------------------------------------------------------------" << endl;
+            cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
+            cout << "Mission_State: " << Mission_state << endl;
+            cout << "currentpos_x: " << UAV_lp[0] << " y: " << UAV_lp[1] << " z: "<< UAV_lp[2] << endl;
+            cout << "desiredpos_x: " << UAV_pose_pub.pose.position.x << " y: " << UAV_pose_pub.pose.position.y << " z: "<< UAV_pose_pub.pose.position.z << endl;
+            cout << "Trajectory_init_time: " << traj1_information[0] << endl;
+            cout << "Trajectory_end_time: " << traj1_information[1] <<endl;
+            cout << "ROS_time: " << ros::Time::now() << endl; 
+            cout << "Current_trajectory_size: " << trajectory1.size() << endl;
+            cout << "------------------------------------------------------------------------------" << endl;
+            // coutcounter = 0;
+        // }else{coutcounter++;}
         
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
