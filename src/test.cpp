@@ -63,8 +63,9 @@ int    Mission_stage = 0;
 int    Current_Mission_stage = 0;
 double velocity_takeoff,velocity_angular, velocity_mission, altitude_mission;
 bool   UAV_flying = false;
+bool   stage_finished = false;
 /* Traj */
-// std::deque<Vec8> trajectory1;
+deque<Vec8> trajectory1;
 Vec2 traj1_information;
 double Trajectory_timestep = 0.02;
 /* System */
@@ -75,7 +76,7 @@ ros::Time init_time;
 int LowSpeedcounter;
 mavros_msgs::State current_state;
 
-/*void constantVtraj( Vec7 EndPose,double velocity,double angular_velocity){
+void constantVtraj( Vec7 EndPose,double velocity,double angular_velocity){
   Quaterniond startq(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]);
   Vec3 start_rpy = Q2rpy(startq);
   Vec3 start_xyz(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
@@ -101,31 +102,28 @@ mavros_msgs::State current_state;
   double init_time = ros::Time::now().toSec();
 
   int wpc = duration/Trajectory_timestep;
-  for (int i=0; i<wpc; i++){
-    double dt = Trajectory_timestep*i;
-    Vec3 xyz;
-    Quaterniond q;
-    
-    // RPY
-    if(dt<=yaw_duration){
-      q = rpy2Q(Vec3(0,0,start_rpy[2]+dt*angular_velocity));
-
-    }else{
-      q = rpy2Q(des_rpy);
-    }
-    // Position_xyz
-    if(dt<=duration){
-      xyz = Vec3(start_xyz[0]+dt*vxyz[0],start_xyz[1]+dt*vxyz[1],start_xyz[2]+dt*vxyz[2]);
-    }else{
-      xyz << EndPose[0],EndPose[1],EndPose[2];
-    }
-
-    Vec8 traj1;
-    traj1 << dt+init_time, xyz[0], xyz[1], xyz[2], q.w(), q.x(), q.y(), q.z();
-    trajectory1.push_back(traj1);
+  for(int i=0; i<wpc; i++){
+      double dt = Trajectory_timestep*i;
+      Vec3 xyz;
+      Quaterniond q;
+      // RPY
+      if(dt<=yaw_duration){
+          q = rpy2Q(Vec3(0,0,start_rpy[2]+dt*angular_velocity));
+      }else{
+          q = rpy2Q(des_rpy);
+      }
+      // Position_xyz
+      if(dt<=duration){
+          xyz = Vec3(start_xyz[0]+dt*vxyz[0],start_xyz[1]+dt*vxyz[1],start_xyz[2]+dt*vxyz[2]);
+      }else{
+          xyz << EndPose[0],EndPose[1],EndPose[2];
+      }
+      Vec8 traj1;
+      traj1 << dt+init_time, xyz[0], xyz[1], xyz[2], q.w(), q.x(), q.y(), q.z();
+      trajectory1.push_back(traj1);
   }
-}*/
-/*void traj_pub(){
+}
+void traj_pub(){
   double current_time = ros::Time::now().toSec();
   Vec8 traj1_deque_front = trajectory1.front();
 
@@ -145,9 +143,9 @@ mavros_msgs::State current_state;
 
   // Trajectory current time > duration than goes on to next stage
   if (traj1_deque_front[0] > traj1_information[1]){ Mission_stage++;}
-}*/
+}
 void state_cb(const mavros_msgs::State::ConstPtr& msg){
-  current_state = *msg;
+    current_state = *msg;
 }
 void camera_info_cb(const sensor_msgs::CameraInfoPtr& msg){
     fx = msg->K[0];
@@ -367,6 +365,12 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     cv::waitKey(1);
 }
 void Finite_stage_mission(){
+    VectorXd stages;
+    stages << 1,2,3,4,5,6; //setup the mission here
+    /* 1 takeoff 
+       2 hover ten seconds
+       3  */
+
 
 }
 Vec3 Poistion_controller_PID(Vec3 setpoint){ // From Depth calculate XYZ position only
@@ -394,27 +398,18 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "camera");
     ros::NodeHandle nh;
-   
     ros::Subscriber camera_info_sub = nh.subscribe("/camera/aligned_depth_to_color/camera_info",1,camera_info_cb);
     ros::Subscriber camerapose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_l515/pose", 1, CameraPose_cb);
     ros::Subscriber uavpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_small/pose", 1, UAVPose_cb);
     ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>("/mavros/state", 10, state_cb);
-
     ros::ServiceClient arming_client = nh.serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");
     ros::ServiceClient set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("/mavros/set_mode");
-
     ros::Publisher ArucoPose_pub = nh.advertise<geometry_msgs::PoseStamped>("ArucoPose",1);
     ros::Publisher DepthPose_pub = nh.advertise<geometry_msgs::PoseStamped>("DepthPose",1);
     ros::Publisher local_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
     ros::Publisher local_vel_pub = nh.advertise<geometry_msgs::TwistStamped>("/mavros/local_position/velocity", 100);
-
     message_filters::Subscriber<CompressedImage> rgb_sub(nh, "/camera/color/image_raw/compressed", 1);
     message_filters::Subscriber<Image> dep_sub(nh, "/camera/aligned_depth_to_color/image_raw", 1);
-
-    typedef sync_policies::ApproximateTime<CompressedImage, Image> MySyncPolicy;
-    Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), rgb_sub, dep_sub);
-    sync.registerCallback(boost::bind(&callback, _1, _2));
-
     mavros_msgs::SetMode offb_set_mode;
     offb_set_mode.request.custom_mode = "OFFBOARD";
     mavros_msgs::SetMode posctl_set_mode;
@@ -422,53 +417,54 @@ int main(int argc, char **argv)
     mavros_msgs::CommandBool arm_cmd;
     arm_cmd.request.value = true;
     ros::Rate loop_rate(50); /* ROS system Hz */
-    
+
+    typedef sync_policies::ApproximateTime<CompressedImage, Image> MySyncPolicy;
+    Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), rgb_sub, dep_sub);
+    sync.registerCallback(boost::bind(&callback, _1, _2));
 
     while(ros::ok()){
-
-        // if (ROS_init){
-        //     System_initT = ros::Time::now().toSec();
-        //     init_time = ros::Time::now();
-        //     UAV_takeoffP = UAV_lp;
-        //     ROS_init = false;
-        //     cout << " System Initialized" << endl;
-        //     cout << "UAV_takeoffP: " << UAV_takeoffP[0] << " " << UAV_takeoffP[1] << " " << UAV_takeoffP[2] << endl;
-        //     /* Waypoints before starting */
-        //     UAV_pose_pub.header.frame_id = "world";
-        //     UAV_pose_pub.pose.position.x = UAV_takeoffP[0];
-        //     UAV_pose_pub.pose.position.y = UAV_takeoffP[1];
-        //     UAV_pose_pub.pose.position.z = UAV_takeoffP[2];
-        //     UAV_pose_pub.pose.orientation.w = UAV_takeoffP[3];
-        //     UAV_pose_pub.pose.orientation.x = UAV_takeoffP[4];
-        //     UAV_pose_pub.pose.orientation.y = UAV_takeoffP[5];
-        //     UAV_pose_pub.pose.orientation.z = UAV_takeoffP[6];
-        //     for(int i = 100; ros::ok() && i > 0; --i){
-        //         local_pos_pub.publish(UAV_pose_pub);
-        //         ros::spinOnce();
-        //         loop_rate.sleep();
-        //     }
-        // }
-        // /*offboard and arm*****************************************************/
-        // if( current_state.mode != "OFFBOARD" && (ros::Time::now() - last_request > ros::Duration(1.0)) && (ros::Time::now() - init_time < ros::Duration(10.0))){
-        //     if( set_mode_client.call(offb_set_mode) && offb_set_mode.response.mode_sent){
-        //         ROS_INFO("Offboard enabled");
-        //     }
-        //     last_request = ros::Time::now();
-        // }else{
-        //     if( !current_state.armed && (ros::Time::now() - last_request > ros::Duration(1.0)) && (ros::Time::now() - init_time < ros::Duration(10.0))){
-        //         if( arming_client.call(arm_cmd) && arm_cmd.response.success){
-        //         ROS_INFO("Vehicle armed");
-        //         }
-        //     }
-        //     last_request = ros::Time::now();
-        // }
-        // Finite_stage_mission();
+        if (ROS_init){
+            System_initT = ros::Time::now().toSec();
+            init_time = ros::Time::now();
+            UAV_takeoffP = UAV_lp;
+            ROS_init = false;
+            cout << " System Initialized" << endl;
+            cout << "UAV_takeoff_Position: " << UAV_takeoffP[0] << " " << UAV_takeoffP[1] << " " << UAV_takeoffP[2] << endl;
+            /* Waypoints before starting */
+            UAV_pose_pub.header.frame_id = "world";
+            UAV_pose_pub.pose.position.x = UAV_takeoffP[0];
+            UAV_pose_pub.pose.position.y = UAV_takeoffP[1];
+            UAV_pose_pub.pose.position.z = UAV_takeoffP[2];
+            UAV_pose_pub.pose.orientation.w = UAV_takeoffP[3];
+            UAV_pose_pub.pose.orientation.x = UAV_takeoffP[4];
+            UAV_pose_pub.pose.orientation.y = UAV_takeoffP[5];
+            UAV_pose_pub.pose.orientation.z = UAV_takeoffP[6];
+            for(int i = 100; ros::ok() && i > 0; --i){
+                local_pos_pub.publish(UAV_pose_pub);
+                ros::spinOnce();
+                loop_rate.sleep();
+            }
+        }
+        /*offboard and arm*****************************************************/
+        if( current_state.mode != "OFFBOARD" && (ros::Time::now() - last_request > ros::Duration(1.0)) && (ros::Time::now() - init_time < ros::Duration(10.0))){
+            if( set_mode_client.call(offb_set_mode) && offb_set_mode.response.mode_sent){
+                ROS_INFO("Offboard enabled");
+            }
+            last_request = ros::Time::now();
+        }else{
+            if( !current_state.armed && (ros::Time::now() - last_request > ros::Duration(1.0)) && (ros::Time::now() - init_time < ros::Duration(10.0))){
+                if( arming_client.call(arm_cmd) && arm_cmd.response.success){
+                ROS_INFO("Vehicle armed");
+                }
+            }
+            last_request = ros::Time::now();
+        }
+        Finite_stage_mission();
         
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
         local_pos_pub.publish(UAV_pose_pub);
         local_vel_pub.publish(UAV_twist_pub);
-        
         /* ROS timer */
         // auto currentT = ros::Time::now().toSec();
         // cout << "System_Hz: " << 1/(currentT-System_LastT) << endl;
