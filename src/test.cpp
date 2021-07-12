@@ -62,7 +62,9 @@ int    Mission_state = 0;
 int    Mission_stage = 0;
 int    Current_Mission_stage = 0;
 Vec8 Current_stage_mission;
-double velocity_takeoff,velocity_angular, velocity_mission, altitude_mission;
+double velocity_takeoff,altitude_mission;
+double velocity_mission = 0.5;
+double velocity_angular = 0.5;
 bool   UAV_flying = false;
 bool   stage_finished = false;
 /* Traj */
@@ -78,6 +80,7 @@ ros::Time last_request;
 ros::Time init_time;
 int LowSpeedcounter;
 mavros_msgs::State current_state;
+int coutcounter = 0;
 
 void constantVtraj( Vec7 EndPose,double velocity,double angular_velocity){
   Quaterniond startq(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]);
@@ -370,19 +373,19 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
 void Finite_stage_mission(){
     // Waypoints
     Vec8 stage; // state x y z yaw v av waittime
-    stage << 1, 0, 0 , 5, 0, 1, 1, 1 ;   // state = 1; takeoff no heading change.
+    stage << 1, 0, 0 , 5, 0, velocity_mission, velocity_angular, 1 ;   // state = 1; takeoff no heading change.
     waypoints.push_back(stage);
-    stage << 2, 5, 5, 5, 0,  1, 1, 1 ;   // state = 2; constant velocity trajectory.
+    stage << 2, 5, 5, 5, 0, velocity_mission, velocity_angular, 1 ;   // state = 2; constant velocity trajectory.
     waypoints.push_back(stage);
-    stage << 2,-5, 5, 5, 0,  1, 1, 1 ;
+    stage << 2,-5, 5, 5, 0, velocity_mission, velocity_angular, 1 ;
     waypoints.push_back(stage);
-    stage << 2,-5,-5, 5, 0,  1, 1, 1 ;
+    stage << 2,-5,-5, 5, 0, velocity_mission, velocity_angular, 1 ;
     waypoints.push_back(stage);
-    stage << 2, 5,-5, 5, 0,  1, 1, 1 ;
+    stage << 2, 5,-5, 5, 0, velocity_mission, velocity_angular, 1 ;
     waypoints.push_back(stage);
-    stage << 4, 0, 0, 5, 0,  1, 1, 1 ;  // state = 4; constant velocity RTL but with altitude.
+    stage << 4, 0, 0, 5, 0, velocity_mission, velocity_angular, 1 ;  // state = 4; constant velocity RTL but with altitude.
     waypoints.push_back(stage);
-    stage << 5, 0, 0, 0, 0,  1, 1, 10;  // state = 5; land.
+    stage << 5, 0, 0, 0, 0, velocity_mission, velocity_angular, 10;  // state = 5; land.
     waypoints.push_back(stage);
     cout << " Mission generated!" << " Stage count: " << waypoints.size() << endl;
 }
@@ -560,7 +563,7 @@ int main(int argc, char **argv)
         Finite_state_WP_mission();
         /*Mission information cout*********************************************/
 
-        // if(coutcounter > 3){ //reduce cout rate
+        if(coutcounter > 3){ //reduce cout rate
             cout << "------------------------------------------------------------------------------" << endl;
             cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
             cout << "Mission_State: " << Mission_state << endl;
@@ -571,8 +574,8 @@ int main(int argc, char **argv)
             cout << "ROS_time: " << ros::Time::now() << endl; 
             cout << "Current_trajectory_size: " << trajectory1.size() << endl;
             cout << "------------------------------------------------------------------------------" << endl;
-            // coutcounter = 0;
-        // }else{coutcounter++;}
+            coutcounter = 0;
+        }else{coutcounter++;}
         
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
