@@ -63,8 +63,8 @@ int    Mission_stage = 0;
 int    Current_Mission_stage = 0;
 Vec8 Current_stage_mission;
 double velocity_takeoff,altitude_mission;
-double velocity_mission = 0.5;
-double velocity_angular = 0.5;
+double velocity_mission = 0.2;
+double velocity_angular = 0.2;
 bool   UAV_flying = false;
 bool   stage_finished = false;
 /* Traj */
@@ -373,17 +373,17 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
 void Finite_stage_mission(){
     // Waypoints
     Vec8 stage; // state x y z yaw v av waittime
-    stage << 1, 0, 0 , 5, 0, velocity_mission, velocity_angular, 1 ;   // state = 1; takeoff no heading change.
+    stage << 1, 0, 0 , 5, 0, velocity_mission, velocity_angular, 10;   // state = 1; takeoff no heading change.
     waypoints.push_back(stage);
-    stage << 2, 5, 5, 5, 0, velocity_mission, velocity_angular, 1 ;   // state = 2; constant velocity trajectory.
+    stage << 2, 5, 5, 5, 0, velocity_mission, velocity_angular, 1;   // state = 2; constant velocity trajectory.
     waypoints.push_back(stage);
-    stage << 2,-5, 5, 5, 0, velocity_mission, velocity_angular, 1 ;
+    stage << 2,-5, 5, 5, 0, velocity_mission, velocity_angular, 1;
     waypoints.push_back(stage);
-    stage << 2,-5,-5, 5, 0, velocity_mission, velocity_angular, 1 ;
+    stage << 2,-5,-5, 5, 0, velocity_mission, velocity_angular, 1;
     waypoints.push_back(stage);
-    stage << 2, 5,-5, 5, 0, velocity_mission, velocity_angular, 1 ;
+    stage << 2, 5,-5, 5, 0, velocity_mission, velocity_angular, 1;
     waypoints.push_back(stage);
-    stage << 4, 0, 0, 5, 0, velocity_mission, velocity_angular, 1 ;  // state = 4; constant velocity RTL but with altitude.
+    stage << 4, 0, 0, 5, 0, velocity_mission, velocity_angular, 1;  // state = 4; constant velocity RTL but with altitude.
     waypoints.push_back(stage);
     stage << 5, 0, 0, 0, 0, velocity_mission, velocity_angular, 10;  // state = 5; land.
     waypoints.push_back(stage);
@@ -469,6 +469,13 @@ Vec3 Poistion_controller_PID(Vec3 setpoint){ // From Depth calculate XYZ positio
     }
     return(output);
 }
+string armstatus(){
+    if(current_state.armed){
+        return("Armed");
+    }else{
+        return("Disarmed");
+    }
+}
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "camera");
@@ -522,49 +529,28 @@ int main(int argc, char **argv)
             }
         }
         /*offboard and arm*****************************************************/
-        // if( current_state.mode != "OFFBOARD" && (ros::Time::now() - last_request > ros::Duration(1.0)) && (ros::Time::now() - init_time < ros::Duration(10.0))){
-        //     if( set_mode_client.call(offb_set_mode) && offb_set_mode.response.mode_sent){
-        //         ROS_INFO("Offboard enabled");
-        //     }
-        //     last_request = ros::Time::now();
-        // }else{
-        //     if( !current_state.armed && (ros::Time::now() - last_request > ros::Duration(1.0)) && (ros::Time::now() - init_time < ros::Duration(10.0))){
-        //         if( arming_client.call(arm_cmd) && arm_cmd.response.success){
-        //         ROS_INFO("Vehicle armed");
-        //         Mission_stage = 1;
-        //         cout << "Mission stage = 1 Mission start!" <<endl;
-        //         }
-        //     }
-        //     last_request = ros::Time::now();
-        // }
-        if( current_state.mode != "OFFBOARD" && 
-          (ros::Time::now() - last_request > ros::Duration(1.0)) &&
-          (ros::Time::now() - init_time < ros::Duration(10.0))){ //Set Offboard trigger duration here
-        if( set_mode_client.call(offb_set_mode) &&
-            offb_set_mode.response.mode_sent){
-          ROS_INFO("Offboard enabled");
+        if( current_state.mode != "OFFBOARD" && (ros::Time::now() - last_request > ros::Duration(1.0)) && (ros::Time::now() - init_time < ros::Duration(10.0))){ 
+            //Set Offboard trigger duration here
+            if( set_mode_client.call(offb_set_mode) && offb_set_mode.response.mode_sent){
+                ROS_INFO("Offboard enabled");
+            }
+            last_request = ros::Time::now();
+        }else{
+            if( !current_state.armed && (ros::Time::now() - last_request > ros::Duration(1.0)) && (ros::Time::now() - init_time < ros::Duration(10.0))){
+                if( arming_client.call(arm_cmd) && arm_cmd.response.success){
+                    ROS_INFO("Vehicle armed");
+                    Mission_stage = 1;
+                    cout << "Mission stage = 1 Mission start!" <<endl;
+                }
+            last_request = ros::Time::now();
+            }
         }
-        last_request = ros::Time::now();
-      }
-      else{
-        if( !current_state.armed &&
-            (ros::Time::now() - last_request > ros::Duration(1.0)) &&
-          (ros::Time::now() - init_time < ros::Duration(10.0))){
-          if( arming_client.call(arm_cmd) &&
-              arm_cmd.response.success){
-            ROS_INFO("Vehicle armed");
-            // mission_state = TAKEOFFP1;
-            Mission_stage = 1;
-            cout << "Mission stage = 1 Mission start!" <<endl;
-          }
-          last_request = ros::Time::now();
-        }
-      }
         Finite_state_WP_mission();
+        
         /*Mission information cout*********************************************/
-
-        if(coutcounter > 3){ //reduce cout rate
+        if(coutcounter > 20){ //reduce cout rate
             cout << "------------------------------------------------------------------------------" << endl;
+            cout << "Status: "<< armstatus() << "   Mode: " << current_state.mode <<endl;
             cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
             cout << "Mission_State: " << Mission_state << endl;
             cout << "currentpos_x: " << UAV_lp[0] << " y: " << UAV_lp[1] << " z: "<< UAV_lp[2] << endl;
