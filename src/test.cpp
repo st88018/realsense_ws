@@ -106,7 +106,7 @@ void constantVtraj( Vec7 EndPose,double velocity,double angular_velocity){
 
   //initialize trajectory1
   trajectory1.clear();
-  double init_time = ros::Time::now().toSec();
+  double traj1_init_time = ros::Time::now().toSec();
 
   int wpc = duration/Trajectory_timestep;
   for(int i=0; i<wpc; i++){
@@ -126,7 +126,7 @@ void constantVtraj( Vec7 EndPose,double velocity,double angular_velocity){
           xyz << EndPose[0],EndPose[1],EndPose[2];
       }
       Vec8 traj1;
-      traj1 << dt+init_time, xyz[0], xyz[1], xyz[2], q.w(), q.x(), q.y(), q.z();
+      traj1 << dt+traj1_init_time, xyz[0], xyz[1], xyz[2], q.w(), q.x(), q.y(), q.z();
       trajectory1.push_back(traj1);
   }
 }
@@ -374,7 +374,7 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
 void Finite_stage_mission(){
     // Waypoints
     Vec8 stage; // state x y z yaw v av waittime
-    stage << 1, 0, 0 , 5, 0, velocity_mission, velocity_angular, 10;   // state = 1; takeoff no heading change.
+    stage << 1, 0, 0, 5, 0, velocity_mission, velocity_angular, 10;   // state = 1; takeoff no heading change.
     waypoints.push_back(stage);
     stage << 3, 5, 5, 5, 0, velocity_mission, velocity_angular, 1;   // state = 2; constant velocity trajectory.
     waypoints.push_back(stage);
@@ -386,7 +386,7 @@ void Finite_stage_mission(){
     waypoints.push_back(stage);
     stage << 4, 0, 0, 5, 0, velocity_mission, velocity_angular, 1;  // state = 4; constant velocity RTL but with altitude.
     waypoints.push_back(stage);
-    stage << 5, 0, 0, 0, 0, velocity_mission, velocity_angular, 10;  // state = 5; land.
+    stage << 5, 0, 0, -2, 0, velocity_mission, velocity_angular, 10;  // state = 5; land.
     waypoints.push_back(stage);
     cout << " Mission generated!" << " Stage count: " << waypoints.size() << endl;
 }
@@ -397,13 +397,11 @@ void Finite_state_WP_mission(){
     Vec7 TargetPos;
     Current_Mission_stage = Mission_stage;  //Update Current_Mission_stage
     Current_stage_mission = waypoints.at(Mission_stage-1);
-    // Quaterniond q(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]);
-    // Vec3 current_rpy = Q2rpy(q);
     Quaterniond Targetq;
     Mission_state = Current_stage_mission[0];
     if (Mission_state == 1){ //state = 1 take off with no heading change
         TargetPos << UAV_lp[0],UAV_lp[1],Current_stage_mission[3],UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6];
-        constantVtraj(TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
+        constantVtraj(TargetPos, 0.1, Current_stage_mission[6]);
     }
     if (Mission_state == 2){ //state = 2; constant velocity trajectory with desired heading.
         Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
@@ -422,25 +420,25 @@ void Finite_state_WP_mission(){
         TargetPos << UAV_takeoffP[0],UAV_takeoffP[1],UAV_takeoffP[2],UAV_takeoffP[3],UAV_takeoffP[4],UAV_takeoffP[5],UAV_takeoffP[6];
         constantVtraj(TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
     }
-    if (Current_stage_mission[7] != 0){ // Wait after finish stage.
-      traj1 = trajectory1.back();
-      int wpc = Current_stage_mission[7]/Trajectory_timestep;
-      for (int i=0; i<wpc; i++){
-        traj1[0] = traj1[0] + Trajectory_timestep;
-        trajectory1.push_back(traj1);
-      }
+    if (Current_stage_mission[7] != 0){ //Wait after finish stage.
+        traj1 = trajectory1.back();
+        int wpc = Current_stage_mission[7]/Trajectory_timestep;
+        for (double i=0; i<wpc; i++){
+            traj1[0] += Trajectory_timestep;
+            trajectory1.push_back(traj1);
+        }
     }
     //Default generate 1 second of hover
     int hovertime = 1;
     traj1 = trajectory1.back();
     for (int i=0; i<(hovertime/Trajectory_timestep); i++){
-        traj1[0] = traj1[0] + Trajectory_timestep;
+        traj1[0] += Trajectory_timestep;
         trajectory1.push_back(traj1);
     }
-    //Store the Trajectory information 
-    //Trajectory staring time, Trajectory duration
-    traj1_information = Vec2(ros::Time::now().toSec(),traj1[0]-hovertime);
-    // For Debug section plot the whole trajectory
+    /*Store the Trajectory information*/
+    traj1_information = Vec2(ros::Time::now().toSec(),traj1[0]-hovertime); //Trajectory staring time, Trajectory duration
+    
+    /*For Debug section plot the whole trajectory*/
     // int trajectorysize = trajectory1.size();
     // for (int i = 0; i < trajectorysize; i++){
     //   Vec8 current_traj = trajectory1.at(i);
@@ -489,13 +487,12 @@ string statestatus(){
     }else if(Mission_state == 4){
         return("RTL(4)");
     }else if(Mission_state == 5){
-        return("constantVtraj(5)");
+        return("Landing(5)");
     }else{
         return("System error");
     }
 }
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv){
     ros::init(argc, argv, "camera");
     ros::NodeHandle nh;
     ros::Subscriber camera_info_sub = nh.subscribe("/camera/aligned_depth_to_color/camera_info",1,camera_info_cb);
@@ -517,7 +514,6 @@ int main(int argc, char **argv)
     mavros_msgs::CommandBool arm_cmd;
     arm_cmd.request.value = true;
     ros::Rate loop_rate(50); /* ROS system Hz */
-
     typedef sync_policies::ApproximateTime<CompressedImage, Image> MySyncPolicy;
     Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), rgb_sub, dep_sub);
     sync.registerCallback(boost::bind(&callback, _1, _2));
@@ -526,11 +522,9 @@ int main(int argc, char **argv)
         if (ROS_init){
             System_initT = ros::Time::now().toSec();
             init_time = ros::Time::now();
-            UAV_takeoffP = UAV_lp;
             ROS_init = false;
             Finite_stage_mission(); //Generate stages
             cout << " System Initialized" << endl;
-            cout << "UAV_takeoff_Position: " << UAV_takeoffP[0] << " " << UAV_takeoffP[1] << " " << UAV_takeoffP[2] << endl;
             /* Waypoints before starting */
             UAV_pose_pub.header.frame_id = "world";
             UAV_pose_pub.pose.position.x = UAV_takeoffP[0];
@@ -561,10 +555,12 @@ int main(int argc, char **argv)
             last_request = ros::Time::now();
             }
         }
-        /*FSM */
+        /*FSM******************************************************************/
         if (current_state.mode == "OFFBOARD" && current_state.armed && !FSMinit){
             FSMinit = true;
             Mission_stage = 1;
+            UAV_takeoffP = UAV_lp;
+            cout << "UAV_takeoff_Position: " << UAV_takeoffP[0] << " " << UAV_takeoffP[1] << " " << UAV_takeoffP[2] << endl;
             cout << "Mission stage = 1 Mission start!" <<endl;
         }
         Finite_state_WP_mission();
@@ -576,9 +572,10 @@ int main(int argc, char **argv)
             cout << "Mission_State: " << statestatus() << endl;
             cout << "currentpos_x: " << UAV_lp[0] << " y: " << UAV_lp[1] << " z: "<< UAV_lp[2] << endl;
             cout << "desiredpos_x: " << UAV_pose_pub.pose.position.x << " y: " << UAV_pose_pub.pose.position.y << " z: "<< UAV_pose_pub.pose.position.z << endl;
-            cout << "Trajectory_init_time: " << traj1_information[0] << endl;
-            cout << "Trajectory_end_time: " << traj1_information[1] <<endl;
-            cout << "ROS_time: " << ros::Time::now() << endl; 
+            // cout << "Trajectory_init_time: " << traj1_information[0] << endl;
+            // cout << "Trajectory_end_time: " << traj1_information[1] << endl;
+            cout << "Trajectory timer countdown: " << traj1_information[1] - ros::Time::now().toSec() << endl;
+            // cout << "ROS_time: " << ros::Time::now() << endl;
             cout << "Current_trajectory_size: " << trajectory1.size() << endl;
             cout << "------------------------------------------------------------------------------" << endl;
             coutcounter = 0;
@@ -589,9 +586,6 @@ int main(int argc, char **argv)
         local_pos_pub.publish(UAV_pose_pub);
         local_vel_pub.publish(UAV_twist_pub);
         /* ROS timer */
-        // auto currentT = ros::Time::now().toSec();
-        // cout << "System_Hz: " << 1/(currentT-System_LastT) << endl;
-        // System_LastT = currentT;
         ros::spinOnce();
         loop_rate.sleep();
     }
