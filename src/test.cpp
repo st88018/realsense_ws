@@ -434,8 +434,8 @@ void Finite_state_WP_mission(){
             trajectory1.push_back(traj1);
         }
     }
-    /*For CPP deque safety. Default generate 1 second of hover*/
-    int hovertime = 1;
+    /*For CPP deque safety. Default generate 10 second of hover*/
+    int hovertime = 10;
     traj1 = trajectory1.back();
     for (int i=0; i<(hovertime/Trajectory_timestep); i++){
         traj1[0] += Trajectory_timestep;
@@ -578,9 +578,9 @@ int main(int argc, char **argv){
             cout << "currentpos_x: " << UAV_lp[0] << " y: " << UAV_lp[1] << " z: "<< UAV_lp[2] << endl;
             cout << "desiredpos_x: " << UAV_pose_pub.pose.position.x << " y: " << UAV_pose_pub.pose.position.y << " z: "<< UAV_pose_pub.pose.position.z << endl;
             // cout << "Trajectory_init_time: " << traj1_information[0] << endl;
-            // cout << "Trajectory_end_time: " << traj1_information[1] << endl;
+            // cout << "Trajectory_end_time: " << fixed << traj1_information[1] << endl;
             cout << "Trajectory timer countdown: " << traj1_information[1] - ros::Time::now().toSec() << endl;
-            // cout << "ROS_time: " << ros::Time::now() << endl;
+            // cout << "ROS_time: " << fixed << ros::Time::now().toSec() << endl;
             cout << "Current_trajectory_size: " << trajectory1.size() << endl;
             cout << "------------------------------------------------------------------------------" << endl;
             coutcounter = 0;
