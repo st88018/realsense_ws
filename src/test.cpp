@@ -63,10 +63,11 @@ int    Mission_stage = 0;
 int    Current_Mission_stage = 0;
 Vec8 Current_stage_mission;
 double velocity_takeoff,altitude_mission;
-double velocity_mission = 0.2;
-double velocity_angular = 0.2;
+double velocity_mission = 0.6;
+double velocity_angular = 0.6;
 bool   UAV_flying = false;
 bool   stage_finished = false;
+bool   FSMinit = false;
 /* Traj */
 deque<Vec8> trajectory1;
 Vec2 traj1_information;
@@ -375,13 +376,13 @@ void Finite_stage_mission(){
     Vec8 stage; // state x y z yaw v av waittime
     stage << 1, 0, 0 , 5, 0, velocity_mission, velocity_angular, 10;   // state = 1; takeoff no heading change.
     waypoints.push_back(stage);
-    stage << 2, 5, 5, 5, 0, velocity_mission, velocity_angular, 1;   // state = 2; constant velocity trajectory.
+    stage << 3, 5, 5, 5, 0, velocity_mission, velocity_angular, 1;   // state = 2; constant velocity trajectory.
     waypoints.push_back(stage);
-    stage << 2,-5, 5, 5, 0, velocity_mission, velocity_angular, 1;
+    stage << 3,-5, 5, 5, 0, velocity_mission, velocity_angular, 1;
     waypoints.push_back(stage);
-    stage << 2,-5,-5, 5, 0, velocity_mission, velocity_angular, 1;
+    stage << 3,-5,-5, 5, 0, velocity_mission, velocity_angular, 1;
     waypoints.push_back(stage);
-    stage << 2, 5,-5, 5, 0, velocity_mission, velocity_angular, 1;
+    stage << 3, 5,-5, 5, 0, velocity_mission, velocity_angular, 1;
     waypoints.push_back(stage);
     stage << 4, 0, 0, 5, 0, velocity_mission, velocity_angular, 1;  // state = 4; constant velocity RTL but with altitude.
     waypoints.push_back(stage);
@@ -471,9 +472,26 @@ Vec3 Poistion_controller_PID(Vec3 setpoint){ // From Depth calculate XYZ positio
 }
 string armstatus(){
     if(current_state.armed){
-        return("Armed");
+        return("Armed   ");
     }else{
         return("Disarmed");
+    }
+}
+string statestatus(){
+    if (Mission_state == 0){
+        return("Not Initialized(0)");
+    }else if(Mission_state == 1){
+        return("TakeOff(1)");
+    }else if(Mission_state == 2){
+        return("constantVtraj(2)");
+    }else if(Mission_state == 3){
+        return("constantVtraj(3)");
+    }else if(Mission_state == 4){
+        return("RTL(4)");
+    }else if(Mission_state == 5){
+        return("constantVtraj(5)");
+    }else{
+        return("System error");
     }
 }
 int main(int argc, char **argv)
@@ -539,20 +557,23 @@ int main(int argc, char **argv)
             if( !current_state.armed && (ros::Time::now() - last_request > ros::Duration(1.0)) && (ros::Time::now() - init_time < ros::Duration(10.0))){
                 if( arming_client.call(arm_cmd) && arm_cmd.response.success){
                     ROS_INFO("Vehicle armed");
-                    Mission_stage = 1;
-                    cout << "Mission stage = 1 Mission start!" <<endl;
                 }
             last_request = ros::Time::now();
             }
         }
+        /*FSM */
+        if (current_state.mode == "OFFBOARD" && current_state.armed && !FSMinit){
+            FSMinit = true;
+            Mission_stage = 1;
+            cout << "Mission stage = 1 Mission start!" <<endl;
+        }
         Finite_state_WP_mission();
-        
         /*Mission information cout*********************************************/
         if(coutcounter > 20){ //reduce cout rate
             cout << "------------------------------------------------------------------------------" << endl;
-            cout << "Status: "<< armstatus() << "   Mode: " << current_state.mode <<endl;
+            cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
             cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
-            cout << "Mission_State: " << Mission_state << endl;
+            cout << "Mission_State: " << statestatus() << endl;
             cout << "currentpos_x: " << UAV_lp[0] << " y: " << UAV_lp[1] << " z: "<< UAV_lp[2] << endl;
             cout << "desiredpos_x: " << UAV_pose_pub.pose.position.x << " y: " << UAV_pose_pub.pose.position.y << " z: "<< UAV_pose_pub.pose.position.z << endl;
             cout << "Trajectory_init_time: " << traj1_information[0] << endl;
