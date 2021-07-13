@@ -30,6 +30,7 @@
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/State.h>
 #include "utils/kinetic_math.h"
+#include "utils/mission.h"
 
 using namespace std;
 using namespace cv;
@@ -73,8 +74,6 @@ bool   FSMinit = false;
 deque<Vec8> trajectory1;
 Vec2 traj1_information;
 double Trajectory_timestep = 0.02;
-/* Initial waypoints */
-deque<Vec8> waypoints;
 /* System */
 bool ROS_init = true;
 double System_initT,callback_LastT,System_LastT;
@@ -85,8 +84,6 @@ mavros_msgs::State current_state;
 int coutcounter = 0;
 
 void constantVtraj( Vec7 EndPose,double velocity,double angular_velocity){
-//   Quaterniond startq(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]);
-//   Vec3 start_rpy = Q2rpy(startq);
   Vec3 start_rpy = Vec3(0,0,Last_stage_mission[4]);
   Vec3 start_xyz(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
   Quaterniond endq(EndPose[3],EndPose[4],EndPose[5],EndPose[6]);
@@ -140,7 +137,7 @@ void traj_pub(){
     trajectory1.pop_front();
     traj1_deque_front = trajectory1.front();
   }
-  
+
   UAV_pose_pub.header.frame_id = "world";
   UAV_pose_pub.pose.position.x = traj1_deque_front[1];
   UAV_pose_pub.pose.position.y = traj1_deque_front[2];
@@ -150,8 +147,16 @@ void traj_pub(){
   UAV_pose_pub.pose.orientation.y = traj1_deque_front[6];
   UAV_pose_pub.pose.orientation.z = traj1_deque_front[7];
 
-  // Trajectory current time > duration than goes on to next stage
-  if (traj1_deque_front[0] > traj1_information[1]){ Mission_stage++;}
+  // (Trajectory current time > duration) && (current pos - target < 0.1m) than goes on to next stage
+  double dist2target = sqrt(( pow(traj1_deque_front[1]-UAV_lp[0],2))
+                            +(pow(traj1_deque_front[2]-UAV_lp[1],2))
+                            +(pow(traj1_deque_front[3]-UAV_lp[2],2)));
+  if (traj1_deque_front[0] > traj1_information[1]){
+        Mission_stage++;
+    }
+    // else if((traj1_deque_front[0] - traj1_information[1]) > 1){
+    //     Mission_stage++;
+    // }
 }
 void state_cb(const mavros_msgs::State::ConstPtr& msg){
     current_state = *msg;
@@ -373,25 +378,6 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     cv::imshow("Aruco_out", ArucoOutput);
     cv::waitKey(1);
 }
-void Finite_stage_mission(){
-    // Waypoints
-    Vec8 stage; // state x y z yaw v av waittime
-    stage << 1, 0, 0, 1, 0, velocity_mission, velocity_angular, 10;   // state = 1; takeoff
-    waypoints.push_back(stage);
-    stage << 2, 5, 5, 1, 0, velocity_mission, velocity_angular, 10;   // state = 2; constant velocity trajectory.
-    waypoints.push_back(stage);
-    stage << 2,-5, 5, 1, 0, velocity_mission, velocity_angular, 10;
-    waypoints.push_back(stage);
-    stage << 2,-5,-5, 1, 0, velocity_mission, velocity_angular, 10;
-    waypoints.push_back(stage);
-    stage << 2, 5,-5, 1, 0, velocity_mission, velocity_angular, 10;
-    waypoints.push_back(stage);
-    stage << 2, 0, 0, 1, 0, velocity_mission, velocity_angular, 10;  // state = 4; constant velocity RTL but with altitude.
-    waypoints.push_back(stage);
-    stage << 5, 0, 0, -2, 0, velocity_mission, velocity_angular, 20;  // state = 5; land.
-    waypoints.push_back(stage);
-    cout << " Mission generated!" << " Stage count: " << waypoints.size() << endl;
-}
 void Finite_state_WP_mission(){ 
   // Generate trajectory while mission stage change
   if (Mission_stage != Current_Mission_stage){
@@ -418,7 +404,7 @@ void Finite_state_WP_mission(){
     }
     if (Mission_state == 4){ //state = 4; constant velocity RTL but with altitude
         Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
-        TargetPos << UAV_takeoffP[0],UAV_takeoffP[1],UAV_lp[2],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
+        TargetPos << UAV_takeoffP[0],UAV_takeoffP[1],Current_stage_mission[3],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
         constantVtraj(TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
     }
     if (Mission_state == 5){ //state = 5; land.
@@ -528,7 +514,7 @@ int main(int argc, char **argv){
             System_initT = ros::Time::now().toSec();
             init_time = ros::Time::now();
             ROS_init = false;
-            Finite_stage_mission(); //Generate stages
+            waypoints = Finite_stage_mission(velocity_mission,velocity_angular); //Generate stages
             cout << " System Initialized" << endl;
             /* Waypoints before starting */
             UAV_pose_pub.header.frame_id = "world";
@@ -570,7 +556,7 @@ int main(int argc, char **argv){
         }
         Finite_state_WP_mission();
         /*Mission information cout*********************************************/
-        if(coutcounter > 20){ //reduce cout rate
+        if(coutcounter > 40){ //reduce cout rate
             cout << "------------------------------------------------------------------------------" << endl;
             cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
             cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;

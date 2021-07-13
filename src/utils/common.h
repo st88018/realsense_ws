@@ -18,7 +18,6 @@
 
 using namespace Eigen;
 using namespace std;
-
 using namespace Sophus;
 
 typedef Eigen::Matrix<double, 2, 1> Vec2;
