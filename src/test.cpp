@@ -65,8 +65,6 @@ int    Current_Mission_stage = 0;
 Vec8 Current_stage_mission;
 Vec8 Last_stage_mission;
 double velocity_takeoff,altitude_mission;
-double velocity_mission = 0.8;
-double velocity_angular = 0.8;
 bool   UAV_flying = false;
 bool   stage_finished = false;
 bool   FSMinit = false;
@@ -129,34 +127,49 @@ void constantVtraj( Vec7 EndPose,double velocity,double angular_velocity){
       trajectory1.push_back(traj1);
   }
 }
-void traj_pub(){
-  double current_time = ros::Time::now().toSec();
-  Vec8 traj1_deque_front = trajectory1.front();
+void twist_pub(Vec3 vxvyvz){
+    UAV_twist_pub.header.stamp = ros::Time::now();
+    UAV_twist_pub.header.frame_id = "world";
+    UAV_twist_pub.twist.linear.x = vxvyvz(0);
+    UAV_twist_pub.twist.linear.y = vxvyvz(1);
+    UAV_twist_pub.twist.linear.z = vxvyvz(2);
+}
+void pose_pub(Vec7 posepub){
+    UAV_pose_pub.header.frame_id = "world";
+    UAV_pose_pub.pose.position.x = posepub[0];
+    UAV_pose_pub.pose.position.y = posepub[1];
+    UAV_pose_pub.pose.position.z = posepub[2];
+    UAV_pose_pub.pose.orientation.w = posepub[3];
+    UAV_pose_pub.pose.orientation.x = posepub[4];
+    UAV_pose_pub.pose.orientation.y = posepub[5];
+    UAV_pose_pub.pose.orientation.z = posepub[6];
+}
+void UAV_pub(bool pubtwist){
+    if(!pubtwist){
+        double current_time = ros::Time::now().toSec();
+        Vec8 traj1_deque_front = trajectory1.front();
+        while (current_time - traj1_deque_front[0] > 0){
+            trajectory1.pop_front();
+            traj1_deque_front = trajectory1.front();
+        }
+        Vec7 uavposepub;
+        uavposepub << traj1_deque_front[1],traj1_deque_front[2],traj1_deque_front[3],
+                        traj1_deque_front[4],traj1_deque_front[5],traj1_deque_front[6],traj1_deque_front[7];
+        pose_pub(uavposepub);
 
-  while (current_time - traj1_deque_front[0] > 0){
-    trajectory1.pop_front();
-    traj1_deque_front = trajectory1.front();
-  }
-
-  UAV_pose_pub.header.frame_id = "world";
-  UAV_pose_pub.pose.position.x = traj1_deque_front[1];
-  UAV_pose_pub.pose.position.y = traj1_deque_front[2];
-  UAV_pose_pub.pose.position.z = traj1_deque_front[3];
-  UAV_pose_pub.pose.orientation.w = traj1_deque_front[4];
-  UAV_pose_pub.pose.orientation.x = traj1_deque_front[5];
-  UAV_pose_pub.pose.orientation.y = traj1_deque_front[6];
-  UAV_pose_pub.pose.orientation.z = traj1_deque_front[7];
-
-  // (Trajectory current time > duration) && (current pos - target < 0.1m) than goes on to next stage
-  double dist2target = sqrt(( pow(traj1_deque_front[1]-UAV_lp[0],2))
-                            +(pow(traj1_deque_front[2]-UAV_lp[1],2))
-                            +(pow(traj1_deque_front[3]-UAV_lp[2],2)));
-  if (traj1_deque_front[0] > traj1_information[1]){
-        Mission_stage++;
+        // (Trajectory current time > duration) && (current pos - target < 0.1m) than goes on to next stage
+        double dist2target = sqrt(( pow(traj1_deque_front[1]-UAV_lp[0],2))
+                                    +(pow(traj1_deque_front[2]-UAV_lp[1],2))
+                                    +(pow(traj1_deque_front[3]-UAV_lp[2],2)));
+        if (traj1_deque_front[0] > traj1_information[1]){
+            Mission_stage++;
+        }   
+        // else if((traj1_deque_front[0] - traj1_information[1]) > 1){
+        //     Mission_stage++;
+        // }
+    }else{
+        
     }
-    // else if((traj1_deque_front[0] - traj1_information[1]) > 1){
-    //     Mission_stage++;
-    // }
 }
 void state_cb(const mavros_msgs::State::ConstPtr& msg){
     current_state = *msg;
@@ -193,7 +206,8 @@ void UAVPose_cb(const geometry_msgs::PoseStamped::ConstPtr& pose){
               UAV_pose_vicon.pose.orientation.x,UAV_pose_vicon.pose.orientation.y,UAV_pose_vicon.pose.orientation.z,UAV_pose_vicon.pose.orientation.w;
 }
 void Aruco_PosePub(Vec6 rpyxyz){
-    Quaterniond Q = rpy2Q(Vec3(rpyxyz(0),rpyxyz(1),rpyxyz(2)));
+    // Quaterniond Q = rpy2Q(Vec3(rpyxyz(0),rpyxyz(1),rpyxyz(2)));
+    Quaterniond Q = rpy2Q(Vec3(0,0,3.14));
     Aruco_pose_realsense.header.stamp = ros::Time::now();
     Aruco_pose_realsense.header.frame_id = "world";
     Aruco_pose_realsense.pose.position.x = rpyxyz(3);
@@ -215,13 +229,6 @@ void Depth_PosePub(Vec6 rpyxyz){
     Depth_pose_realsense.pose.orientation.x = Q.x();
     Depth_pose_realsense.pose.orientation.y = Q.y();
     Depth_pose_realsense.pose.orientation.z = Q.z();
-}
-void twist_pub(Vec3 vxvyvz){
-    UAV_twist_pub.header.stamp = ros::Time::now();
-    UAV_twist_pub.header.frame_id = "world";
-    UAV_twist_pub.twist.linear.x = vxvyvz(0);
-    UAV_twist_pub.twist.linear.y = vxvyvz(1);
-    UAV_twist_pub.twist.linear.z = vxvyvz(2);
 }
 Vec6 Pose_calc(const Vec3 rvecs, const Vec3 tvecs){
     Eigen::Quaterniond q;
@@ -297,7 +304,8 @@ Vec2I Constant_velocity_predictor(const Vec8I last_markerConer,const int Lostcou
             XY /= CVE_Corners.size();
             XY *= Lostcounter;
         }
-        return(FindMarkerCenter(CVE_Corners.back())+XY);
+        // return(FindMarkerCenter(CVE_Corners.back())+XY);
+        return(FindMarkerCenter(last_markerConer));
     }
 }
 void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs::ImageConstPtr &depth){
@@ -436,7 +444,7 @@ void Finite_state_WP_mission(){
     //   cout << "dt: " << current_traj[0] << " x: " << current_traj[1] << " y: " << current_traj[2] << " z: " << current_traj[3] << endl;
     // }
   }
-  if(trajectory1.size() > 0){traj_pub();}
+  if(trajectory1.size() > 0){UAV_pub(0);}
 }
 Vec3 Poistion_controller_PID(Vec3 setpoint){ // From Depth calculate XYZ position only
     Vec3 error,last_error,u_p,u_i,u_d,output; // Position Error
@@ -514,7 +522,7 @@ int main(int argc, char **argv){
             System_initT = ros::Time::now().toSec();
             init_time = ros::Time::now();
             ROS_init = false;
-            waypoints = Finite_stage_mission(velocity_mission,velocity_angular); //Generate stages
+            waypoints = Finite_stage_mission(); //Generate stages
             cout << " System Initialized" << endl;
             /* Waypoints before starting */
             UAV_pose_pub.header.frame_id = "world";
@@ -556,17 +564,17 @@ int main(int argc, char **argv){
         }
         Finite_state_WP_mission();
         /*Mission information cout*********************************************/
-        if(coutcounter > 40){ //reduce cout rate
+        if(coutcounter > 10){ //reduce cout rate
             cout << "------------------------------------------------------------------------------" << endl;
             cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
             cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
             cout << "Mission_State: " << statestatus() << endl;
-            cout << "currentpos_x: " << UAV_lp[0] << " y: " << UAV_lp[1] << " z: "<< UAV_lp[2] << endl;
+            cout << "aruco__pos_x: " << Aruco_pose_realsense.pose.position.x << " y: " << Aruco_pose_realsense.pose.position.y << " z: "<< Aruco_pose_realsense.pose.position.z << endl;
+            cout << "depth__pos_x: " << Depth_pose_realsense.pose.position.x << " y: " << Depth_pose_realsense.pose.position.y << " z: "<< Depth_pose_realsense.pose.position.z << endl;
+            cout << "local__pos_x: " << UAV_lp[0] << " y: " << UAV_lp[1] << " z: "<< UAV_lp[2] << endl;
             cout << "desiredpos_x: " << UAV_pose_pub.pose.position.x << " y: " << UAV_pose_pub.pose.position.y << " z: "<< UAV_pose_pub.pose.position.z << endl;
-            // cout << "Trajectory_init_time: " << traj1_information[0] << endl;
-            // cout << "Trajectory_end_time: " << fixed << traj1_information[1] << endl;
             cout << "Trajectory timer countdown: " << traj1_information[1] - ros::Time::now().toSec() << endl;
-            // cout << "ROS_time: " << fixed << ros::Time::now().toSec() << endl;
+            cout << "ROS_time: " << fixed << ros::Time::now().toSec() << endl;
             cout << "Current_trajectory_size: " << trajectory1.size() << endl;
             cout << "------------------------------------------------------------------------------" << endl;
             coutcounter = 0;
