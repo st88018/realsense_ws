@@ -85,60 +85,62 @@ int LowSpeedcounter;
 mavros_msgs::State current_state;
 int coutcounter = 0;
 
-void constantVtraj( Vec7 EndPose,double velocity,double angular_velocity){
-  Vec3 start_rpy = Vec3(0,0,Last_stage_mission[4]);
-  Vec3 start_xyz(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
-  Quaterniond endq(EndPose[3],EndPose[4],EndPose[5],EndPose[6]);
-  Vec3 des_rpy = Q2rpy(endq);
-  double dist = sqrt(pow((EndPose[0]-start_xyz[0]),2)+pow((EndPose[1]-start_xyz[1]),2)+pow((EndPose[2]-start_xyz[2]),2));
-  double dist_duration = dist/velocity; // In seconds
-  double duration; //total duration in seconds
-  Vec3 vxyz = Vec3(((EndPose[0]-start_xyz[0])/dist)*velocity,((EndPose[1]-start_xyz[1])/dist)*velocity,((EndPose[2]-start_xyz[2])/dist)*velocity);
-  if (start_rpy[2]>=M_PI)  start_rpy[2]-=2*M_PI;
-  if (start_rpy[2]<=-M_PI) start_rpy[2]+=2*M_PI;
-  if (des_rpy[2]>=M_PI)    des_rpy[2]-=2*M_PI;
-  if (des_rpy[2]<=-M_PI)   des_rpy[2]+=2*M_PI;
-  double d_yaw = des_rpy[2] - start_rpy[2];
-  if (d_yaw>=M_PI)  d_yaw-=2*M_PI;
-  if (d_yaw<=-M_PI) d_yaw+=2*M_PI;
-  double yaw_duration = sqrt(pow(d_yaw/angular_velocity,2));
-  if(yaw_duration>=dist_duration){duration = yaw_duration;}else{duration = dist_duration;}
-  //initialize trajectory
-  trajectory1.clear();
-  double traj1_init_time = ros::Time::now().toSec();
-  int wpc = duration/Trajectory_timestep;
-  for(int i=0; i<wpc; i++){
-      double dt = Trajectory_timestep*i;
-      Vec3 xyz;
-      Quaterniond q;
-      // RPY
-      if(dt<=yaw_duration){
-          q = rpy2Q(Vec3(0,0,start_rpy[2]+dt*angular_velocity));
-      }else{
-          q = rpy2Q(des_rpy);
-      }
-      // Position_xyz
-      if(dt<=duration){
-          xyz = Vec3(start_xyz[0]+dt*vxyz[0],start_xyz[1]+dt*vxyz[1],start_xyz[2]+dt*vxyz[2]);
-      }else{
-          xyz << EndPose[0],EndPose[1],EndPose[2];
-      }
-      Vec8 traj1;
-      traj1 << dt+traj1_init_time, xyz[0], xyz[1], xyz[2], q.w(), q.x(), q.y(), q.z();
-      trajectory1.push_back(traj1);
-  }
-}
-void gen_twist_traj(Vec3 vxyz, double duration){
-    trajectory2.clear();
-    double traj2_init_time = ros::Time::now().toSec();
-    int wpc = duration/Trajectory_timestep;
-    for(int i=0; i<wpc; i++){
-        double dt = Trajectory_timestep*i;
-        Vec4 traj2;
-        traj2 << dt+traj2_init_time, vxyz[0], vxyz[1], vxyz[2];
-        trajectory2.push_back(traj2);
-    }
-}
+// void constantVtraj( Vec7 StartPose, Vec7 EndPose,double velocity,double angular_velocity){
+//   Quaterniond localq(StartPose[3],StartPose[4],StartPose[5],StartPose[6]);
+//   Vec3 localrpy = Q2rpy(localq);
+//   Vec3 start_rpy = Vec3(0,0,localrpy[2]);
+//   Vec3 start_xyz(StartPose[0],StartPose[1],StartPose[2]);
+//   Quaterniond endq(EndPose[3],EndPose[4],EndPose[5],EndPose[6]);
+//   Vec3 des_rpy = Q2rpy(endq);
+//   double dist = sqrt(pow((EndPose[0]-start_xyz[0]),2)+pow((EndPose[1]-start_xyz[1]),2)+pow((EndPose[2]-start_xyz[2]),2));
+//   double dist_duration = dist/velocity; // In seconds
+//   double duration; //total duration in seconds
+//   Vec3 vxyz = Vec3(((EndPose[0]-start_xyz[0])/dist)*velocity,((EndPose[1]-start_xyz[1])/dist)*velocity,((EndPose[2]-start_xyz[2])/dist)*velocity);
+//   if (start_rpy[2]>=M_PI)  start_rpy[2]-=2*M_PI;
+//   if (start_rpy[2]<=-M_PI) start_rpy[2]+=2*M_PI;
+//   if (des_rpy[2]>=M_PI)    des_rpy[2]-=2*M_PI;
+//   if (des_rpy[2]<=-M_PI)   des_rpy[2]+=2*M_PI;
+//   double d_yaw = des_rpy[2] - start_rpy[2];
+//   if (d_yaw>=M_PI)  d_yaw-=2*M_PI;
+//   if (d_yaw<=-M_PI) d_yaw+=2*M_PI;
+//   double yaw_duration = sqrt(pow(d_yaw/angular_velocity,2));
+//   if(yaw_duration>=dist_duration){duration = yaw_duration;}else{duration = dist_duration;}
+//   //initialize trajectory
+//   trajectory1.clear();
+//   double traj1_init_time = ros::Time::now().toSec();
+//   int wpc = duration/Trajectory_timestep;
+//   for(int i=0; i<wpc; i++){
+//       double dt = Trajectory_timestep*i;
+//       Vec3 xyz;
+//       Quaterniond q;
+//       // RPY
+//       if(dt<=yaw_duration){
+//           q = rpy2Q(Vec3(0,0,start_rpy[2]+dt*angular_velocity));
+//       }else{
+//           q = rpy2Q(des_rpy);
+//       }
+//       // Position_xyz
+//       if(dt<=duration){
+//           xyz = Vec3(start_xyz[0]+dt*vxyz[0],start_xyz[1]+dt*vxyz[1],start_xyz[2]+dt*vxyz[2]);
+//       }else{
+//           xyz << EndPose[0],EndPose[1],EndPose[2];
+//       }
+//       Vec8 traj1;
+//       traj1 << dt+traj1_init_time, xyz[0], xyz[1], xyz[2], q.w(), q.x(), q.y(), q.z();
+//       trajectory1.push_back(traj1);
+//   }
+// }
+// void gen_twist_traj(Vec3 vxyz, double duration){
+//     trajectory2.clear();
+//     double traj2_init_time = ros::Time::now().toSec();
+//     int wpc = duration/Trajectory_timestep;
+//     for(int i=0; i<wpc; i++){
+//         double dt = Trajectory_timestep*i;
+//         Vec4 traj2;
+//         traj2 << dt+traj2_init_time, vxyz[0], vxyz[1], vxyz[2];
+//         trajectory2.push_back(traj2);
+//     }
+// }
 void twist_pub(Vec3 vxvyvz){
     UAV_twist_pub.linear.x = vxvyvz(0);
     UAV_twist_pub.linear.y = vxvyvz(1);
@@ -421,12 +423,12 @@ void Finite_state_WP_mission(){
     if (Mission_state == 1){ //state = 1 take off with no heading change
         Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
         TargetPos << UAV_lp[0],UAV_lp[1],Current_stage_mission[3],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
-        constantVtraj(TargetPos, 0.1, Current_stage_mission[6]);
+        constantVtraj(UAV_lp, TargetPos, 0.1, Current_stage_mission[6]);
     }
     if (Mission_state == 2){ //state = 2; constant velocity trajectory with desired heading.
         Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
         TargetPos << Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
-        constantVtraj(TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
+        constantVtraj(UAV_lp, TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
     }
     if (Mission_state == 3){ //state = 3; For Twist test
         gen_twist_traj(Vec3(Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3]),Current_stage_mission[4]);
@@ -434,12 +436,12 @@ void Finite_state_WP_mission(){
     if (Mission_state == 4){ //state = 4; constant velocity RTL but with altitude
         Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
         TargetPos << UAV_takeoffP[0],UAV_takeoffP[1],Current_stage_mission[3],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
-        constantVtraj(TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
+        constantVtraj(UAV_lp, TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
     }
     if (Mission_state == 5){ //state = 5; land.
         Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
         TargetPos << UAV_takeoffP[0],UAV_takeoffP[1],UAV_takeoffP[2],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
-        constantVtraj(TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
+        constantVtraj(UAV_lp, TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
     }
     if (Current_stage_mission[7] != 0){ //Wait after finish stage.
         traj1 = trajectory1.back();
