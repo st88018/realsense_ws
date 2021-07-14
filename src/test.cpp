@@ -21,7 +21,7 @@
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/CameraInfo.h>
 #include <geometry_msgs/PoseStamped.h>
-#include <geometry_msgs/TwistStamped.h>
+#include <geometry_msgs/Twist.h>
 #include <numeric>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -31,6 +31,7 @@
 #include <mavros_msgs/State.h>
 #include "utils/kinetic_math.h"
 #include "utils/mission.h"
+// #include "utils/trajectories.h"
 
 using namespace std;
 using namespace cv;
@@ -49,7 +50,7 @@ static geometry_msgs::PoseStamped Depth_pose_realsense;
 static geometry_msgs::PoseStamped UAV_pose_vicon;
 static geometry_msgs::PoseStamped Camera_pose_vicon;
 static geometry_msgs::PoseStamped UAV_pose_pub;
-static geometry_msgs::TwistStamped    UAV_twist_pub;
+static geometry_msgs::Twist    UAV_twist_pub;
 Vec7 UAV_lp;
 /*IRR filter parameter*/
 cv::Mat cameraMatrix = cv::Mat::eye(3,3, CV_64F);
@@ -73,6 +74,8 @@ bool   pubtwist = false;
 deque<Vec8> trajectory1;
 Vec2 traj1_information;
 double Trajectory_timestep = 0.02;
+deque<Vec4> trajectory2; // For Twist test (time vx vy vz)
+Vec2 traj2_information;
 /* System */
 bool ROS_init = true;
 double System_initT,callback_LastT,System_LastT;
@@ -87,7 +90,6 @@ void constantVtraj( Vec7 EndPose,double velocity,double angular_velocity){
   Vec3 start_xyz(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
   Quaterniond endq(EndPose[3],EndPose[4],EndPose[5],EndPose[6]);
   Vec3 des_rpy = Q2rpy(endq);
-
   double dist = sqrt(pow((EndPose[0]-start_xyz[0]),2)+pow((EndPose[1]-start_xyz[1]),2)+pow((EndPose[2]-start_xyz[2]),2));
   double dist_duration = dist/velocity; // In seconds
   double duration; //total duration in seconds
@@ -101,11 +103,9 @@ void constantVtraj( Vec7 EndPose,double velocity,double angular_velocity){
   if (d_yaw<=-M_PI) d_yaw+=2*M_PI;
   double yaw_duration = sqrt(pow(d_yaw/angular_velocity,2));
   if(yaw_duration>=dist_duration){duration = yaw_duration;}else{duration = dist_duration;}
-
-  //initialize trajectory1
+  //initialize trajectory
   trajectory1.clear();
   double traj1_init_time = ros::Time::now().toSec();
-
   int wpc = duration/Trajectory_timestep;
   for(int i=0; i<wpc; i++){
       double dt = Trajectory_timestep*i;
@@ -128,12 +128,21 @@ void constantVtraj( Vec7 EndPose,double velocity,double angular_velocity){
       trajectory1.push_back(traj1);
   }
 }
+void gen_twist_traj(Vec3 vxyz, double duration){
+    trajectory2.clear();
+    double traj2_init_time = ros::Time::now().toSec();
+    int wpc = duration/Trajectory_timestep;
+    for(int i=0; i<wpc; i++){
+        double dt = Trajectory_timestep*i;
+        Vec4 traj2;
+        traj2 << dt+traj2_init_time, vxyz[0], vxyz[1], vxyz[2];
+        trajectory2.push_back(traj2);
+    }
+}
 void twist_pub(Vec3 vxvyvz){
-    UAV_twist_pub.header.stamp = ros::Time::now();
-    UAV_twist_pub.header.frame_id = "world";
-    UAV_twist_pub.twist.linear.x = vxvyvz(0);
-    UAV_twist_pub.twist.linear.y = vxvyvz(1);
-    UAV_twist_pub.twist.linear.z = vxvyvz(2);
+    UAV_twist_pub.linear.x = vxvyvz(0);
+    UAV_twist_pub.linear.y = vxvyvz(1);
+    UAV_twist_pub.linear.z = vxvyvz(2);
 }
 void pose_pub(Vec7 posepub){
     UAV_pose_pub.header.frame_id = "world";
@@ -164,12 +173,28 @@ void UAV_pub(bool pubtwist){
                                     +(pow(traj1_deque_front[3]-UAV_lp[2],2)));
         if (traj1_deque_front[0] > traj1_information[1]){
             Mission_stage++;
-        }   
+            trajectory1.clear();
+            Vec7 Zero7;
+            Zero7 << 0,0,0,0,0,0,0;
+            pose_pub(Zero7);
+        }
         // else if((traj1_deque_front[0] - traj1_information[1]) > 1){
         //     Mission_stage++;
         // }
     }else{
-        
+        double current_time = ros::Time::now().toSec();
+        Vec4 traj2_deque_front = trajectory2.front();
+        while (current_time - traj2_deque_front[0] > 0){
+            trajectory2.pop_front();
+            traj2_deque_front = trajectory2.front();
+        }
+        twist_pub(Vec3(traj2_deque_front[1],traj2_deque_front[2],traj2_deque_front[3]));
+        if (traj2_deque_front[0] > traj2_information[1]){
+            Mission_stage++;
+            trajectory2.clear();
+            Vec3 Zero3(0,0,0);
+            twist_pub(Zero3);
+        }
     }
 }
 void state_cb(const mavros_msgs::State::ConstPtr& msg){
@@ -386,6 +411,7 @@ void Finite_state_WP_mission(){
   // Generate trajectory while mission stage change
   if (Mission_stage != Current_Mission_stage){
     Vec8 traj1;
+    Vec4 traj2;
     Vec7 TargetPos;
     Current_Mission_stage = Mission_stage;  //Update Current_Mission_stage
     Last_stage_mission = Current_stage_mission;
@@ -402,9 +428,8 @@ void Finite_state_WP_mission(){
         TargetPos << Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
         constantVtraj(TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
     }
-    if (Mission_state == 3){ //state = 3; constant velocity trajectory with no heading change.
-        TargetPos << Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3],UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6];
-        constantVtraj(TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
+    if (Mission_state == 3){ //state = 3; For Twist test
+        gen_twist_traj(Vec3(Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3]),Current_stage_mission[4]);
     }
     if (Mission_state == 4){ //state = 4; constant velocity RTL but with altitude
         Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
@@ -426,13 +451,24 @@ void Finite_state_WP_mission(){
     }
     /*For CPP deque safety. Default generate 10 second of hover*/
     int hovertime = 10;
-    traj1 = trajectory1.back();
-    for (int i=0; i<(hovertime/Trajectory_timestep); i++){
-        traj1[0] += Trajectory_timestep;
-        trajectory1.push_back(traj1);
+    if(trajectory1.size()>0){
+        traj1 = trajectory1.back();
+        for (int i=0; i<(hovertime/Trajectory_timestep); i++){
+            traj1[0] += Trajectory_timestep;
+            trajectory1.push_back(traj1);
+        }
+        traj1_information = Vec2(ros::Time::now().toSec(), traj1[0]-hovertime);
+        pubtwist = false;
     }
-    /*Store the Trajectory information*/
-    traj1_information = Vec2(ros::Time::now().toSec(), traj1[0]-hovertime); //Trajectory staring time, Trajectory end time
+    if(trajectory2.size()>0){
+        traj2 = trajectory2.back();
+        for (int i=0; i<(hovertime/Trajectory_timestep); i++){
+            traj2[0] += Trajectory_timestep;
+            trajectory2.push_back(traj2);
+        }
+        traj2_information = Vec2(ros::Time::now().toSec(), traj2[0]-hovertime);
+        pubtwist = true;
+    }    
     /*For Debug section plot the whole trajectory*/
     // int trajectorysize = trajectory1.size();
     // for (int i = 0; i < trajectorysize; i++){
@@ -441,6 +477,7 @@ void Finite_state_WP_mission(){
     // }
   }
   if(trajectory1.size() > 0){UAV_pub(pubtwist);}
+  if(trajectory2.size() > 0){UAV_pub(pubtwist);}
 }
 Vec3 Poistion_controller_PID(Vec3 pose, Vec3 setpoint){ // From Depth calculate XYZ position only
     Vec3 error,last_error,u_p,u_i,u_d,output; // Position Error
@@ -476,7 +513,7 @@ string statestatus(){
     }else if(Mission_state == 2){
         return("constantVtraj(2)");
     }else if(Mission_state == 3){
-        return("constantVtraj(3)");
+        return("Twist(3)");
     }else if(Mission_state == 4){
         return("RTL(4)");
     }else if(Mission_state == 5){
@@ -497,7 +534,7 @@ int main(int argc, char **argv){
     ros::Publisher ArucoPose_pub = nh.advertise<geometry_msgs::PoseStamped>("ArucoPose",1);
     ros::Publisher DepthPose_pub = nh.advertise<geometry_msgs::PoseStamped>("DepthPose",1);
     ros::Publisher local_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
-    ros::Publisher local_vel_pub = nh.advertise<geometry_msgs::TwistStamped>("/mavros/local_position/velocity", 100);
+    ros::Publisher local_vel_pub = nh.advertise<geometry_msgs::Twist>("/mavros/setpoint_velocity/cmd_vel_unstamped", 100);
     message_filters::Subscriber<CompressedImage> rgb_sub(nh, "/camera/color/image_raw/compressed", 1);
     message_filters::Subscriber<Image> dep_sub(nh, "/camera/aligned_depth_to_color/image_raw", 1);
     mavros_msgs::SetMode offb_set_mode;
@@ -510,7 +547,6 @@ int main(int argc, char **argv){
     typedef sync_policies::ApproximateTime<CompressedImage, Image> MySyncPolicy;
     Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), rgb_sub, dep_sub);
     sync.registerCallback(boost::bind(&callback, _1, _2));
-
     while(ros::ok()){
         if (ROS_init){
             System_initT = ros::Time::now().toSec();
@@ -563,13 +599,15 @@ int main(int argc, char **argv){
             cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
             cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
             cout << "Mission_State: " << statestatus() << " Twist On: " << pubtwist << endl;
-            cout << "aruco__pos_x: " << Aruco_pose_realsense.pose.position.x << " y: " << Aruco_pose_realsense.pose.position.y << " z: "<< Aruco_pose_realsense.pose.position.z << endl;
-            cout << "depth__pos_x: " << Depth_pose_realsense.pose.position.x << " y: " << Depth_pose_realsense.pose.position.y << " z: "<< Depth_pose_realsense.pose.position.z << endl;
+            // cout << "aruco__pos_x: " << Aruco_pose_realsense.pose.position.x << " y: " << Aruco_pose_realsense.pose.position.y << " z: "<< Aruco_pose_realsense.pose.position.z << endl;
+            // cout << "depth__pos_x: " << Depth_pose_realsense.pose.position.x << " y: " << Depth_pose_realsense.pose.position.y << " z: "<< Depth_pose_realsense.pose.position.z << endl;
             cout << "local__pos_x: " << UAV_lp[0] << " y: " << UAV_lp[1] << " z: "<< UAV_lp[2] << endl;
             cout << "desiredpos_x: " << UAV_pose_pub.pose.position.x << " y: " << UAV_pose_pub.pose.position.y << " z: "<< UAV_pose_pub.pose.position.z << endl;
+            cout << "desiredtwist_x: " << UAV_twist_pub.linear.x << " y: " << UAV_twist_pub.linear.y << " z: "<< UAV_twist_pub.linear.z << endl;
             cout << "Trajectory timer countdown: " << traj1_information[1] - ros::Time::now().toSec() << endl;
             cout << "ROS_time: " << fixed << ros::Time::now().toSec() << endl;
-            cout << "Current_trajectory_size: " << trajectory1.size() << endl;
+            cout << "traj1_size: " << trajectory1.size() << endl;
+            cout << "traj2_size: " << trajectory2.size() << endl;
             cout << "------------------------------------------------------------------------------" << endl;
             coutcounter = 0;
         }else{coutcounter++;}
@@ -579,8 +617,11 @@ int main(int argc, char **argv){
         // callback_LastT = currentT;
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
-        local_pos_pub.publish(UAV_pose_pub);
-        local_vel_pub.publish(UAV_twist_pub);
+        if(pubtwist){
+            local_vel_pub.publish(UAV_twist_pub);
+        }else{
+            local_pos_pub.publish(UAV_pose_pub);
+        }
         ros::spinOnce();
         loop_rate.sleep();
     }
