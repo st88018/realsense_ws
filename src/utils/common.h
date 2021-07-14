@@ -52,10 +52,6 @@ typedef Eigen::Matrix<double, 15, 3> Mat15x3;
 typedef Eigen::Matrix<double, 1, 15> Mat1x15;
 typedef Eigen::Matrix<double, 15, 1> Mat15x1;
 
-
-
-
-
 //transfor descriptors to vector of Mat(cv)
 inline void descriptors_to_vecDesciptor(const cv::Mat& descriptors, vector<cv::Mat>& vecDescriptor)
 {
