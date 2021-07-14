@@ -68,6 +68,7 @@ double velocity_takeoff,altitude_mission;
 bool   UAV_flying = false;
 bool   stage_finished = false;
 bool   FSMinit = false;
+bool   pubtwist = false;
 /* Traj */
 deque<Vec8> trajectory1;
 Vec2 traj1_information;
@@ -375,11 +376,6 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
             Depth_PosePub(Pose_calc(Depthrvecs,camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters)));
         }
     }
-    /* ROS timer */
-    // auto currentT = ros::Time::now().toSec();
-    // cout << "callback_Hz: " << 1/(currentT-callback_LastT) << endl;
-    // callback_LastT = currentT;
-
     /* image plot */
     // cv::Mat depImage = image_dep.clone();
     // cv::imshow("dep_out", depImage);
@@ -444,18 +440,16 @@ void Finite_state_WP_mission(){
     //   cout << "dt: " << current_traj[0] << " x: " << current_traj[1] << " y: " << current_traj[2] << " z: " << current_traj[3] << endl;
     // }
   }
-  if(trajectory1.size() > 0){UAV_pub(0);}
+  if(trajectory1.size() > 0){UAV_pub(pubtwist);}
 }
-Vec3 Poistion_controller_PID(Vec3 setpoint){ // From Depth calculate XYZ position only
+Vec3 Poistion_controller_PID(Vec3 pose, Vec3 setpoint){ // From Depth calculate XYZ position only
     Vec3 error,last_error,u_p,u_i,u_d,output; // Position Error
     double Last_time = ros::Time::now().toSec();
     double iteration_time = ros::Time::now().toSec() - Last_time;
     Vec3 K_p(1,1,1);
-    Vec3 K_i(1,1,1);
-    Vec3 K_d(1,1,1);
-    error = setpoint-Vec3(Depth_pose_realsense.pose.position.x,
-                          Depth_pose_realsense.pose.position.y,
-                          Depth_pose_realsense.pose.position.z);
+    Vec3 K_i(0,0,0);
+    Vec3 K_d(0,0,0);
+    error = setpoint-pose;
     last_error = error;
     Vec3 integral = integral+(error*iteration_time);
     Vec3 derivative = (error - last_error)/iteration_time;
@@ -568,7 +562,7 @@ int main(int argc, char **argv){
             cout << "------------------------------------------------------------------------------" << endl;
             cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
             cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
-            cout << "Mission_State: " << statestatus() << endl;
+            cout << "Mission_State: " << statestatus() << " Twist On: " << pubtwist << endl;
             cout << "aruco__pos_x: " << Aruco_pose_realsense.pose.position.x << " y: " << Aruco_pose_realsense.pose.position.y << " z: "<< Aruco_pose_realsense.pose.position.z << endl;
             cout << "depth__pos_x: " << Depth_pose_realsense.pose.position.x << " y: " << Depth_pose_realsense.pose.position.y << " z: "<< Depth_pose_realsense.pose.position.z << endl;
             cout << "local__pos_x: " << UAV_lp[0] << " y: " << UAV_lp[1] << " z: "<< UAV_lp[2] << endl;
@@ -579,12 +573,14 @@ int main(int argc, char **argv){
             cout << "------------------------------------------------------------------------------" << endl;
             coutcounter = 0;
         }else{coutcounter++;}
-        
+        /* ROS timer */
+        // auto currentT = ros::Time::now().toSec();
+        // cout << "callback_Hz: " << 1/(currentT-callback_LastT) << endl;
+        // callback_LastT = currentT;
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
         local_pos_pub.publish(UAV_pose_pub);
         local_vel_pub.publish(UAV_twist_pub);
-        /* ROS timer */
         ros::spinOnce();
         loop_rate.sleep();
     }
