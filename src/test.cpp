@@ -65,15 +65,40 @@ int    Current_Mission_stage = 0;
 Vec8   Current_stage_mission;
 Vec8   Last_stage_mission;
 bool   FSMinit = false;
-bool   pubtwist = false;
+bool   pubtwist_traj = false;
+bool   pubpose_traj  = false;
+bool   pubtwist      = false;
+/* PID Position controller */
+Vec3   Pos_setpoint;
+double PID_duration;
+double PID_InitTime;
 /* System */
 bool ROS_init = true;
-double System_initT,callback_LastT;
+double System_initT,LastT;
 ros::Time last_request;
 ros::Time init_time;
 mavros_msgs::State current_state;
 int coutcounter = 0;
 
+Vec3 Poistion_controller_PID(Vec3 pose, Vec3 setpoint){ // From Depth calculate XYZ position only
+    Vec3 error,last_error,u_p,u_i,u_d,output; // Position Error
+    double Last_time = ros::Time::now().toSec();
+    double iteration_time = ros::Time::now().toSec() - Last_time;
+    Vec3 K_p(0.5,0.5,0.5);
+    Vec3 K_i(0,0,0);
+    Vec3 K_d(0,0,0);
+    error = setpoint-pose;
+    last_error = error;
+    Vec3 integral = integral+(error*iteration_time);
+    Vec3 derivative = (error - last_error)/iteration_time;
+    for (int i=0; i<3; i++){ // i = x,y,z
+        u_p[i] = error[i]*K_p[i];        //P controller
+        u_i[i] = integral[i]*K_i[i];     //I controller
+        u_d[i] = derivative[i]*K_d[i];   //D controller
+        output[i] = u_p[i]+u_i[i]+u_d[i];
+    }
+    return(output);
+}
 void twist_pub(Vec3 vxvyvz){
     UAV_twist_pub.linear.x = vxvyvz(0);
     UAV_twist_pub.linear.y = vxvyvz(1);
@@ -89,11 +114,10 @@ void pose_pub(Vec7 posepub){
     UAV_pose_pub.pose.orientation.y = posepub[5];
     UAV_pose_pub.pose.orientation.z = posepub[6];
 }
-void UAV_pub(bool pubtwist){
-    if(!pubtwist){
-        double current_time = ros::Time::now().toSec();
+void UAV_pub(bool pubtwist_traj, bool pubpose_traj, bool pubtwist){
+    if(pubpose_traj){
         Vec8 traj1_deque_front = trajectory1.front();
-        while (current_time - traj1_deque_front[0] > 0){
+        while (ros::Time::now().toSec() - traj1_deque_front[0] > 0){
             trajectory1.pop_front();
             traj1_deque_front = trajectory1.front();
         }
@@ -108,10 +132,10 @@ void UAV_pub(bool pubtwist){
             Zero7 << 0,0,0,0,0,0,0;
             pose_pub(Zero7);
         }
-    }else{
-        double current_time = ros::Time::now().toSec();
+    }
+    if(pubtwist_traj){
         Vec4 traj2_deque_front = trajectory2.front();
-        while (current_time - traj2_deque_front[0] > 0){
+        while (ros::Time::now().toSec() - traj2_deque_front[0] > 0){
             trajectory2.pop_front();
             traj2_deque_front = trajectory2.front();
         }
@@ -119,6 +143,14 @@ void UAV_pub(bool pubtwist){
         if (traj2_deque_front[0] > traj2_information[1]){
             Mission_stage++;
             trajectory2.clear();
+            Vec3 Zero3(0,0,0);
+            twist_pub(Zero3);
+        }
+    }
+    if(pubtwist){
+        twist_pub(Poistion_controller_PID(Vec3(UAV_lp[0],UAV_lp[1],UAV_lp[2]),Pos_setpoint));
+        if (PID_InitTime+PID_duration < ros::Time::now().toSec()){
+            Mission_stage++;
             Vec3 Zero3(0,0,0);
             twist_pub(Zero3);
         }
@@ -290,25 +322,6 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     cv::imshow("Aruco_out", ArucoOutput);
     cv::waitKey(1);
 }
-Vec3 Poistion_controller_PID(Vec3 pose, Vec3 setpoint){ // From Depth calculate XYZ position only
-    Vec3 error,last_error,u_p,u_i,u_d,output; // Position Error
-    double Last_time = ros::Time::now().toSec();
-    double iteration_time = ros::Time::now().toSec() - Last_time;
-    Vec3 K_p(1,1,1);
-    Vec3 K_i(0,0,0);
-    Vec3 K_d(0,0,0);
-    error = setpoint-pose;
-    last_error = error;
-    Vec3 integral = integral+(error*iteration_time);
-    Vec3 derivative = (error - last_error)/iteration_time;
-    for (int i=0; i<3; i++){ // i = x,y,z
-        u_p[i] = error[i]*K_p[i];        //P controller
-        u_i[i] = integral[i]*K_i[i];     //I controller
-        u_d[i] = derivative[i]*K_d[i];   //D controller
-        output[i] = u_p[i]+u_i[i]+u_d[i];
-    }
-    return(output);
-}
 string armstatus(){
     if(current_state.armed){
         return("Armed   ");
@@ -329,6 +342,8 @@ string statestatus(){
         return("RTL(4)");
     }else if(Mission_state == 5){
         return("Landing(5)");
+    }else if(Mission_state == 6){
+        return("PID(6)");
     }else{
         return("System error");
     }
@@ -359,13 +374,19 @@ void Finite_state_WP_mission(){
     }
     if (Mission_state == 4){ //state = 4; constant velocity RTL but with altitude
         Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
-        TargetPos << UAV_takeoffP[0],UAV_takeoffP[1],Current_stage_mission[3],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
+        TargetPos << UAV_takeoffP[0],UAV_takeoffP[1],UAV_lp[2],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
         constantVtraj(UAV_lp, TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
     }
     if (Mission_state == 5){ //state = 5; land.
         Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
         TargetPos << UAV_takeoffP[0],UAV_takeoffP[1],UAV_takeoffP[2],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
         constantVtraj(UAV_lp, TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
+    }
+    if (Mission_state == 6){ //state = 6; PID twist Aruco position hold.
+        pubtwist_traj = false; pubpose_traj = false; pubtwist = true;
+        Pos_setpoint = Vec3(Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3]);
+        PID_duration = Current_stage_mission[4];
+        PID_InitTime = ros::Time::now().toSec();
     }
     if (Current_stage_mission[7] != 0){ //Wait after finish stage.
         traj1 = trajectory1.back();
@@ -384,7 +405,7 @@ void Finite_state_WP_mission(){
             trajectory1.push_back(traj1);
         }
         traj1_information = Vec2(ros::Time::now().toSec(), traj1[0]-hovertime);
-        pubtwist = false;
+        pubpose_traj = true; pubtwist_traj = false; pubtwist = false;
     }
     if(trajectory2.size()>0){
         traj2 = trajectory2.back();
@@ -393,7 +414,7 @@ void Finite_state_WP_mission(){
             trajectory2.push_back(traj2);
         }
         traj2_information = Vec2(ros::Time::now().toSec(), traj2[0]-hovertime);
-        pubtwist = true;
+        pubpose_traj = false; pubtwist_traj = true; pubtwist = false;
     }    
     /*For Debug section plot the whole trajectory*/
     // int trajectorysize = trajectory1.size();
@@ -402,8 +423,7 @@ void Finite_state_WP_mission(){
     //   cout << "dt: " << current_traj[0] << " x: " << current_traj[1] << " y: " << current_traj[2] << " z: " << current_traj[3] << endl;
     // }
   }
-  if(trajectory1.size() > 0){UAV_pub(pubtwist);}
-  if(trajectory2.size() > 0){UAV_pub(pubtwist);}
+  UAV_pub(pubtwist_traj,pubpose_traj,pubtwist);
 }
 int main(int argc, char **argv){
     ros::init(argc, argv, "camera");
@@ -476,12 +496,16 @@ int main(int argc, char **argv){
             cout << "Mission stage = 1 Mission start!" <<endl;
         }
         Finite_state_WP_mission();
+        /* ROS timer */
+        // auto currentT = ros::Time::now().toSec();
+        // cout << "System_Hz: " << 1/(currentT-LastT) << endl;
+        // LastT = currentT;
         /*Mission information cout*********************************************/
         if(coutcounter > 10){ //reduce cout rate
             cout << "------------------------------------------------------------------------------" << endl;
             cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
             cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
-            cout << "Mission_State: " << statestatus() << " Twist On: " << pubtwist << endl;
+            cout << "Mission_State: " << statestatus() << endl;
             // cout << "aruco__pos_x: " << Aruco_pose_realsense.pose.position.x << " y: " << Aruco_pose_realsense.pose.position.y << " z: "<< Aruco_pose_realsense.pose.position.z << endl;
             // cout << "depth__pos_x: " << Depth_pose_realsense.pose.position.x << " y: " << Depth_pose_realsense.pose.position.y << " z: "<< Depth_pose_realsense.pose.position.z << endl;
             cout << "local__pos_x: " << UAV_lp[0] << " y: " << UAV_lp[1] << " z: "<< UAV_lp[2] << endl;
@@ -489,25 +513,20 @@ int main(int argc, char **argv){
             cout << "desiredtwist_x: " << UAV_twist_pub.linear.x << " y: " << UAV_twist_pub.linear.y << " z: "<< UAV_twist_pub.linear.z << endl;
             cout << "Trajectory timer countdown: " << traj1_information[1] - ros::Time::now().toSec() << endl;
             cout << "ROS_time: " << fixed << ros::Time::now().toSec() << endl;
-            cout << "traj1_size: " << trajectory1.size() << endl;
-            cout << "traj2_size: " << trajectory2.size() << endl;
+            cout << "traj1_size: " << trajectory1.size() << "  traj2_size: " << trajectory2.size() << endl;
             cout << "------------------------------------------------------------------------------" << endl;
             coutcounter = 0;
         }else{coutcounter++;}
-        /* ROS timer */
-        // auto currentT = ros::Time::now().toSec();
-        // cout << "callback_Hz: " << 1/(currentT-callback_LastT) << endl;
-        // callback_LastT = currentT;
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
-        if(pubtwist){
+        if(pubtwist_traj || pubtwist){
             local_vel_pub.publish(UAV_twist_pub);
-        }else{
+        }
+        if(pubpose_traj){
             local_pos_pub.publish(UAV_pose_pub);
         }
         ros::spinOnce();
         loop_rate.sleep();
     }
-
     return 0;
 }

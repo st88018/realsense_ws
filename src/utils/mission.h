@@ -14,7 +14,10 @@ deque<Vec8> Finite_stage_mission(){
     stage << 1, 0, 0, 1, 0, velocity_mission, velocity_angular, 10;   // state = 1; takeoff
     waypoints.push_back(stage);
 
-    stage << 3, 1, 1, 1, 60, 0, 0, 0;
+    // stage << 3, 0.5, 0.5, 0.5, 10, 0, 0, 0;
+    // waypoints.push_back(stage);
+
+    stage << 6, 10, 10, 10, 40, 0, 0, 0;
     waypoints.push_back(stage);
 
     stage << 4, 0, 0, 1, 0, velocity_mission, velocity_angular, 20;  // state = 4; constant velocity RTL but with altitude.
