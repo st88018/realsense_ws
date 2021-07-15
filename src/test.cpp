@@ -65,8 +65,6 @@ int    Current_Mission_stage = 0;
 Vec8 Current_stage_mission;
 Vec8 Last_stage_mission;
 double velocity_takeoff,altitude_mission;
-bool   UAV_flying = false;
-bool   stage_finished = false;
 bool   FSMinit = false;
 bool   pubtwist = false;
 /* System */
