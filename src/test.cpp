@@ -97,6 +97,12 @@ Vec3 Poistion_controller_PID(Vec3 pose, Vec3 setpoint){ // From Depth calculate 
         u_d[i] = derivative[i]*K_d[i];   //D controller
         output[i] = u_p[i]+u_i[i]+u_d[i];
     }
+    for (int i=0; i<3; i++){
+        if(output[i] > 1.5){ output[i]= 1.5;}
+        if(output[i] < -1.5){ output[i]= -1.5;}
+        if(output[i] > 3){ output[i]= 0;}
+        if(output[i] < -3){ output[i]= 0;}
+    }
     return(output);
 }
 void twist_pub(Vec3 vxvyvz){
@@ -148,7 +154,9 @@ void UAV_pub(bool pubtwist_traj, bool pubpose_traj, bool pubtwist){
         }
     }
     if(pubtwist){
-        twist_pub(Poistion_controller_PID(Vec3(UAV_lp[0],UAV_lp[1],UAV_lp[2]),Pos_setpoint));
+        // twist_pub(Poistion_controller_PID(Vec3(UAV_lp[0],UAV_lp[1],UAV_lp[2]),Pos_setpoint));
+        twist_pub(Poistion_controller_PID(Vec3(Aruco_pose_realsense.pose.position.x,Aruco_pose_realsense.pose.position.y
+                                              ,Aruco_pose_realsense.pose.position.z),Pos_setpoint));
         if (PID_InitTime+PID_duration < ros::Time::now().toSec()){
             Mission_stage++;
             Vec3 Zero3(0,0,0);
@@ -466,21 +474,22 @@ int main(int argc, char **argv){
             UAV_pose_pub.pose.orientation.x = UAV_takeoffP[4];
             UAV_pose_pub.pose.orientation.y = UAV_takeoffP[5];
             UAV_pose_pub.pose.orientation.z = UAV_takeoffP[6];
-            for(int i = 100; ros::ok() && i > 0; --i){
+            for(int i = 200; ros::ok() && i > 0; --i){
                 local_pos_pub.publish(UAV_pose_pub);
                 ros::spinOnce();
                 loop_rate.sleep();
             }
         }
         /*offboard and arm*****************************************************/
-        if( current_state.mode != "OFFBOARD" && (ros::Time::now() - last_request > ros::Duration(1.0)) && (ros::Time::now() - init_time < ros::Duration(10.0))){ 
+        if( current_state.mode != "OFFBOARD" && (ros::Time::now() - last_request > ros::Duration(0.5)) && (ros::Time::now() - init_time < ros::Duration(20.0))){ 
             //Set Offboard trigger duration here
+            local_pos_pub.publish(UAV_pose_pub);
             if( set_mode_client.call(offb_set_mode) && offb_set_mode.response.mode_sent){
                 ROS_INFO("Offboard enabled");
             }
             last_request = ros::Time::now();
         }else{
-            if( !current_state.armed && (ros::Time::now() - last_request > ros::Duration(1.0)) && (ros::Time::now() - init_time < ros::Duration(10.0))){
+            if( !current_state.armed && (ros::Time::now() - last_request > ros::Duration(0.5)) && (ros::Time::now() - init_time < ros::Duration(20.0))){
                 if( arming_client.call(arm_cmd) && arm_cmd.response.success){
                     ROS_INFO("Vehicle armed");
                 }
@@ -506,7 +515,7 @@ int main(int argc, char **argv){
             cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
             cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
             cout << "Mission_State: " << statestatus() << endl;
-            // cout << "aruco__pos_x: " << Aruco_pose_realsense.pose.position.x << " y: " << Aruco_pose_realsense.pose.position.y << " z: "<< Aruco_pose_realsense.pose.position.z << endl;
+            cout << "aruco__pos_x: " << Aruco_pose_realsense.pose.position.x << " y: " << Aruco_pose_realsense.pose.position.y << " z: "<< Aruco_pose_realsense.pose.position.z << endl;
             // cout << "depth__pos_x: " << Depth_pose_realsense.pose.position.x << " y: " << Depth_pose_realsense.pose.position.y << " z: "<< Depth_pose_realsense.pose.position.z << endl;
             cout << "local__pos_x: " << UAV_lp[0] << " y: " << UAV_lp[1] << " z: "<< UAV_lp[2] << endl;
             cout << "desiredpos_x: " << UAV_pose_pub.pose.position.x << " y: " << UAV_pose_pub.pose.position.y << " z: "<< UAV_pose_pub.pose.position.z << endl;
