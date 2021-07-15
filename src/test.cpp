@@ -32,6 +32,7 @@
 #include "utils/kinetic_math.h"
 #include "utils/mission.h"
 #include "utils/trajectories.h"
+#include "utils/cv.h"
 
 using namespace std;
 using namespace cv;
@@ -240,7 +241,6 @@ double find_depth_avg(cv::Mat image_dep, Vec8I markerConerABCD){
             }
         }
     }
-    // double MidDepth = 0.001 * image_dep.at<ushort>(markerCenterXY[1],markerCenterXY[0]); 
     if (valid_count == 0){
         return(0);
     }else{
