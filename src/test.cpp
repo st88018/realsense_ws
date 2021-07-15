@@ -57,8 +57,6 @@ Vec7 UAV_lp;
 cv::Mat cameraMatrix = cv::Mat::eye(3,3, CV_64F);
 cv::Mat depthcameraMatrix = cv::Mat::eye(3,3, CV_64F);
 cv::Mat distCoeffs = cv::Mat::zeros(8, 1, CV_64F);
-/* Constant velocity estimator */
-std::deque<Vec8I> CVE_Corners;
 /* FSM */
 Vec7 UAV_desP,UAV_takeoffP;
 int    Mission_state = 0;
@@ -223,49 +221,6 @@ Vec6 Pose_calc_Aruco(const cv::Vec3d rvecs, const cv::Vec3d tvecs){
               Aruco_translation_world[0],Aruco_translation_world[1],Aruco_translation_world[2];
     return(output);
 }
-double find_depth_avg(cv::Mat image_dep, Vec8I markerConerABCD){
-    Vec2I markerCenterXY = FindMarkerCenter(markerConerABCD);
-    double CornerLength1 = sqrt((pow(markerConerABCD[0]-markerConerABCD[2],2))
-                                +(pow(markerConerABCD[1]-markerConerABCD[3],2))); // in pixel
-    double CornerLength2 = sqrt((pow(markerConerABCD[4]-markerConerABCD[6],2))
-                                +(pow(markerConerABCD[5]-markerConerABCD[7],2))); // in pixel
-    double MidDepthTotal = 0;
-    int valid_count = 0;
-    for(int i = 0; i < max(CornerLength1,CornerLength2); i++){
-        for(int j = 0; j < max(CornerLength1,CornerLength2); j++){
-            double MidDepthij = 0.001 * image_dep.at<ushort>(markerCenterXY[1]-max(CornerLength1,CornerLength2)+i,
-                                                     markerCenterXY[0]-max(CornerLength1,CornerLength2)+j);
-            if (MidDepthij > 0 ){
-                MidDepthTotal += MidDepthij;
-                valid_count++;
-            }
-        }
-    }
-    if (valid_count == 0){
-        return(0);
-    }else{
-        return(MidDepthTotal/valid_count);
-    }
-}
-Vec2I Constant_velocity_predictor(const Vec8I last_markerConer,const int Lostcounter){
-    if (Lostcounter == 0){
-        CVE_Corners.push_back(last_markerConer);
-        if (CVE_Corners.size() > 5){ //calculate last five
-            CVE_Corners.pop_front();
-        }
-        return(FindMarkerCenter(last_markerConer));
-    }else{
-        Vec2I XY = Vec2I(0,0);
-        for(unsigned int i=0; i < (CVE_Corners.size()-1) ;i++){
-            Vec2I diff_xy = FindMarkerCenter(CVE_Corners.at(i)) - FindMarkerCenter(CVE_Corners.at(i+1));
-            XY += diff_xy;
-            XY /= CVE_Corners.size();
-            XY *= Lostcounter;
-        }
-        // return(FindMarkerCenter(CVE_Corners.back())+XY);
-        return(FindMarkerCenter(last_markerConer));
-    }
-}
 void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs::ImageConstPtr &depth){
     // cout<<"hello callback "<<endl;
     cv::Mat image_rgb;
@@ -339,6 +294,49 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     cv::imshow("Aruco_out", ArucoOutput);
     cv::waitKey(1);
 }
+Vec3 Poistion_controller_PID(Vec3 pose, Vec3 setpoint){ // From Depth calculate XYZ position only
+    Vec3 error,last_error,u_p,u_i,u_d,output; // Position Error
+    double Last_time = ros::Time::now().toSec();
+    double iteration_time = ros::Time::now().toSec() - Last_time;
+    Vec3 K_p(1,1,1);
+    Vec3 K_i(0,0,0);
+    Vec3 K_d(0,0,0);
+    error = setpoint-pose;
+    last_error = error;
+    Vec3 integral = integral+(error*iteration_time);
+    Vec3 derivative = (error - last_error)/iteration_time;
+    for (int i=0; i<3; i++){ // i = x,y,z
+        u_p[i] = error[i]*K_p[i];        //P controller
+        u_i[i] = integral[i]*K_i[i];     //I controller
+        u_d[i] = derivative[i]*K_d[i];   //D controller
+        output[i] = u_p[i]+u_i[i]+u_d[i];
+    }
+    return(output);
+}
+string armstatus(){
+    if(current_state.armed){
+        return("Armed   ");
+    }else{
+        return("Disarmed");
+    }
+}
+string statestatus(){
+    if (Mission_state == 0){
+        return("Not Initialized(0)");
+    }else if(Mission_state == 1){
+        return("TakeOff(1)");
+    }else if(Mission_state == 2){
+        return("constantVtraj(2)");
+    }else if(Mission_state == 3){
+        return("Twist(3)");
+    }else if(Mission_state == 4){
+        return("RTL(4)");
+    }else if(Mission_state == 5){
+        return("Landing(5)");
+    }else{
+        return("System error");
+    }
+}
 void Finite_state_WP_mission(){ 
   // Generate trajectory while mission stage change
   if (Mission_stage != Current_Mission_stage){
@@ -410,49 +408,6 @@ void Finite_state_WP_mission(){
   }
   if(trajectory1.size() > 0){UAV_pub(pubtwist);}
   if(trajectory2.size() > 0){UAV_pub(pubtwist);}
-}
-Vec3 Poistion_controller_PID(Vec3 pose, Vec3 setpoint){ // From Depth calculate XYZ position only
-    Vec3 error,last_error,u_p,u_i,u_d,output; // Position Error
-    double Last_time = ros::Time::now().toSec();
-    double iteration_time = ros::Time::now().toSec() - Last_time;
-    Vec3 K_p(1,1,1);
-    Vec3 K_i(0,0,0);
-    Vec3 K_d(0,0,0);
-    error = setpoint-pose;
-    last_error = error;
-    Vec3 integral = integral+(error*iteration_time);
-    Vec3 derivative = (error - last_error)/iteration_time;
-    for (int i=0; i<3; i++){ // i = x,y,z
-        u_p[i] = error[i]*K_p[i];        //P controller
-        u_i[i] = integral[i]*K_i[i];     //I controller
-        u_d[i] = derivative[i]*K_d[i];   //D controller
-        output[i] = u_p[i]+u_i[i]+u_d[i];
-    }
-    return(output);
-}
-string armstatus(){
-    if(current_state.armed){
-        return("Armed   ");
-    }else{
-        return("Disarmed");
-    }
-}
-string statestatus(){
-    if (Mission_state == 0){
-        return("Not Initialized(0)");
-    }else if(Mission_state == 1){
-        return("TakeOff(1)");
-    }else if(Mission_state == 2){
-        return("constantVtraj(2)");
-    }else if(Mission_state == 3){
-        return("Twist(3)");
-    }else if(Mission_state == 4){
-        return("RTL(4)");
-    }else if(Mission_state == 5){
-        return("Landing(5)");
-    }else{
-        return("System error");
-    }
 }
 int main(int argc, char **argv){
     ros::init(argc, argv, "camera");
