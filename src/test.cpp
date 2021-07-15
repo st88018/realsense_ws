@@ -51,7 +51,7 @@ static geometry_msgs::PoseStamped Depth_pose_realsense;
 static geometry_msgs::PoseStamped UAV_pose_vicon;
 static geometry_msgs::PoseStamped Camera_pose_vicon;
 static geometry_msgs::PoseStamped UAV_pose_pub;
-static geometry_msgs::Twist    UAV_twist_pub;
+static geometry_msgs::Twist       UAV_twist_pub;
 Vec7 UAV_lp;
 /*IRR filter parameter*/
 cv::Mat cameraMatrix = cv::Mat::eye(3,3, CV_64F);
@@ -62,17 +62,15 @@ Vec7 UAV_desP,UAV_takeoffP;
 int    Mission_state = 0;
 int    Mission_stage = 0;
 int    Current_Mission_stage = 0;
-Vec8 Current_stage_mission;
-Vec8 Last_stage_mission;
-double velocity_takeoff,altitude_mission;
+Vec8   Current_stage_mission;
+Vec8   Last_stage_mission;
 bool   FSMinit = false;
 bool   pubtwist = false;
 /* System */
 bool ROS_init = true;
-double System_initT,callback_LastT,System_LastT;
+double System_initT,callback_LastT;
 ros::Time last_request;
 ros::Time init_time;
-int LowSpeedcounter;
 mavros_msgs::State current_state;
 int coutcounter = 0;
 
