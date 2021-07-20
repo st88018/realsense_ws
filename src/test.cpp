@@ -98,18 +98,18 @@ Vec4 Poistion_controller_PID(Vec4 pose, Vec4 setpoint){ // From Depth calculate 
         output[i] = u_p[i]+u_i[i]+u_d[i];
     }
     for (int i=0; i<3; i++){
-        if(output[i] > 1.5){ output[i]= 1.5;}
+        if(output[i] >  1.5){ output[i]= 1.5;}
         if(output[i] < -1.5){ output[i]= -1.5;}
-        if(output[i] > 3){ output[i]= 0;}
+        if(output[i] >  3){ output[i]= 0;}
         if(output[i] < -3){ output[i]= 0;}
     }
     return(output);
 }
-void twist_pub(Vec4 vxvyvzvaz){
-    UAV_twist_pub.linear.x = vxvyvzvaz(0);
-    UAV_twist_pub.linear.y = vxvyvzvaz(1);
-    UAV_twist_pub.linear.z = vxvyvzvaz(2);
-    UAV_twist_pub.angular.z= vxvyvzvaz(3);
+void twist_pub(Vec4 vxyzaz){
+    UAV_twist_pub.linear.x = vxyzaz(0);
+    UAV_twist_pub.linear.y = vxyzaz(1);
+    UAV_twist_pub.linear.z = vxyzaz(2);
+    UAV_twist_pub.angular.z= vxyzaz(3);
 }
 void pose_pub(Vec7 posepub){
     UAV_pose_pub.header.frame_id = "world";
@@ -158,7 +158,7 @@ void UAV_pub(bool pubtwist_traj, bool pubpose_traj, bool pubtwist){
         Quaterniond localq(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]);
         Vec3 localrpy = Q2rpy(localq);
         Vec4 xyzyaw;
-        xyzyaw << Aruco_pose_realsense.pose.position.x,Aruco_pose_realsense.pose.position.y,Aruco_pose_realsense.pose.position.z,localrpy[2];
+        xyzyaw << UAV_pose_vicon.pose.position.x,UAV_pose_vicon.pose.position.y,UAV_pose_vicon.pose.position.z,localrpy[2];
         twist_pub(Poistion_controller_PID(xyzyaw,Pos_setpoint));
         if (PID_InitTime+PID_duration < ros::Time::now().toSec()){
             Mission_stage++;
@@ -522,7 +522,7 @@ int main(int argc, char **argv){
             // cout << "depth__pos_x: " << Depth_pose_realsense.pose.position.x << " y: " << Depth_pose_realsense.pose.position.y << " z: "<< Depth_pose_realsense.pose.position.z << endl;
             cout << "local__pos_x: " << UAV_lp[0] << " y: " << UAV_lp[1] << " z: "<< UAV_lp[2] << endl;
             cout << "desiredpos_x: " << UAV_pose_pub.pose.position.x << " y: " << UAV_pose_pub.pose.position.y << " z: "<< UAV_pose_pub.pose.position.z << endl;
-            cout << "desiredtwist_x: " << UAV_twist_pub.linear.x << " y: " << UAV_twist_pub.linear.y << " z: "<< UAV_twist_pub.linear.z << endl;
+            cout << "desiredtwist_x: " << UAV_twist_pub.linear.x << " y: " << UAV_twist_pub.linear.y << " z: "<< UAV_twist_pub.linear.z << " az: " << UAV_twist_pub.angular.z << endl;
             cout << "Trajectory timer countdown: " << traj1_information[1] - ros::Time::now().toSec() << endl;
             cout << "ROS_time: " << fixed << ros::Time::now().toSec() << endl;
             cout << "traj1_size: " << trajectory1.size() << "  traj2_size: " << trajectory2.size() << endl;
