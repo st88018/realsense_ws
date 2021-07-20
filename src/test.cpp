@@ -426,7 +426,7 @@ void Finite_state_WP_mission(){
         }
         traj2_information = Vec2(ros::Time::now().toSec(), traj2[0]-hovertime);
         pubpose_traj = false; pubtwist_traj = true; pubtwist = false;
-    }    
+    }
     /*For Debug section plot the whole trajectory*/
     // int trajectorysize = trajectory1.size();
     // for (int i = 0; i < trajectorysize; i++){
