@@ -69,7 +69,7 @@ bool   pubtwist_traj = false;
 bool   pubpose_traj  = false;
 bool   pubtwist      = false;
 /* PID Position controller */
-Vec3   Pos_setpoint;
+Vec4   Pos_setpoint;
 double PID_duration;
 double PID_InitTime;
 /* System */
@@ -80,18 +80,18 @@ ros::Time init_time;
 mavros_msgs::State current_state;
 int coutcounter = 0;
 
-Vec3 Poistion_controller_PID(Vec3 pose, Vec3 setpoint){ // From Depth calculate XYZ position only
-    Vec3 error,last_error,u_p,u_i,u_d,output; // Position Error
+Vec4 Poistion_controller_PID(Vec4 pose, Vec4 setpoint){ // From Depth calculate XYZ position and yaw
+    Vec4 error,last_error,u_p,u_i,u_d,output; // Position Error
     double Last_time = ros::Time::now().toSec();
     double iteration_time = ros::Time::now().toSec() - Last_time;
-    Vec3 K_p(0.5,0.5,0.5);
-    Vec3 K_i(0,0,0);
-    Vec3 K_d(0,0,0);
+    Vec4 K_p(0.5,0.5,0.5,0.1);
+    Vec4 K_i(0,0,0,0);
+    Vec4 K_d(0,0,0,0);
     error = setpoint-pose;
     last_error = error;
-    Vec3 integral = integral+(error*iteration_time);
-    Vec3 derivative = (error - last_error)/iteration_time;
-    for (int i=0; i<3; i++){ // i = x,y,z
+    Vec4 integral = integral+(error*iteration_time);
+    Vec4 derivative = (error - last_error)/iteration_time;
+    for (int i=0; i<4; i++){ // i = x,y,z
         u_p[i] = error[i]*K_p[i];        //P controller
         u_i[i] = integral[i]*K_i[i];     //I controller
         u_d[i] = derivative[i]*K_d[i];   //D controller
@@ -105,10 +105,11 @@ Vec3 Poistion_controller_PID(Vec3 pose, Vec3 setpoint){ // From Depth calculate 
     }
     return(output);
 }
-void twist_pub(Vec3 vxvyvz){
-    UAV_twist_pub.linear.x = vxvyvz(0);
-    UAV_twist_pub.linear.y = vxvyvz(1);
-    UAV_twist_pub.linear.z = vxvyvz(2);
+void twist_pub(Vec4 vxvyvzvaz){
+    UAV_twist_pub.linear.x = vxvyvzvaz(0);
+    UAV_twist_pub.linear.y = vxvyvzvaz(1);
+    UAV_twist_pub.linear.z = vxvyvzvaz(2);
+    UAV_twist_pub.angular.z= vxvyvzvaz(3);
 }
 void pose_pub(Vec7 posepub){
     UAV_pose_pub.header.frame_id = "world";
@@ -145,22 +146,24 @@ void UAV_pub(bool pubtwist_traj, bool pubpose_traj, bool pubtwist){
             trajectory2.pop_front();
             traj2_deque_front = trajectory2.front();
         }
-        twist_pub(Vec3(traj2_deque_front[1],traj2_deque_front[2],traj2_deque_front[3]));
+        twist_pub(Vec4(traj2_deque_front[1],traj2_deque_front[2],traj2_deque_front[3],traj2_deque_front[4]));
         if (traj2_deque_front[0] > traj2_information[1]){
             Mission_stage++;
             trajectory2.clear();
-            Vec3 Zero3(0,0,0);
-            twist_pub(Zero3);
+            Vec4 Zero4(0,0,0,0);
+            twist_pub(Zero4);
         }
     }
     if(pubtwist){
-        // twist_pub(Poistion_controller_PID(Vec3(UAV_lp[0],UAV_lp[1],UAV_lp[2]),Pos_setpoint));
-        twist_pub(Poistion_controller_PID(Vec3(Aruco_pose_realsense.pose.position.x,Aruco_pose_realsense.pose.position.y
-                                              ,Aruco_pose_realsense.pose.position.z),Pos_setpoint));
+        Quaterniond localq(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]);
+        Vec3 localrpy = Q2rpy(localq);
+        Vec4 xyzyaw;
+        xyzyaw << Aruco_pose_realsense.pose.position.x,Aruco_pose_realsense.pose.position.y,Aruco_pose_realsense.pose.position.z,localrpy[2];
+        twist_pub(Poistion_controller_PID(xyzyaw,Pos_setpoint));
         if (PID_InitTime+PID_duration < ros::Time::now().toSec()){
             Mission_stage++;
-            Vec3 Zero3(0,0,0);
-            twist_pub(Zero3);
+            Vec4 Zero4(0,0,0,0);
+            twist_pub(Zero4);
         }
     }
 }
@@ -378,7 +381,7 @@ void Finite_state_WP_mission(){
         constantVtraj(UAV_lp, TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
     }
     if (Mission_state == 3){ //state = 3; For Twist test
-        gen_twist_traj(Vec3(Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3]),Current_stage_mission[4]);
+        gen_twist_traj(Vec4(Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3],Current_stage_mission[4]),Current_stage_mission[5]);
     }
     if (Mission_state == 4){ //state = 4; constant velocity RTL but with altitude
         Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
@@ -392,8 +395,8 @@ void Finite_state_WP_mission(){
     }
     if (Mission_state == 6){ //state = 6; PID twist Aruco position hold.
         pubtwist_traj = false; pubpose_traj = false; pubtwist = true;
-        Pos_setpoint = Vec3(Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3]);
-        PID_duration = Current_stage_mission[4];
+        Pos_setpoint << Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3],Current_stage_mission[3];
+        PID_duration = Current_stage_mission[5];
         PID_InitTime = ros::Time::now().toSec();
     }
     if (Current_stage_mission[7] != 0){ //Wait after finish stage.
