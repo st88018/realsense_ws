@@ -242,24 +242,6 @@ Vec6 Pose_calc(const Vec3 rvecs, const Vec3 tvecs){
               translation_world[0],translation_world[1],translation_world[2];
     return(output);
 }
-Vec6 Pose_calc_Aruco(const cv::Vec3d rvecs, const cv::Vec3d tvecs){
-    Eigen::Quaterniond q;
-    q.w() = Camera_pose_vicon.pose.orientation.w;
-    q.x() = Camera_pose_vicon.pose.orientation.x;
-    q.y() = Camera_pose_vicon.pose.orientation.y;
-    q.z() = Camera_pose_vicon.pose.orientation.z;
-    Eigen::Matrix3d Camera_Rotation_world = Eigen::Matrix3d::Identity();
-    Camera_Rotation_world = q.matrix();
-    Vec3 Camera_Translation_world(Camera_pose_vicon.pose.position.x, Camera_pose_vicon.pose.position.y, Camera_pose_vicon.pose.position.z);
-    Vec3 Aruco_translation_camera(tvecs(0),tvecs(1),tvecs(2));
-    Vec3 Aruco_rpy_camera(rvecs[0],rvecs[1],rvecs[2]);
-    Vec3 Aruco_translation_world = Camera_Rotation_world * Aruco_translation_camera + Camera_Translation_world;
-    Vec3 Aruco_rpy_world = Camera_Rotation_world*Aruco_rpy_camera;
-    Vec6 output;
-    output << Aruco_rpy_world[0],Aruco_rpy_world[1],Aruco_rpy_world[2],
-              Aruco_translation_world[0],Aruco_translation_world[1],Aruco_translation_world[2];
-    return(output);
-}
 void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs::ImageConstPtr &depth){
     // cout<<"hello callback "<<endl;
     cv::Mat image_rgb;
@@ -486,15 +468,10 @@ int main(int argc, char **argv){
             waypoints = Finite_stage_mission(); //Generate stages
             cout << " System Initialized" << endl;
             /* Waypoints before starting */
-            UAV_pose_pub.header.frame_id = "world";
-            UAV_pose_pub.pose.position.x = UAV_takeoffP[0];
-            UAV_pose_pub.pose.position.y = UAV_takeoffP[1];
-            UAV_pose_pub.pose.position.z = UAV_takeoffP[2];
-            UAV_pose_pub.pose.orientation.w = UAV_takeoffP[3];
-            UAV_pose_pub.pose.orientation.x = UAV_takeoffP[4];
-            UAV_pose_pub.pose.orientation.y = UAV_takeoffP[5];
-            UAV_pose_pub.pose.orientation.z = UAV_takeoffP[6];
-            for(int i = 200; ros::ok() && i > 0; --i){
+            Vec7 Zero7; 
+            Zero7 << 0,0,0,0,0,0,0;
+            pose_pub(Zero7);
+            for(int i = 10; ros::ok() && i > 0; --i){
                 local_pos_pub.publish(UAV_pose_pub);
                 ros::spinOnce();
                 loop_rate.sleep();
@@ -525,10 +502,6 @@ int main(int argc, char **argv){
             cout << "Mission stage = 1 Mission start!" <<endl;
         }
         Finite_state_WP_mission();
-        /* ROS timer */
-        // auto currentT = ros::Time::now().toSec();
-        // cout << "System_Hz: " << 1/(currentT-LastT) << endl;
-        // LastT = currentT;
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
         if(pubtwist_traj || pubtwist){
@@ -537,6 +510,10 @@ int main(int argc, char **argv){
         if(pubpose_traj){
             local_pos_pub.publish(UAV_pose_pub);
         }
+        /* ROS timer */
+        // auto currentT = ros::Time::now().toSec();
+        // cout << "System_Hz: " << 1/(currentT-LastT) << endl;
+        // LastT = currentT;
         ros::spinOnce();
         loop_rate.sleep();
     }
