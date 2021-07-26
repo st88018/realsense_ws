@@ -435,6 +435,23 @@ void Finite_state_WP_mission(){
     // }
   }
   UAV_pub(pubtwist_traj,pubpose_traj,pubtwist);
+  /*Mission information cout*********************************************/
+    if(coutcounter > 10){ //reduce cout rate
+        cout << "------------------------------------------------------------------------------" << endl;
+        cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
+        cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
+        cout << "Mission_State: " << statestatus() << endl;
+        cout << "aruco__pos_x: " << Aruco_pose_realsense.pose.position.x << " y: " << Aruco_pose_realsense.pose.position.y << " z: "<< Aruco_pose_realsense.pose.position.z << endl;
+        // cout << "depth__pos_x: " << Depth_pose_realsense.pose.position.x << " y: " << Depth_pose_realsense.pose.position.y << " z: "<< Depth_pose_realsense.pose.position.z << endl;
+        cout << "local__pos_x: " << UAV_lp[0] << " y: " << UAV_lp[1] << " z: "<< UAV_lp[2] << endl;
+        cout << "desiredpos_x: " << UAV_pose_pub.pose.position.x << " y: " << UAV_pose_pub.pose.position.y << " z: "<< UAV_pose_pub.pose.position.z << endl;
+        cout << "desiredtwist_x: " << UAV_twist_pub.linear.x << " y: " << UAV_twist_pub.linear.y << " z: "<< UAV_twist_pub.linear.z << " az: " << UAV_twist_pub.angular.z << endl;
+        cout << "Trajectory timer countdown: " << traj1_information[1] - ros::Time::now().toSec() << endl;
+        cout << "ROS_time: " << fixed << ros::Time::now().toSec() << endl;
+        cout << "traj1_size: " << trajectory1.size() << "  traj2_size: " << trajectory2.size() << endl;
+        cout << "------------------------------------------------------------------------------" << endl;
+        coutcounter = 0;
+    }else{coutcounter++;}
 }
 int main(int argc, char **argv){
     ros::init(argc, argv, "camera");
@@ -512,23 +529,6 @@ int main(int argc, char **argv){
         // auto currentT = ros::Time::now().toSec();
         // cout << "System_Hz: " << 1/(currentT-LastT) << endl;
         // LastT = currentT;
-        /*Mission information cout*********************************************/
-        if(coutcounter > 10){ //reduce cout rate
-            cout << "------------------------------------------------------------------------------" << endl;
-            cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
-            cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
-            cout << "Mission_State: " << statestatus() << endl;
-            cout << "aruco__pos_x: " << Aruco_pose_realsense.pose.position.x << " y: " << Aruco_pose_realsense.pose.position.y << " z: "<< Aruco_pose_realsense.pose.position.z << endl;
-            // cout << "depth__pos_x: " << Depth_pose_realsense.pose.position.x << " y: " << Depth_pose_realsense.pose.position.y << " z: "<< Depth_pose_realsense.pose.position.z << endl;
-            cout << "local__pos_x: " << UAV_lp[0] << " y: " << UAV_lp[1] << " z: "<< UAV_lp[2] << endl;
-            cout << "desiredpos_x: " << UAV_pose_pub.pose.position.x << " y: " << UAV_pose_pub.pose.position.y << " z: "<< UAV_pose_pub.pose.position.z << endl;
-            cout << "desiredtwist_x: " << UAV_twist_pub.linear.x << " y: " << UAV_twist_pub.linear.y << " z: "<< UAV_twist_pub.linear.z << " az: " << UAV_twist_pub.angular.z << endl;
-            cout << "Trajectory timer countdown: " << traj1_information[1] - ros::Time::now().toSec() << endl;
-            cout << "ROS_time: " << fixed << ros::Time::now().toSec() << endl;
-            cout << "traj1_size: " << trajectory1.size() << "  traj2_size: " << trajectory2.size() << endl;
-            cout << "------------------------------------------------------------------------------" << endl;
-            coutcounter = 0;
-        }else{coutcounter++;}
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
         if(pubtwist_traj || pubtwist){
