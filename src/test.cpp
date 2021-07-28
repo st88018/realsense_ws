@@ -73,6 +73,7 @@ Vec4   Pos_setpoint;
 double PID_duration;
 double PID_InitTime;
 /* System */
+bool UAV = false;
 bool ROS_init = true;
 double System_initT,LastT;
 ros::Time last_request;
@@ -226,7 +227,7 @@ void Depth_PosePub(Vec6 rpyxyz){
     Depth_pose_realsense.pose.orientation.y = Q.y();
     Depth_pose_realsense.pose.orientation.z = Q.z();
 }
-Vec6 Pose_calc(const Vec3 rvecs, const Vec3 tvecs){
+Vec6 Pose_calc(const Vec3 rvecs, const Vec3 tvecs){ // camera coordinate to world coordinate
     Eigen::Quaterniond q;
     q.w() = Camera_pose_vicon.pose.orientation.w;
     q.x() = Camera_pose_vicon.pose.orientation.x;
@@ -266,7 +267,9 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     Vec8I markerConerABCD;
     Vec8I last_markerConerABCD;
     std::vector<std::vector<cv::Point2f>> markerCorners, rejectedCandidates;
+    std::vector<cv::Point2f> markerCorner;
     std::vector<cv::Vec3d> rvecs, tvecs;
+    cv::Vec3d rvec, tvec;
     rvecs.clear();tvecs.clear();
     cv::Ptr<cv::aruco::DetectorParameters> parameters = cv::aruco::DetectorParameters::create();
     cv::Ptr<cv::aruco::Dictionary> dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_250);
@@ -279,7 +282,7 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
         cv::aruco::estimatePoseSingleMarkers(markerCorners, 0.06, cameraMatrix, distCoeffs, rvecs, tvecs);
         for(unsigned int i=0; i<markerIds.size(); i++){
             cv::aruco::drawAxis(ArucoOutput, cameraMatrix, distCoeffs, rvecs[i], tvecs[i], 0.1);
-            std::vector<cv::Point2f> markerCorner = markerCorners[i];
+            markerCorner = markerCorners[i];
             for (unsigned int j=0; j<markerCorner.size();j++){
                 cv::Point2f MC = markerCorner[j];
                 markerConerABCD[j*2] = MC.x;
@@ -294,8 +297,8 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
         cv::Mat image_dep = depth_ptr->image;
         Vec3 Depthrvecs;
         if(Aruco_found){
-            cv::Vec3d rvec = rvecs.front();
-            cv::Vec3d tvec = tvecs.front();
+            rvec = rvecs.front();
+            tvec = tvecs.front();
             Vec3 Aruco_translation_camera(tvec(0),tvec(1),tvec(2));
             Vec3 Aruco_rpy_camera(rvec(0),rvec(1),rvec(2));
             Aruco_PosePub(Pose_calc(Aruco_rpy_camera,Aruco_translation_camera));
@@ -311,15 +314,22 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     }
     
     /* SolvePNP test */
-    // cv::Vec3d PNPrvec, PNPtvec;
-    // vector<cv::Point3f> PNPPoints3D;
-    // vector<cv::Point2f> PNPPoints2D;
-    // PNPPoints3D.clear();PNPPoints2D.clear();
-    // PNPPoints3D.push_back(cv::Point3f( 0, 0, 0));
-    // PNPPoints3D.push_back(cv::Point3f( 0,60, 0));
-    // PNPPoints3D.push_back(cv::Point3f(60,60, 0));
-    // PNPPoints3D.push_back(cv::Point3f(60, 0, 0));
-    // PNPPoints2D.push_back();
+    cv::Vec3d PNPrvec, PNPtvec, PNPRrvec, PNPRtvec;
+    vector<cv::Point3f> PNPPoints3D;
+    vector<cv::Point2f> PNPPoints2D = markerCorner;
+    PNPPoints3D.clear();
+    PNPPoints3D.push_back(cv::Point3f( 0, 0, 0));
+    PNPPoints3D.push_back(cv::Point3f( 0,60, 0));
+    PNPPoints3D.push_back(cv::Point3f(60,60, 0));
+    PNPPoints3D.push_back(cv::Point3f(60, 0, 0));
+
+    if (Aruco_found){
+        solvePnP(PNPPoints3D, PNPPoints2D, cameraMatrix, distCoeffs, PNPrvec, PNPtvec, false, SOLVEPNP_ITERATIVE);
+        solvePnPRansac(PNPPoints3D, PNPPoints2D, cameraMatrix, distCoeffs, PNPRrvec, PNPRtvec, false, 100, 2);
+        cout << "Aruco Tvec: " << tvec*1000 << endl;
+        cout << "PNP   Tvec: " << PNPtvec << endl;
+        cout << "PNPR  Tvec: " << PNPRtvec << endl;
+    }    
 
     /* image plot */
     // cv::Mat depImage = image_dep.clone();
@@ -473,6 +483,7 @@ int main(int argc, char **argv){
     Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), rgb_sub, dep_sub);
     sync.registerCallback(boost::bind(&callback, _1, _2));
     while(ros::ok()){
+        if (UAV){
         if (ROS_init){
             System_initT = ros::Time::now().toSec();
             init_time = ros::Time::now();
@@ -514,14 +525,15 @@ int main(int argc, char **argv){
             cout << "Mission stage = 1 Mission start!" <<endl;
         }
         Finite_state_WP_mission();
-        ArucoPose_pub.publish(Aruco_pose_realsense);
-        DepthPose_pub.publish(Depth_pose_realsense);
         if(pubtwist_traj || pubtwist){
             local_vel_pub.publish(UAV_twist_pub);
         }
         if(pubpose_traj){
             local_pos_pub.publish(UAV_pose_pub);
-        }
+        }}
+
+        ArucoPose_pub.publish(Aruco_pose_realsense);
+        DepthPose_pub.publish(Depth_pose_realsense);
         /* ROS timer */
         // auto currentT = ros::Time::now().toSec();
         // cout << "System_Hz: " << 1/(currentT-LastT) << endl;
