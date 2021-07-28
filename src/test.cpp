@@ -309,6 +309,18 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
             Depth_PosePub(Pose_calc(Depthrvecs,camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters)));
         }
     }
+    
+    /* SolvePNP test */
+    // cv::Vec3d PNPrvec, PNPtvec;
+    // vector<cv::Point3f> PNPPoints3D;
+    // vector<cv::Point2f> PNPPoints2D;
+    // PNPPoints3D.clear();PNPPoints2D.clear();
+    // PNPPoints3D.push_back(cv::Point3f( 0, 0, 0));
+    // PNPPoints3D.push_back(cv::Point3f( 0,60, 0));
+    // PNPPoints3D.push_back(cv::Point3f(60,60, 0));
+    // PNPPoints3D.push_back(cv::Point3f(60, 0, 0));
+    // PNPPoints2D.push_back();
+
     /* image plot */
     // cv::Mat depImage = image_dep.clone();
     // cv::imshow("dep_out", depImage);
