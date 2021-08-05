@@ -68,4 +68,10 @@ Vec2I Constant_velocity_predictor(const Vec8I last_markerConer,const int Lostcou
         return(FindMarkerCenter(last_markerConer));
     }
 }
+void writeCSV(string filename, cv::Mat m){
+       ofstream myfile;
+       myfile.open(filename.c_str());
+       myfile<< cv::format(m, cv::Formatter::FMT_CSV) << std::endl;
+       myfile.close();
+}
 #endif 

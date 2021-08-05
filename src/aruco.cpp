@@ -130,7 +130,6 @@ void Depth_Cal(const geometry_msgs::PoseStamped& Aruco_pose_gt , const geometry_
     //cout << "--------------\n " << endl;
     //cout << "relative pose of aruco update \n" << tv << endl;
     //cout << "-------------- \n" << endl;
-
 }
 
 

@@ -80,6 +80,8 @@ ros::Time last_request;
 ros::Time init_time;
 mavros_msgs::State current_state;
 int coutcounter = 0;
+static Vec7 Zero7;
+static Vec4 Zero4;
 
 Vec4 Poistion_controller_PID(Vec4 pose, Vec4 setpoint){ // From Depth calculate XYZ position and yaw
     Vec4 error,last_error,u_p,u_i,u_d,output; // Position Error
@@ -136,8 +138,6 @@ void UAV_pub(bool pubtwist_traj, bool pubpose_traj, bool pubtwist){
         if (traj1_deque_front[0] > traj1_information[1]){
             Mission_stage++;
             trajectory1.clear();
-            Vec7 Zero7;
-            Zero7 << 0,0,0,0,0,0,0;
             pose_pub(Zero7);
         }
     }
@@ -151,7 +151,6 @@ void UAV_pub(bool pubtwist_traj, bool pubpose_traj, bool pubtwist){
         if (traj2_deque_front[0] > traj2_information[1]){
             Mission_stage++;
             trajectory2.clear();
-            Vec4 Zero4(0,0,0,0);
             twist_pub(Zero4);
         }
     }
@@ -163,7 +162,6 @@ void UAV_pub(bool pubtwist_traj, bool pubpose_traj, bool pubtwist){
         twist_pub(Poistion_controller_PID(xyzyaw,Pos_setpoint));
         if (PID_InitTime+PID_duration < ros::Time::now().toSec()){
             Mission_stage++;
-            Vec4 Zero4(0,0,0,0);
             twist_pub(Zero4);
         }
     }
@@ -325,16 +323,27 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
 
     if (Aruco_found){
         solvePnP(PNPPoints3D, PNPPoints2D, cameraMatrix, distCoeffs, PNPrvec, PNPtvec, false, SOLVEPNP_ITERATIVE);
-        solvePnPRansac(PNPPoints3D, PNPPoints2D, cameraMatrix, distCoeffs, PNPRrvec, PNPRtvec, false, 100, 2);
         cout << "Aruco Tvec: " << tvec*1000 << endl;
         cout << "PNP   Tvec: " << PNPtvec << endl;
-        cout << "PNPR  Tvec: " << PNPRtvec << endl;
-    }    
+    }
+
+    cv::Mat image_hsv, image_Rthreshold, image_Gthreshold, image_Bthreshold;
+    cvtColor(image_rgb, image_hsv, COLOR_BGR2HSV);
+    inRange(image_hsv, Scalar(160, 150, 150), Scalar(179, 255, 255), image_Rthreshold); //Threshold the image
+    inRange(image_hsv, Scalar(38, 150, 150), Scalar(75, 255, 255), image_Gthreshold);
+    inRange(image_hsv, Scalar(75, 150, 150), Scalar(130, 255, 255), image_Bthreshold);
+
+    cv::imwrite("image_rgb.jpg",image_rgb);
+
 
     /* image plot */
     // cv::Mat depImage = image_dep.clone();
     // cv::imshow("dep_out", depImage);
     cv::imshow("Aruco_out", ArucoOutput);
+    cv::imshow("image_Rthreshold", image_Rthreshold);
+    cv::imshow("image_Gthreshold", image_Gthreshold);
+    cv::imshow("image_Bthreshold", image_Bthreshold);
+    cv::imshow("image_hsv", image_hsv);
     cv::waitKey(1);
 }
 string armstatus(){
@@ -482,6 +491,9 @@ int main(int argc, char **argv){
     typedef sync_policies::ApproximateTime<CompressedImage, Image> MySyncPolicy;
     Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), rgb_sub, dep_sub);
     sync.registerCallback(boost::bind(&callback, _1, _2));
+    Zero4 << 0,0,0,0;
+    Zero7 << 0,0,0,0,0,0,0;
+
     while(ros::ok()){
         if (UAV){
         if (ROS_init){
@@ -490,9 +502,7 @@ int main(int argc, char **argv){
             ROS_init = false;
             waypoints = Finite_stage_mission(); //Generate stages
             cout << " System Initialized" << endl;
-            /* Waypoints before starting */
-            Vec7 Zero7; 
-            Zero7 << 0,0,0,0,0,0,0;
+            /* Waypoints before starting */ 
             pose_pub(Zero7);
             for(int i = 10; ros::ok() && i > 0; --i){
                 local_pos_pub.publish(UAV_pose_pub);
