@@ -335,6 +335,8 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
 
     cv::imwrite("image_rgb.jpg",image_rgb);
 
+    //https://www.opencv-srf.com/2010/09/object-detection-using-color-seperation.html
+
 
     /* image plot */
     // cv::Mat depImage = image_dep.clone();
