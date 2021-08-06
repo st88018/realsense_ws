@@ -85,8 +85,7 @@ static Vec4 Zero4;
 
 void imageprocess(){
     
-    std::string image_path = samples::findFile("E10S50.jpg");
-    cv::Mat image_jpg = imread(image_path, IMREAD_COLOR);
+    cv::Mat image_jpg = imread("E10S50.jpg");
 
     cv::Mat image_hsv, image_Rthreshold, image_Gthreshold, image_Bthreshold;
     cvtColor(image_jpg, image_hsv, COLOR_BGR2HSV);
@@ -503,6 +502,8 @@ int main(int argc, char **argv){
     sync.registerCallback(boost::bind(&callback, _1, _2));
     Zero4 << 0,0,0,0;
     Zero7 << 0,0,0,0,0,0,0;
+    
+    imageprocess();
 
     while(ros::ok()){
         if (UAV){
