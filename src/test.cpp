@@ -94,20 +94,16 @@ void imageprocess(){
     inRange(image_hsv, Scalar(38, 150, 150), Scalar(75, 255, 255), image_Gthreshold);
     inRange(image_hsv, Scalar(75, 150, 150), Scalar(130, 255, 255), image_Bthreshold);
 
-    cv::imwrite("image_rgb.jpg",image_rgb);
+    // cv::imwrite("image_rgb.jpg",image_rgb);
 
     //https://www.opencv-srf.com/2010/09/object-detection-using-color-seperation.html
 
 
-    /* image plot */
-    // cv::Mat depImage = image_dep.clone();
-    // cv::imshow("dep_out", depImage);
-    cv::imshow("Aruco_out", ArucoOutput);
     cv::imshow("image_Rthreshold", image_Rthreshold);
     cv::imshow("image_Gthreshold", image_Gthreshold);
     cv::imshow("image_Bthreshold", image_Bthreshold);
     cv::imshow("image_hsv", image_hsv);
-    cv::waitKey(1);
+    
 }
 
 Vec4 Poistion_controller_PID(Vec4 pose, Vec4 setpoint){ // From Depth calculate XYZ position and yaw
@@ -353,6 +349,12 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
         cout << "Aruco Tvec: " << tvec*1000 << endl;
         cout << "PNP   Tvec: " << PNPtvec << endl;
     }
+    
+    /* image plot */
+    // cv::Mat depImage = image_dep.clone();
+    // cv::imshow("dep_out", depImage);
+    cv::imshow("Aruco_out", ArucoOutput);
+    cv::waitKey(1);
 }
 string armstatus(){
     if(current_state.armed){
