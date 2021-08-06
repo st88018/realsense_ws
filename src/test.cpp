@@ -83,6 +83,33 @@ int coutcounter = 0;
 static Vec7 Zero7;
 static Vec4 Zero4;
 
+void imageprocess(){
+    
+    std::string image_path = samples::findFile("E10S50.jpg");
+    cv::Mat image_jpg = imread(image_path, IMREAD_COLOR);
+
+    cv::Mat image_hsv, image_Rthreshold, image_Gthreshold, image_Bthreshold;
+    cvtColor(image_jpg, image_hsv, COLOR_BGR2HSV);
+    inRange(image_hsv, Scalar(160, 150, 150), Scalar(179, 255, 255), image_Rthreshold); //Threshold the image
+    inRange(image_hsv, Scalar(38, 150, 150), Scalar(75, 255, 255), image_Gthreshold);
+    inRange(image_hsv, Scalar(75, 150, 150), Scalar(130, 255, 255), image_Bthreshold);
+
+    cv::imwrite("image_rgb.jpg",image_rgb);
+
+    //https://www.opencv-srf.com/2010/09/object-detection-using-color-seperation.html
+
+
+    /* image plot */
+    // cv::Mat depImage = image_dep.clone();
+    // cv::imshow("dep_out", depImage);
+    cv::imshow("Aruco_out", ArucoOutput);
+    cv::imshow("image_Rthreshold", image_Rthreshold);
+    cv::imshow("image_Gthreshold", image_Gthreshold);
+    cv::imshow("image_Bthreshold", image_Bthreshold);
+    cv::imshow("image_hsv", image_hsv);
+    cv::waitKey(1);
+}
+
 Vec4 Poistion_controller_PID(Vec4 pose, Vec4 setpoint){ // From Depth calculate XYZ position and yaw
     Vec4 error,last_error,u_p,u_i,u_d,output; // Position Error
     double Last_time = ros::Time::now().toSec();
@@ -326,27 +353,6 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
         cout << "Aruco Tvec: " << tvec*1000 << endl;
         cout << "PNP   Tvec: " << PNPtvec << endl;
     }
-
-    cv::Mat image_hsv, image_Rthreshold, image_Gthreshold, image_Bthreshold;
-    cvtColor(image_rgb, image_hsv, COLOR_BGR2HSV);
-    inRange(image_hsv, Scalar(160, 150, 150), Scalar(179, 255, 255), image_Rthreshold); //Threshold the image
-    inRange(image_hsv, Scalar(38, 150, 150), Scalar(75, 255, 255), image_Gthreshold);
-    inRange(image_hsv, Scalar(75, 150, 150), Scalar(130, 255, 255), image_Bthreshold);
-
-    cv::imwrite("image_rgb.jpg",image_rgb);
-
-    //https://www.opencv-srf.com/2010/09/object-detection-using-color-seperation.html
-
-
-    /* image plot */
-    // cv::Mat depImage = image_dep.clone();
-    // cv::imshow("dep_out", depImage);
-    cv::imshow("Aruco_out", ArucoOutput);
-    cv::imshow("image_Rthreshold", image_Rthreshold);
-    cv::imshow("image_Gthreshold", image_Gthreshold);
-    cv::imshow("image_Bthreshold", image_Bthreshold);
-    cv::imshow("image_hsv", image_hsv);
-    cv::waitKey(1);
 }
 string armstatus(){
     if(current_state.armed){
