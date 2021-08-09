@@ -85,8 +85,9 @@ static Vec4 Zero4;
 
 void imageprocess(){
     
-    cout << "GO GO" << endl;
     cv::Mat image_jpg = imread("E10S50.jpg");
+    
+    cv::imshow("image_jpg", image_jpg);
 
     cv::Mat image_hsv, image_Rthreshold, image_Gthreshold, image_Bthreshold;
     cvtColor(image_jpg, image_hsv, COLOR_BGR2HSV);
@@ -94,16 +95,22 @@ void imageprocess(){
     inRange(image_hsv, Scalar(38, 150, 150), Scalar(75, 255, 255), image_Gthreshold);
     inRange(image_hsv, Scalar(75, 150, 150), Scalar(130, 255, 255), image_Bthreshold);
 
+    cout << "GreenRGB: " << image_jpg.at<Vec3b>(522,480) << endl;
+    cout << "GreenHSV: " << image_hsv.at<Vec3b>(522,480) << endl;
+    cout << "BlueRGB: " << image_jpg.at<Vec3b>(519,513) << endl;
+    cout << "BlueHSV: " << image_hsv.at<Vec3b>(519,513) << endl;
+    cout << "RedRGB: " << image_jpg.at<Vec3b>(524,573) << endl;
+    cout << "RedHSV: " << image_hsv.at<Vec3b>(524,573) << endl;
+
     // cv::imwrite("image_rgb.jpg",image_rgb);
 
     //https://www.opencv-srf.com/2010/09/object-detection-using-color-seperation.html
-
 
     cv::imshow("image_Rthreshold", image_Rthreshold);
     cv::imshow("image_Gthreshold", image_Gthreshold);
     cv::imshow("image_Bthreshold", image_Bthreshold);
     cv::imshow("image_hsv", image_hsv);
-    
+    cv::waitKey(1);
 }
 
 Vec4 Poistion_controller_PID(Vec4 pose, Vec4 setpoint){ // From Depth calculate XYZ position and yaw
@@ -165,15 +172,15 @@ void UAV_pub(bool pubtwist_traj, bool pubpose_traj, bool pubtwist){
         }
     }
     if(pubtwist_traj){
-        Vec4 traj2_deque_front = trajectory2.front();
+        Vec4 traj2_deque_front = Twisttraj.front();
         while (ros::Time::now().toSec() - traj2_deque_front[0] > 0){
-            trajectory2.pop_front();
-            traj2_deque_front = trajectory2.front();
+            Twisttraj.pop_front();
+            traj2_deque_front = Twisttraj.front();
         }
         twist_pub(Vec4(traj2_deque_front[1],traj2_deque_front[2],traj2_deque_front[3],traj2_deque_front[4]));
-        if (traj2_deque_front[0] > traj2_information[1]){
+        if (traj2_deque_front[0] > Twisttraj_information[1]){
             Mission_stage++;
-            trajectory2.clear();
+            Twisttraj.clear();
             twist_pub(Zero4);
         }
     }
@@ -441,13 +448,13 @@ void Finite_state_WP_mission(){
         traj1_information = Vec2(ros::Time::now().toSec(), traj1[0]-hovertime);
         pubpose_traj = true; pubtwist_traj = false; pubtwist = false;
     }
-    if(trajectory2.size()>0){
-        traj2 = trajectory2.back();
+    if(Twisttraj.size()>0){
+        traj2 = Twisttraj.back();
         for (int i=0; i<(hovertime/Trajectory_timestep); i++){
             traj2[0] += Trajectory_timestep;
-            trajectory2.push_back(traj2);
+            Twisttraj.push_back(traj2);
         }
-        traj2_information = Vec2(ros::Time::now().toSec(), traj2[0]-hovertime);
+        Twisttraj_information = Vec2(ros::Time::now().toSec(), traj2[0]-hovertime);
         pubpose_traj = false; pubtwist_traj = true; pubtwist = false;
     }
     /*For Debug section plot the whole trajectory*/ 
@@ -471,7 +478,7 @@ void Finite_state_WP_mission(){
         cout << "desiredtwist_x: " << UAV_twist_pub.linear.x << " y: " << UAV_twist_pub.linear.y << " z: "<< UAV_twist_pub.linear.z << " az: " << UAV_twist_pub.angular.z << endl;
         cout << "Trajectory timer countdown: " << traj1_information[1] - ros::Time::now().toSec() << endl;
         cout << "ROS_time: " << fixed << ros::Time::now().toSec() << endl;
-        cout << "traj1_size: " << trajectory1.size() << "  traj2_size: " << trajectory2.size() << endl;
+        cout << "traj1_size: " << trajectory1.size() << "  traj2_size: " << Twisttraj.size() << endl;
         cout << "------------------------------------------------------------------------------" << endl;
         coutcounter = 0;
     }else{coutcounter++;}
@@ -503,6 +510,8 @@ int main(int argc, char **argv){
     sync.registerCallback(boost::bind(&callback, _1, _2));
     Zero4 << 0,0,0,0;
     Zero7 << 0,0,0,0,0,0,0;
+
+    imageprocess();
 
     while(ros::ok()){
         if (UAV){

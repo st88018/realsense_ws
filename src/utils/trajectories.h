@@ -5,11 +5,11 @@
 deque<Vec8> trajectory1;
 Vec2 traj1_information;
 double Trajectory_timestep = 0.02;
-deque<Vec4> trajectory2; // For Twist test (time vx vy vz)
-Vec2 traj2_information;
+deque<Vec4> Twisttraj; // For Twist test (time vx vy vz)
+Vec2 Twisttraj_information;
 
-void landapproachtraj(){
-    
+void landapproachtraj(Vec7 StartPose){
+
 }
 void constantVtraj( Vec7 StartPose, Vec7 EndPose,double velocity,double angular_velocity){
   Quaterniond localq(StartPose[3],StartPose[4],StartPose[5],StartPose[6]);
@@ -57,14 +57,14 @@ void constantVtraj( Vec7 StartPose, Vec7 EndPose,double velocity,double angular_
   }
 }
 void gen_twist_traj(Vec4 vxyzvaz, double duration){
-    trajectory2.clear();
+    Twisttraj.clear();
     double traj2_init_time = ros::Time::now().toSec();
     int wpc = duration/Trajectory_timestep;
     for(int i=0; i<wpc; i++){
         double dt = Trajectory_timestep*i;
         Vec4 traj2;
         traj2 << dt+traj2_init_time, vxyzvaz[0], vxyzvaz[1], vxyzvaz[2], vxyzvaz[3];
-        trajectory2.push_back(traj2);
+        Twisttraj.push_back(traj2);
     }
 }
 #endif
