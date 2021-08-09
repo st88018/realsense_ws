@@ -8,6 +8,9 @@ double Trajectory_timestep = 0.02;
 deque<Vec4> trajectory2; // For Twist test (time vx vy vz)
 Vec2 traj2_information;
 
+void landapproachtraj(){
+    
+}
 void constantVtraj( Vec7 StartPose, Vec7 EndPose,double velocity,double angular_velocity){
   Quaterniond localq(StartPose[3],StartPose[4],StartPose[5],StartPose[6]);
   Vec3 localrpy = Q2rpy(localq);
