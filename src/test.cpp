@@ -84,9 +84,10 @@ static Vec7 Zero7;
 static Vec4 Zero4;
 
 void imageprocess(){
-    
-    cv::Mat image_jpg = imread("E10S50.jpg");
-    
+
+    system("./E10S50.sh");
+    cv::Mat image_jpg = imread("./E10S50.jpg");
+
     cv::imshow("image_jpg", image_jpg);
 
     cv::Mat image_hsv, image_Rthreshold, image_Gthreshold, image_Bthreshold;
@@ -101,6 +102,15 @@ void imageprocess(){
     cout << "BlueHSV: " << image_hsv.at<Vec3b>(519,513) << endl;
     cout << "RedRGB: " << image_jpg.at<Vec3b>(524,573) << endl;
     cout << "RedHSV: " << image_hsv.at<Vec3b>(524,573) << endl;
+    cout << "TestRGB: " << image_jpg.at<Vec3b>(53,85) << endl;
+    cout << "TestHSV: " << image_hsv.at<Vec3b>(53,85) << endl;
+    int Stotal = 0;
+    for (int i=0; i<1280; i++){
+        for (int j=0; j<720; j++){
+            Stotal += image_hsv.at<Vec3b>(j,i)[2];
+        }
+    }
+    cout << "Saverage: " << Stotal/921600 << endl;
 
     // cv::imwrite("image_rgb.jpg",image_rgb);
 
