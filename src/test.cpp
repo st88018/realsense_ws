@@ -35,7 +35,6 @@
 #include "utils/cv.h"
 
 using namespace std;
-using namespace cv;
 using namespace sensor_msgs;
 using namespace message_filters;
 
@@ -83,46 +82,6 @@ int coutcounter = 0;
 static Vec7 Zero7;
 static Vec4 Zero4;
 
-void imageprocess(){
-
-    system("./E10S50.sh");
-    cv::Mat image_jpg = imread("./E10S50.jpg");
-
-    cv::imshow("image_jpg", image_jpg);
-
-    cv::Mat image_hsv, image_Rthreshold, image_Gthreshold, image_Bthreshold;
-    cvtColor(image_jpg, image_hsv, COLOR_BGR2HSV);
-    inRange(image_hsv, Scalar(160, 150, 150), Scalar(179, 255, 255), image_Rthreshold); //Threshold the image
-    inRange(image_hsv, Scalar(38, 150, 150), Scalar(75, 255, 255), image_Gthreshold);
-    inRange(image_hsv, Scalar(75, 150, 150), Scalar(130, 255, 255), image_Bthreshold);
-
-    cout << "GreenRGB: " << image_jpg.at<Vec3b>(522,480) << endl;
-    cout << "GreenHSV: " << image_hsv.at<Vec3b>(522,480) << endl;
-    cout << "BlueRGB: " << image_jpg.at<Vec3b>(519,513) << endl;
-    cout << "BlueHSV: " << image_hsv.at<Vec3b>(519,513) << endl;
-    cout << "RedRGB: " << image_jpg.at<Vec3b>(524,573) << endl;
-    cout << "RedHSV: " << image_hsv.at<Vec3b>(524,573) << endl;
-    cout << "TestRGB: " << image_jpg.at<Vec3b>(53,85) << endl;
-    cout << "TestHSV: " << image_hsv.at<Vec3b>(53,85) << endl;
-    int Stotal = 0;
-    for (int i=0; i<1280; i++){
-        for (int j=0; j<720; j++){
-            Stotal += image_hsv.at<Vec3b>(j,i)[2];
-        }
-    }
-    cout << "Saverage: " << Stotal/921600 << endl;
-
-    // cv::imwrite("image_rgb.jpg",image_rgb);
-
-    //https://www.opencv-srf.com/2010/09/object-detection-using-color-seperation.html
-
-    cv::imshow("image_Rthreshold", image_Rthreshold);
-    cv::imshow("image_Gthreshold", image_Gthreshold);
-    cv::imshow("image_Bthreshold", image_Bthreshold);
-    cv::imshow("image_hsv", image_hsv);
-    cv::waitKey(1);
-}
-
 Vec4 Poistion_controller_PID(Vec4 pose, Vec4 setpoint){ // From Depth calculate XYZ position and yaw
     Vec4 error,last_error,u_p,u_i,u_d,output; // Position Error
     double Last_time = ros::Time::now().toSec();
@@ -134,7 +93,7 @@ Vec4 Poistion_controller_PID(Vec4 pose, Vec4 setpoint){ // From Depth calculate 
     last_error = error;
     Vec4 integral = integral+(error*iteration_time);
     Vec4 derivative = (error - last_error)/iteration_time;
-    for (int i=0; i<4; i++){ // i = x,y,z
+    for (int i=0; i<4; i++){             //i = x,y,z
         u_p[i] = error[i]*K_p[i];        //P controller
         u_i[i] = integral[i]*K_i[i];     //I controller
         u_d[i] = derivative[i]*K_d[i];   //D controller
@@ -352,21 +311,24 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     }
     
     /* SolvePNP test */
-    cv::Vec3d PNPrvec, PNPtvec, PNPRrvec, PNPRtvec;
-    vector<cv::Point3f> PNPPoints3D;
-    vector<cv::Point2f> PNPPoints2D = markerCorner;
-    PNPPoints3D.clear();
-    PNPPoints3D.push_back(cv::Point3f( 0, 0, 0));
-    PNPPoints3D.push_back(cv::Point3f( 0,60, 0));
-    PNPPoints3D.push_back(cv::Point3f(60,60, 0));
-    PNPPoints3D.push_back(cv::Point3f(60, 0, 0));
+    // cv::Vec3d PNPrvec, PNPtvec, PNPRrvec, PNPRtvec;
+    // vector<cv::Point3f> PNPPoints3D;
+    // vector<cv::Point2f> PNPPoints2D = markerCorner;
+    // PNPPoints3D.clear();
+    // PNPPoints3D.push_back(cv::Point3f( 0, 0, 0));
+    // PNPPoints3D.push_back(cv::Point3f( 0,60, 0));
+    // PNPPoints3D.push_back(cv::Point3f(60,60, 0));
+    // PNPPoints3D.push_back(cv::Point3f(60, 0, 0));
+    // if (Aruco_found){
+    //     solvePnP(PNPPoints3D, PNPPoints2D, cameraMatrix, distCoeffs, PNPrvec, PNPtvec, false, SOLVEPNP_ITERATIVE);
+    //     cout << "Aruco Tvec: " << tvec*1000 << endl;
+    //     cout << "PNP   Tvec: " << PNPtvec << endl;
+    // }
 
-    if (Aruco_found){
-        solvePnP(PNPPoints3D, PNPPoints2D, cameraMatrix, distCoeffs, PNPrvec, PNPtvec, false, SOLVEPNP_ITERATIVE);
-        cout << "Aruco Tvec: " << tvec*1000 << endl;
-        cout << "PNP   Tvec: " << PNPtvec << endl;
-    }
-    
+    /* LED test */
+    // cout << " HSVaverage: " << HSVaverage(image_rgb) << endl;
+
+    // cv::imwrite("E1S100.jpg",image_rgb);
     /* image plot */
     // cv::Mat depImage = image_dep.clone();
     // cv::imshow("dep_out", depImage);

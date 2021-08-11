@@ -9,6 +9,8 @@
 #include <eigen3/Eigen/Geometry>
 #include "common.h"
 
+using namespace cv;
+
 /* Constant velocity estimator */
 std::deque<Vec8I> CVE_Corners;
 
@@ -68,5 +70,59 @@ Vec2I Constant_velocity_predictor(const Vec8I last_markerConer,const int Lostcou
         return(FindMarkerCenter(last_markerConer));
     }
 }
+Vec3I HSVaverage(cv::Mat BGRmat){
+    cv::Mat HSVmat;
+    int Haverage,Saverage,Vaverage;
+    int Htotal = 0;
+    int Stotal = 0;
+    int Vtotal = 0;
+    cvtColor(BGRmat, HSVmat, COLOR_BGR2HSV);
+    for (int i=0; i<1280; i++){
+        for (int j=0; j<720; j++){
+            Htotal += HSVmat.at<Vec3b>(j,i)[0];
+            Stotal += HSVmat.at<Vec3b>(j,i)[1];
+            Vtotal += HSVmat.at<Vec3b>(j,i)[2];
+        }
+    }
+    return(Vec3I(Htotal/921600,Stotal/921600,Vtotal/921600));
+}
+void cameraconfig(cv::Mat BGRmat){
+    if(HSVaverage(BGRmat)[2] < 50){
+        cout << "GO GO" << endl;
+    }
+}
+void imageprocess(){
 
+    // system("./E10S50.sh");
+    cv::Mat image_jpg = imread("./E1S100.jpg");
+
+    cv::imshow("image_jpg", image_jpg);
+
+    cameraconfig(image_jpg);
+
+    cv::Mat image_hsv, image_Rthreshold, image_Gthreshold, image_Bthreshold;
+    cvtColor(image_jpg, image_hsv, COLOR_BGR2HSV);
+    inRange(image_hsv, Scalar(160, 150, 150), Scalar(179, 255, 255), image_Rthreshold); //Threshold the image
+    inRange(image_hsv, Scalar(38, 150, 150), Scalar(75, 255, 255), image_Gthreshold);
+    inRange(image_hsv, Scalar(75, 150, 150), Scalar(130, 255, 255), image_Bthreshold);
+
+    cout << "GreenRGB: " << image_jpg.at<Vec3b>(519,199) << endl;
+    cout << "GreenHSV: " << image_hsv.at<Vec3b>(519,199) << endl;
+    cout << "BlueRGB: " << image_jpg.at<Vec3b>(525,238) << endl;
+    cout << "BlueHSV: " << image_hsv.at<Vec3b>(525,238) << endl;
+    cout << "RedRGB: " << image_jpg.at<Vec3b>(537,296) << endl;
+    cout << "RedHSV: " << image_hsv.at<Vec3b>(537,296) << endl;
+    // cout << "TestRGB: " << image_jpg.at<Vec3b>(53,85) << endl;
+    // cout << "TestHSV: " << image_hsv.at<Vec3b>(53,85) << endl;
+
+    // cv::imwrite("image_rgb.jpg",image_rgb);
+
+    //https://www.opencv-srf.com/2010/09/object-detection-using-color-seperation.html
+
+    cv::imshow("image_Rthreshold", image_Rthreshold);
+    cv::imshow("image_Gthreshold", image_Gthreshold);
+    cv::imshow("image_Bthreshold", image_Bthreshold);
+    cv::imshow("image_hsv", image_hsv);
+    cv::waitKey(1);
+}
 #endif 
