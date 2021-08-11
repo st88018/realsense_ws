@@ -86,25 +86,24 @@ Vec3I HSVaverage(cv::Mat BGRmat){
     }
     return(Vec3I(Htotal/921600,Stotal/921600,Vtotal/921600));
 }
-void cameraconfig(cv::Mat BGRmat){
-    if(HSVaverage(BGRmat)[2] < 50){
-        cout << "GO GO" << endl;
-    }
-}
+// void cameraconfig(cv::Mat BGRmat){ //Cam Auto config
+//     if(HSVaverage(BGRmat)[2] < 50){
+//         cout << "GO GO" << endl;
+//     }
+// }
 void imageprocess(){
 
     // system("./E10S50.sh");
-    cv::Mat image_jpg = imread("./E1S100.jpg");
+    cv::Mat image_jpg = imread("./test.jpg");
 
     cv::imshow("image_jpg", image_jpg);
 
-    cameraconfig(image_jpg);
-
-    cv::Mat image_hsv, image_Rthreshold, image_Gthreshold, image_Bthreshold;
+    cv::Mat image_hsv, image_Rthreshold, image_Gthreshold, image_Bthreshold,image_threshold;
     cvtColor(image_jpg, image_hsv, COLOR_BGR2HSV);
-    inRange(image_hsv, Scalar(160, 150, 150), Scalar(179, 255, 255), image_Rthreshold); //Threshold the image
-    inRange(image_hsv, Scalar(38, 150, 150), Scalar(75, 255, 255), image_Gthreshold);
-    inRange(image_hsv, Scalar(75, 150, 150), Scalar(130, 255, 255), image_Bthreshold);
+    inRange(image_hsv, Scalar(0, 0, 100), Scalar(255, 255, 255), image_threshold);
+    // inRange(image_hsv, Scalar(160, 150, 150), Scalar(179, 255, 255), image_Rthreshold); //Threshold the image
+    // inRange(image_hsv, Scalar(38, 150, 150), Scalar(75, 255, 255), image_Gthreshold);
+    // inRange(image_hsv, Scalar(75, 150, 150), Scalar(130, 255, 255), image_Bthreshold);
 
     cout << "GreenRGB: " << image_jpg.at<Vec3b>(519,199) << endl;
     cout << "GreenHSV: " << image_hsv.at<Vec3b>(519,199) << endl;
@@ -115,13 +114,24 @@ void imageprocess(){
     // cout << "TestRGB: " << image_jpg.at<Vec3b>(53,85) << endl;
     // cout << "TestHSV: " << image_hsv.at<Vec3b>(53,85) << endl;
 
+    int Vcount = 0; 
+    for (int i=0; i<1280; i++){
+        for (int j=0; j<720; j++){
+            if (image_hsv.at<Vec3b>(j,i)[2] > 200){
+                Vcount++;
+            }
+        }
+    }
+
+    cout << "Vcount: " << Vcount << endl;
+
     // cv::imwrite("image_rgb.jpg",image_rgb);
 
     //https://www.opencv-srf.com/2010/09/object-detection-using-color-seperation.html
 
-    cv::imshow("image_Rthreshold", image_Rthreshold);
-    cv::imshow("image_Gthreshold", image_Gthreshold);
-    cv::imshow("image_Bthreshold", image_Bthreshold);
+    cv::imshow("image_threshold", image_threshold);
+    // cv::imshow("image_Gthreshold", image_Gthreshold);
+    // cv::imshow("image_Bthreshold", image_Bthreshold);
     cv::imshow("image_hsv", image_hsv);
     cv::waitKey(1);
 }
