@@ -332,7 +332,7 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     // cvtColor(image_rgb, image_hsv, COLOR_BGR2HSV);
     // inRange(image_hsv, Scalar(0, 0, 80), Scalar(255, 255, 255), image_threshold);
     
-    // int Vcount = 0; 
+    // int Vcount = 0;
     // for (int i=0; i<1280; i++){
     //     for (int j=0; j<720; j++){
     //         if (image_threshold.at<Vec3b>(j,i)[2] > 80){
@@ -486,7 +486,7 @@ int main(int argc, char **argv){
     ros::Publisher local_vel_pub = nh.advertise<geometry_msgs::Twist>("/mavros/setpoint_velocity/cmd_vel_unstamped", 100);
     message_filters::Subscriber<CompressedImage> rgb_sub(nh, "/camera/color/image_raw/compressed", 1);
     message_filters::Subscriber<Image> dep_sub(nh, "/camera/aligned_depth_to_color/image_raw", 1);
-    mavros_msgs::SetMode offb_set_mode;
+    mavros_msgs::SetMode offb_set_mode; 
     offb_set_mode.request.custom_mode = "OFFBOARD";
     mavros_msgs::SetMode posctl_set_mode;
     posctl_set_mode.request.custom_mode = "POSCTL";
@@ -499,7 +499,7 @@ int main(int argc, char **argv){
     Zero4 << 0,0,0,0;
     Zero7 << 0,0,0,0,0,0,0;
 
-    imageprocess();
+    
 
     while(ros::ok()){
         if (UAV){
@@ -548,7 +548,8 @@ int main(int argc, char **argv){
         if(pubpose_traj){
             local_pos_pub.publish(UAV_pose_pub);
         }}
-
+        
+        imageprocess();
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
         /* ROS timer */

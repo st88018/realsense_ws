@@ -117,7 +117,7 @@ void imageprocess(){
     int Vcount = 0; 
     for (int i=0; i<1280; i++){
         for (int j=0; j<720; j++){
-            if (image_hsv.at<Vec3b>(j,i)[2] > 200){
+            if (image_hsv.at<Vec3b>(j,i)[2] > 80){
                 Vcount++;
             }
         }
