@@ -102,7 +102,7 @@ Vec2I FindLEDCenter(cv::Mat SingleMarker){
         //calculate the position of the ball
         PosXY[1] = dM10 / dArea;
         PosXY[1] = dM01 / dArea;
-        // int iLastX,iLastY;     
+        // int iLastX,iLastY;
         // if (iLastX >= 0 && iLastY >= 0 && posX >= 0 && posY >= 0){
         //     //Draw a red line from the previous point to the current point
         //     line(imgLines, Point(posX, posY), Point(iLastX, iLastY), Scalar(0,0,255), 2);
