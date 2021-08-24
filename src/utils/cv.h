@@ -91,8 +91,28 @@ Vec3I HSVaverage(cv::Mat BGRmat){
 //         cout << "GO GO" << endl;
 //     }
 // }
-void imageprocess(){
+Vec2I FindLEDCenter(cv::Mat SingleMarker){
+    Vec2I PosXY;
+    Moments oMoments = moments(SingleMarker);
+    double dM01 = oMoments.m01;
+    double dM10 = oMoments.m10;
+    double dArea = oMoments.m00;
 
+    if (dArea > 10000){
+        //calculate the position of the ball
+        PosXY[1] = dM10 / dArea;
+        PosXY[1] = dM01 / dArea;
+        // int iLastX,iLastY;     
+        // if (iLastX >= 0 && iLastY >= 0 && posX >= 0 && posY >= 0){
+        //     //Draw a red line from the previous point to the current point
+        //     line(imgLines, Point(posX, posY), Point(iLastX, iLastY), Scalar(0,0,255), 2);
+        // }
+        // iLastX = posX;
+        // iLastY = posY;
+    }
+    return(PosXY);
+}
+void imageprocess(){
     // system("./E10S50.sh");
     cv::Mat image_jpg = imread("./test.jpg");
 
@@ -109,8 +129,10 @@ void imageprocess(){
     cout << "GreenHSV: " << image_hsv.at<Vec3b>(519,199) << endl;
     cout << "BlueRGB: " << image_jpg.at<Vec3b>(525,238) << endl;
     cout << "BlueHSV: " << image_hsv.at<Vec3b>(525,238) << endl;
-    cout << "RedRGB: " << image_jpg.at<Vec3b>(537,296) << endl;
-    cout << "RedHSV: " << image_hsv.at<Vec3b>(537,296) << endl;
+    cout << "RedRGB: " << image_jpg.at<Vec3b>(537,300) << endl;
+    cout << "RedHSV: " << image_hsv.at<Vec3b>(537,300) << endl;
+    cout << "OrangeRGB: " << image_jpg.at<Vec3b>(531,271) << endl;
+    cout << "OrangeHSV: " << image_hsv.at<Vec3b>(531,271) << endl;
     // cout << "TestRGB: " << image_jpg.at<Vec3b>(53,85) << endl;
     // cout << "TestHSV: " << image_hsv.at<Vec3b>(53,85) << endl;
 
