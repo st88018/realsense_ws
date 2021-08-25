@@ -93,16 +93,16 @@ Vec3I HSVaverage(cv::Mat BGRmat){
 // }
 Vec2I FindLEDCenter(cv::Mat SingleMarker){
     Vec2I PosXY;
-    Moments oMoments = moments(SingleMarker);
+    Moments oMoments = moments(SingleMarker,true);
     double dM01 = oMoments.m01;
     double dM10 = oMoments.m10;
     double dArea = oMoments.m00;
 
-    cout << "dM01: " << dM01 << endl;
-    cout << "dM10: " << dM10 << endl;
-    cout << "dArea: " << dArea << endl;
+    // cout << "dM01: " << dM01 << endl;
+    // cout << "dM10: " << dM10 << endl;
+    // cout << "dArea: " << dArea << endl;
 
-    PosXY[1] = dM10 / dArea;
+    PosXY[0] = dM10 / dArea;
     PosXY[1] = dM01 / dArea;
 
     return(PosXY);
@@ -116,9 +116,9 @@ void imageprocess(){
     cv::Mat image_hsv, image_Rthreshold, image_Gthreshold, image_Bthreshold,image_threshold;
     cvtColor(image_jpg, image_hsv, COLOR_BGR2HSV);
     inRange(image_hsv, Scalar(0, 0, 100), Scalar(255, 255, 255), image_threshold);
-    inRange(image_hsv, Scalar(0, 0, 100), Scalar(60, 255, 255), image_Rthreshold); //Threshold the image
-    // inRange(image_hsv, Scalar(38, 150, 150), Scalar(75, 255, 255), image_Gthreshold);
-    // inRange(image_hsv, Scalar(75, 150, 150), Scalar(130, 255, 255), image_Bthreshold);
+    // inRange(image_hsv, Scalar(0, 100, 100), Scalar(40, 255, 255), image_Rthreshold); //Threshold the image
+    inRange(image_hsv, Scalar(50, 0, 150), Scalar(80, 255, 255), image_Gthreshold);
+    inRange(image_hsv, Scalar(80, 0, 100), Scalar(150, 255, 255), image_Bthreshold);
 
     // cout << "GreenRGB: " << image_jpg.at<Vec3b>(519,199) << endl;
     // cout << "GreenHSV: " << image_hsv.at<Vec3b>(519,199) << endl;
@@ -126,10 +126,8 @@ void imageprocess(){
     // cout << "BlueHSV: " << image_hsv.at<Vec3b>(525,238) << endl;
     // cout << "RedRGB: " << image_jpg.at<Vec3b>(537,300) << endl;
     // cout << "RedHSV: " << image_hsv.at<Vec3b>(537,300) << endl;
-    // cout << "TestRGB: " << image_jpg.at<Vec3b>(53,85) << endl;
-    // cout << "TestHSV: " << image_hsv.at<Vec3b>(53,85) << endl;
 
-    FindLEDCenter(image_Rthreshold);
+    cout<< "GPOS: " << FindLEDCenter(image_Gthreshold) << endl;
 
     // int Vcount = 0; 
     // for (int i=0; i<1280; i++){
@@ -146,9 +144,9 @@ void imageprocess(){
 
     //https://www.opencv-srf.com/2010/09/object-detection-using-color-seperation.html
 
-    cv::imshow("image_Rthreshold", image_Rthreshold);
-    // cv::imshow("image_Gthreshold", image_Gthreshold);
-    // cv::imshow("image_Bthreshold", image_Bthreshold);
+    // cv::imshow("image_Rthreshold", image_Rthreshold);
+    cv::imshow("image_Gthreshold", image_Gthreshold);
+    cv::imshow("image_Bthreshold", image_Bthreshold);
     cv::imshow("image_hsv", image_hsv);
     cv::waitKey(1);
 }
