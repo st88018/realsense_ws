@@ -98,18 +98,13 @@ Vec2I FindLEDCenter(cv::Mat SingleMarker){
     double dM10 = oMoments.m10;
     double dArea = oMoments.m00;
 
-    if (dArea > 10000){
-        //calculate the position of the ball
-        PosXY[1] = dM10 / dArea;
-        PosXY[1] = dM01 / dArea;
-        // int iLastX,iLastY;
-        // if (iLastX >= 0 && iLastY >= 0 && posX >= 0 && posY >= 0){
-        //     //Draw a red line from the previous point to the current point
-        //     line(imgLines, Point(posX, posY), Point(iLastX, iLastY), Scalar(0,0,255), 2);
-        // }
-        // iLastX = posX;
-        // iLastY = posY;
-    }
+    cout << "dM01: " << dM01 << endl;
+    cout << "dM10: " << dM10 << endl;
+    cout << "dArea: " << dArea << endl;
+
+    PosXY[1] = dM10 / dArea;
+    PosXY[1] = dM01 / dArea;
+
     return(PosXY);
 }
 void imageprocess(){
@@ -121,37 +116,37 @@ void imageprocess(){
     cv::Mat image_hsv, image_Rthreshold, image_Gthreshold, image_Bthreshold,image_threshold;
     cvtColor(image_jpg, image_hsv, COLOR_BGR2HSV);
     inRange(image_hsv, Scalar(0, 0, 100), Scalar(255, 255, 255), image_threshold);
-    // inRange(image_hsv, Scalar(160, 150, 150), Scalar(179, 255, 255), image_Rthreshold); //Threshold the image
+    inRange(image_hsv, Scalar(0, 0, 100), Scalar(60, 255, 255), image_Rthreshold); //Threshold the image
     // inRange(image_hsv, Scalar(38, 150, 150), Scalar(75, 255, 255), image_Gthreshold);
     // inRange(image_hsv, Scalar(75, 150, 150), Scalar(130, 255, 255), image_Bthreshold);
 
-    cout << "GreenRGB: " << image_jpg.at<Vec3b>(519,199) << endl;
-    cout << "GreenHSV: " << image_hsv.at<Vec3b>(519,199) << endl;
-    cout << "BlueRGB: " << image_jpg.at<Vec3b>(525,238) << endl;
-    cout << "BlueHSV: " << image_hsv.at<Vec3b>(525,238) << endl;
-    cout << "RedRGB: " << image_jpg.at<Vec3b>(537,300) << endl;
-    cout << "RedHSV: " << image_hsv.at<Vec3b>(537,300) << endl;
-    cout << "OrangeRGB: " << image_jpg.at<Vec3b>(531,271) << endl;
-    cout << "OrangeHSV: " << image_hsv.at<Vec3b>(531,271) << endl;
+    // cout << "GreenRGB: " << image_jpg.at<Vec3b>(519,199) << endl;
+    // cout << "GreenHSV: " << image_hsv.at<Vec3b>(519,199) << endl;
+    // cout << "BlueRGB: " << image_jpg.at<Vec3b>(525,238) << endl;
+    // cout << "BlueHSV: " << image_hsv.at<Vec3b>(525,238) << endl;
+    // cout << "RedRGB: " << image_jpg.at<Vec3b>(537,300) << endl;
+    // cout << "RedHSV: " << image_hsv.at<Vec3b>(537,300) << endl;
     // cout << "TestRGB: " << image_jpg.at<Vec3b>(53,85) << endl;
     // cout << "TestHSV: " << image_hsv.at<Vec3b>(53,85) << endl;
 
-    int Vcount = 0; 
-    for (int i=0; i<1280; i++){
-        for (int j=0; j<720; j++){
-            if (image_hsv.at<Vec3b>(j,i)[2] > 80){
-                Vcount++;
-            }
-        }
-    }
+    FindLEDCenter(image_Rthreshold);
 
-    cout << "Vcount: " << Vcount << endl;
+    // int Vcount = 0; 
+    // for (int i=0; i<1280; i++){
+    //     for (int j=0; j<720; j++){
+    //         if (image_hsv.at<Vec3b>(j,i)[2] > 80){
+    //             Vcount++;
+    //         }
+    //     }
+    // }
+
+    // cout << "Vcount: " << Vcount << endl;
 
     // cv::imwrite("image_rgb.jpg",image_rgb);
 
     //https://www.opencv-srf.com/2010/09/object-detection-using-color-seperation.html
 
-    cv::imshow("image_threshold", image_threshold);
+    cv::imshow("image_Rthreshold", image_Rthreshold);
     // cv::imshow("image_Gthreshold", image_Gthreshold);
     // cv::imshow("image_Bthreshold", image_Bthreshold);
     cv::imshow("image_hsv", image_hsv);
