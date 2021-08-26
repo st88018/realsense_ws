@@ -116,7 +116,7 @@ void imageprocess(){
     cv::Mat image_hsv, image_Rthreshold, image_Gthreshold, image_Bthreshold,image_threshold;
     cvtColor(image_jpg, image_hsv, COLOR_BGR2HSV);
     inRange(image_hsv, Scalar(0, 0, 100), Scalar(255, 255, 255), image_threshold);
-    // inRange(image_hsv, Scalar(0, 100, 100), Scalar(40, 255, 255), image_Rthreshold); //Threshold the image
+    inRange(image_hsv, Scalar(0, 100, 100), Scalar(40, 255, 255), image_Rthreshold); //Threshold the image
     inRange(image_hsv, Scalar(50, 0, 150), Scalar(80, 255, 255), image_Gthreshold);
     inRange(image_hsv, Scalar(80, 0, 100), Scalar(150, 255, 255), image_Bthreshold);
 
@@ -127,7 +127,29 @@ void imageprocess(){
     // cout << "RedRGB: " << image_jpg.at<Vec3b>(537,300) << endl;
     // cout << "RedHSV: " << image_hsv.at<Vec3b>(537,300) << endl;
 
-    cout<< "GPOS: " << FindLEDCenter(image_Gthreshold) << endl;
+    // cout<< "GPOS: " << FindLEDCenter(image_Gthreshold) << endl;
+
+    Mat canny_output;
+    vector<vector<Point> > contours;
+    vector<Vec4i> hierarchy;
+    const double thresh = 100;
+    Canny( image_Bthreshold, canny_output, thresh, thresh*2, 3 );
+    cv::imshow( "canny", canny_output );
+    findContours( canny_output, contours, RETR_TREE, CHAIN_APPROX_SIMPLE );
+
+    vector<Moments> mu(contours.size() );
+    for( size_t i = 0; i < contours.size(); i++ ){
+        mu[i] = moments( contours[i] );
+    }
+    vector<Point2f> mc( contours.size() );
+    for( size_t i = 0; i < contours.size(); i++ ){
+        //add 1e-5 to avoid division by zero
+        mc[i] = Point2f( static_cast<float>(mu[i].m10 / (mu[i].m00 + 1e-5)),
+                         static_cast<float>(mu[i].m01 / (mu[i].m00 + 1e-5)) );
+        cout << "mc[" << i << "]=" << mc[i] << endl;
+    }
+
+    // findContours( canny_output, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
 
     // int Vcount = 0; 
     // for (int i=0; i<1280; i++){
