@@ -112,22 +112,19 @@ void imageprocess(){
     cv::Mat image_jpg = imread("./test.jpg");
 
     cv::imshow("image_jpg", image_jpg);
-    vector<Mat> imageRGBthreshold(3);
-    cv::Mat image_hsv;
+    vector<Mat> imageRGBthreshold(3); //R G B
+    cv::Mat image_hsv,image_threshold;
     cvtColor(image_jpg, image_hsv, COLOR_BGR2HSV);
 
-    // cv::Mat image_hsv, image_Rthreshold, image_Gthreshold, image_Bthreshold,image_threshold;
     
     // inRange(image_hsv, Scalar(0, 0, 100), Scalar(255, 255, 255), image_threshold);
     inRange(image_hsv, Scalar(0, 100, 100), Scalar(40, 255, 255), imageRGBthreshold[0]); //Threshold the image
     inRange(image_hsv, Scalar(50, 0, 150), Scalar(80, 255, 255), imageRGBthreshold[1]);
     inRange(image_hsv, Scalar(80, 0, 100), Scalar(150, 255, 255), imageRGBthreshold[2]);
 
-    // cout << "GreenRGB: " << image_jpg.at<Vec3b>(519,199) << endl;
+    
     // cout << "GreenHSV: " << image_hsv.at<Vec3b>(519,199) << endl;
-    // cout << "BlueRGB: " << image_jpg.at<Vec3b>(525,238) << endl;
     // cout << "BlueHSV: " << image_hsv.at<Vec3b>(525,238) << endl;
-    // cout << "RedRGB: " << image_jpg.at<Vec3b>(537,300) << endl;
     // cout << "RedHSV: " << image_hsv.at<Vec3b>(537,300) << endl;
 
     vector<vector<Point> > contours;
@@ -151,7 +148,6 @@ void imageprocess(){
     // cv::imwrite("image_rgb.jpg",image_rgb);
 
     //https://www.opencv-srf.com/2010/09/object-detection-using-color-seperation.html
-    cout<< "iiii" <<endl;
     cv::imshow("image_Rthreshold", imageRGBthreshold[0]);
     cv::imshow("image_Gthreshold", imageRGBthreshold[1]);
     cv::imshow("image_Bthreshold", imageRGBthreshold[2]);
