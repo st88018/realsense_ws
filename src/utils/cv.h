@@ -126,27 +126,44 @@ void imageprocess(){
     dilate(image_threshold, image_threshold, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) );
     erode(image_threshold, image_threshold, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) );
     findContours( image_threshold, contours, RETR_TREE, CHAIN_APPROX_SIMPLE );
-        
-    vector<Moments> mu(contours.size() );
-    for( size_t i = 0; i < contours.size(); i++ ){
+
+    unsigned int ledcounts = contours.size();
+    vector<Moments> mu(ledcounts);
+    for( size_t i = 0; i < ledcounts; i++ ){
         mu[i] = moments( contours[i] );
     }
-    vector<Point2f> mc( contours.size() );
-    for( size_t i = 0; i < contours.size(); i++ ){
+    vector<Point2f> mc(ledcounts);
+    for( size_t i = 0; i < ledcounts; i++ ){
         //add 1e-5 to avoid division by zero
         mc[i] = Point2f( static_cast<float>(mu[i].m10 / (mu[i].m00 + 1e-5)),
                          static_cast<float>(mu[i].m01 / (mu[i].m00 + 1e-5)) );
         // cout << "mc[" << i << "]=" << mc[i] << endl;
     }
-    vector<int> mc_hue(mc.size());
-    for (unsigned int i = 0; i < mc.size(); i++){
+    vector<int> mc_hue(ledcounts);
+    for (unsigned int i = 0; i < ledcounts; i++){
         mc_hue[i] = image_hsv.at<Vec3b>(mc[i])[0];
         // cout << "mc_hue[" << i << "]=" << mc_hue[i] << endl;
     }
-    sort(mc_hue.begin(), mc_hue.end());
+    vector<int> mc_hue_sort = mc_hue;
+    sort(mc_hue_sort.begin(), mc_hue_sort.end());
+    
+    vector<Point2f> PNPPoints2D(ledcounts); //red orange green blue
+    PNPPoints2D.clear();
+    for (unsigned int i = 0; i < ledcounts; i++){
+        Point2f pos2D_temp;
+        for (unsigned int j = 0; i < ledcounts; j++){
+            if (mc_hue_sort[i]==mc_hue[j]){
+                pos2D_temp = mc[j];
+            }
+        }
+        PNPPoints2D.push_back(pos2D_temp);
+        cout << "PNPPoints2D[" << i << "]=" << pos2D_temp << endl;
+    }
+    
 
-    // cv::Vec3d PNPrvec, PNPtvec;
-    // vector<cv::Point3f> PNPPoints3D;
+
+    cv::Vec3d PNPrvec, PNPtvec;
+    vector<cv::Point3f> PNPPoints3D;
     // vector<cv::Point2f> PNPPoints2D = markerCorner;
     // PNPPoints3D.clear();
     // PNPPoints3D.push_back(cv::Point3f( 0, 0, 0));
