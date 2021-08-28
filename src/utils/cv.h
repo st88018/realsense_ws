@@ -151,7 +151,7 @@ void imageprocess(){
     PNPPoints2D.clear();
     for (unsigned int i = 0; i < ledcounts; i++){
         Point2f pos2D_temp;
-        for (unsigned int j = 0; i < ledcounts; j++){
+        for (unsigned int j = 0; j < ledcounts; j++){
             if (mc_hue_sort[i]==mc_hue[j]){
                 pos2D_temp = mc[j];
             }
