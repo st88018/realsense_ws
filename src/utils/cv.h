@@ -13,6 +13,7 @@ using namespace cv;
 
 /* Constant velocity estimator */
 std::deque<Vec8I> CVE_Corners;
+vector<cv::Point3f> PNPPoints3D;
 
 inline Vec2I FindMarkerCenter(const Vec8I& markerConerABCD){
     Vec2I MarkerCenter;
@@ -107,6 +108,12 @@ Vec2I FindLEDCenter(cv::Mat SingleMarker){
 
     return(PosXY);
 }
+void PNP3Dpoints(){
+    PNPPoints3D.push_back(cv::Point3f( 0, 0, 0)); //red
+    PNPPoints3D.push_back(cv::Point3f( 0,60, 0)); //orange
+    PNPPoints3D.push_back(cv::Point3f(60,60, 0)); //green
+    PNPPoints3D.push_back(cv::Point3f(60, 0, 0)); //blue
+}
 void imageprocess(){
     // system("./E10S50.sh");
     cv::Mat image_jpg = imread("./test.jpg");
@@ -147,8 +154,9 @@ void imageprocess(){
     vector<int> mc_hue_sort = mc_hue;
     sort(mc_hue_sort.begin(), mc_hue_sort.end());
     
-    vector<Point2f> PNPPoints2D(ledcounts); //red orange green blue
-    PNPPoints2D.clear();
+    cv::Vec3d PNPrvec, PNPtvec;
+    vector<Point2f> PNPPoints2D; //red orange green blue
+    PNPPoints2D.clear();PNPPoints3D.clear();
     for (unsigned int i = 0; i < ledcounts; i++){
         Point2f pos2D_temp;
         for (unsigned int j = 0; j < ledcounts; j++){
@@ -157,19 +165,9 @@ void imageprocess(){
             }
         }
         PNPPoints2D.push_back(pos2D_temp);
-        cout << "PNPPoints2D[" << i << "]=" << pos2D_temp << endl;
+        // cout << "PNPPoints2D[" << i << "]=" << pos2D_temp << endl;
     }
-    
 
-
-    cv::Vec3d PNPrvec, PNPtvec;
-    vector<cv::Point3f> PNPPoints3D;
-    // vector<cv::Point2f> PNPPoints2D = markerCorner;
-    // PNPPoints3D.clear();
-    // PNPPoints3D.push_back(cv::Point3f( 0, 0, 0));
-    // PNPPoints3D.push_back(cv::Point3f( 0,60, 0));
-    // PNPPoints3D.push_back(cv::Point3f(60,60, 0));
-    // PNPPoints3D.push_back(cv::Point3f(60, 0, 0));
 
 
     // cv::imwrite("image_rgb.jpg",image_rgb);

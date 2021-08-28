@@ -480,6 +480,7 @@ int main(int argc, char **argv){
     sync.registerCallback(boost::bind(&callback, _1, _2));
     Zero4 << 0,0,0,0;
     Zero7 << 0,0,0,0,0,0,0;
+    PNP3Dpoints();
 
     
 
