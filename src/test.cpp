@@ -311,7 +311,7 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     }
     
     /* SolvePNP test */
-    // cv::Vec3d PNPrvec, PNPtvec, PNPRrvec, PNPRtvec;
+    // cv::Vec3d PNPrvec, PNPtvec;
     // vector<cv::Point3f> PNPPoints3D;
     // vector<cv::Point2f> PNPPoints2D = markerCorner;
     // PNPPoints3D.clear();
@@ -325,24 +325,6 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     //     cout << "PNP   Tvec: " << PNPtvec << endl;
     // }
 
-    /* LED test */
-    // cout << " HSVaverage: " << HSVaverage(image_rgb) << endl;
-
-    // cv::Mat image_hsv,image_threshold;
-    // cvtColor(image_rgb, image_hsv, COLOR_BGR2HSV);
-    // inRange(image_hsv, Scalar(0, 0, 80), Scalar(255, 255, 255), image_threshold);
-    
-    // int Vcount = 0;
-    // for (int i=0; i<1280; i++){
-    //     for (int j=0; j<720; j++){
-    //         if (image_threshold.at<Vec3b>(j,i)[2] > 80){
-    //             Vcount++;
-    //         }
-    //     }
-    // }
-    // cout << "Vcount: " << Vcount << endl;
-    // cv::imshow("image_hsv", image_hsv);
-    // cv::imshow("image_threshold", image_threshold);
 
     // cv::imwrite("E1S100NEW.jpg",image_rgb);
     /* image plot */

@@ -145,6 +145,15 @@ void imageprocess(){
     }
     sort(mc_hue.begin(), mc_hue.end());
 
+    // cv::Vec3d PNPrvec, PNPtvec;
+    // vector<cv::Point3f> PNPPoints3D;
+    // vector<cv::Point2f> PNPPoints2D = markerCorner;
+    // PNPPoints3D.clear();
+    // PNPPoints3D.push_back(cv::Point3f( 0, 0, 0));
+    // PNPPoints3D.push_back(cv::Point3f( 0,60, 0));
+    // PNPPoints3D.push_back(cv::Point3f(60,60, 0));
+    // PNPPoints3D.push_back(cv::Point3f(60, 0, 0));
+
 
     // cv::imwrite("image_rgb.jpg",image_rgb);
 
