@@ -11,6 +11,12 @@
 
 using namespace cv;
 
+/*camera pramater*/
+static double fx, fy, cx, cy; //focal length and principal point
+static Vec4 CamParameters;
+int ArucoLostcounter;
+bool Aruco_found = false;
+bool Aruco_init = false;
 /* Constant velocity estimator */
 std::deque<Vec8I> CVE_Corners;
 /*PNP*/
@@ -19,7 +25,6 @@ cv::Mat depthcameraMatrix = cv::Mat::eye(3,3, CV_64F);
 cv::Mat distCoeffs = cv::Mat::zeros(8, 1, CV_64F);
 vector<cv::Point3f> PNPPoints3D;
 vector<Point2f> PNPPoints2D; //red orange green blue
-Vec3d PNPrvec, PNPtvec;
 
 inline Vec2I FindMarkerCenter(const Vec8I& markerConerABCD){
     Vec2I MarkerCenter;
@@ -104,10 +109,49 @@ void PNP3Dpoints(){  //Determine the LED pos in real world
     PNPPoints3D.push_back(cv::Point3f(60,60, 0)); //green
     PNPPoints3D.push_back(cv::Point3f(60, 0, 0)); //blue
 }
-void imageprocess(Mat image_rgb){
-    // system("./E10S50.sh");
-    Mat image_jpg = imread("./test.jpg");
+Vec6 Arucocalc(Mat image_rgb){
+    Vec6 ArucoTvecrvec;
+    cv::Mat ArucoOutput = image_rgb.clone();
+    std::vector<int> markerIds;
+    std::vector<Vec8I> markerConerABCDs;
+    Vec2I markerCenter,last_markerCenter;
+    Vec8I markerConerABCD;
+    Vec8I last_markerConerABCD;
+    std::vector<std::vector<cv::Point2f>> markerCorners, rejectedCandidates;
+    std::vector<cv::Point2f> markerCorner;
+    std::vector<cv::Vec3d> rvecs, tvecs;
+    cv::Vec3d rvec, tvec;
+    rvecs.clear();tvecs.clear();
+    cv::Ptr<cv::aruco::DetectorParameters> parameters = cv::aruco::DetectorParameters::create();
+    cv::Ptr<cv::aruco::Dictionary> dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_250);
+    cv::aruco::detectMarkers(image_rgb, dictionary, markerCorners, markerIds, parameters, rejectedCandidates);
+    if (markerIds.size() > 0){
+        markerConerABCDs.clear();
+        Aruco_init = true;
+        Aruco_found = true;
+        cv::aruco::drawDetectedMarkers(ArucoOutput, markerCorners, markerIds);
+        cv::aruco::estimatePoseSingleMarkers(markerCorners, 0.06, cameraMatrix, distCoeffs, rvecs, tvecs);
+        for(unsigned int i=0; i<markerIds.size(); i++){
+            cv::aruco::drawAxis(ArucoOutput, cameraMatrix, distCoeffs, rvecs[i], tvecs[i], 0.1);
+            markerCorner = markerCorners[i];
+            for (unsigned int j=0; j<markerCorner.size();j++){
+                cv::Point2f MC = markerCorner[j];
+                markerConerABCD[j*2] = MC.x;
+                markerConerABCD[j*2+1] = MC.y;
+            }
+            markerConerABCDs.push_back(markerConerABCD);
+        }
+    }else{Aruco_found = false; ArucoLostcounter++;}
+    ArucoTvecrvec << tvec[0],tvec[1],tvec[2],rvec[0],rvec[1],rvec[2];
+    return(ArucoTvecrvec);
+    // cv::imshow("Aruco_out", ArucoOutput);
+    // cv::waitKey(1);
+}
+Vec6 LEDTvecRvec(Mat image_rgb){
+    Vec6 PNPtvecrvec;
+    Vec3d PNPrvec, PNPtvec;
 
+    Mat image_jpg = imread("./test.jpg");
     imshow("image_jpg", image_jpg);
     Mat image_hsv,image_threshold;
     cvtColor(image_jpg, image_hsv, COLOR_BGR2HSV);
@@ -150,8 +194,10 @@ void imageprocess(Mat image_rgb){
     }
     solvePnP(PNPPoints3D, PNPPoints2D, cameraMatrix, distCoeffs, PNPrvec, PNPtvec, false, SOLVEPNP_ITERATIVE);
 
-    imshow("image_threshold", image_threshold);
-    imshow("image_hsv", image_hsv);
-    waitKey(1);  
+    PNPtvecrvec << PNPtvec[0],PNPtvec[1],PNPtvec[2],PNPrvec[0],PNPrvec[1],PNPrvec[2];
+    return(PNPtvecrvec);
+    // imshow("image_threshold", image_threshold);
+    // imshow("image_hsv", image_hsv);
+    // waitKey(1);
 }
 #endif 
