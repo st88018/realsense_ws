@@ -109,8 +109,8 @@ void PNP3Dpoints(){  //Determine the LED pos in real world
     PNPPoints3D.push_back(cv::Point3f(60,60, 0)); //green
     PNPPoints3D.push_back(cv::Point3f(60, 0, 0)); //blue
 }
-Vec6 Arucocalc(Mat image_rgb){
-    Vec6 ArucoTvecrvec;
+Vec8 Aruco(Mat image_rgb){
+    Vec8 ArucoTvecrvec;
     cv::Mat ArucoOutput = image_rgb.clone();
     std::vector<int> markerIds;
     std::vector<Vec8I> markerConerABCDs;
@@ -141,8 +141,9 @@ Vec6 Arucocalc(Mat image_rgb){
             }
             markerConerABCDs.push_back(markerConerABCD);
         }
+        // if (markerIds.size() > 1 ){cout << "Aruco Warning" << endl;}
     }else{Aruco_found = false; ArucoLostcounter++;}
-    ArucoTvecrvec << tvec[0],tvec[1],tvec[2],rvec[0],rvec[1],rvec[2];
+    ArucoTvecrvec << tvecs[0][0],tvecs[0][1],tvecs[0][2],rvecs[0][0],rvecs[0][1],rvecs[0][2],0,0;
     return(ArucoTvecrvec);
     // cv::imshow("Aruco_out", ArucoOutput);
     // cv::waitKey(1);

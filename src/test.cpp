@@ -241,13 +241,14 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
         return;
     }
     /* Aruco */
+    Aruco(image_rgb);
+    
     if (Aruco_init == false){
         CVE_Corners.clear();
         Vec8I CVE_Corner;
         CVE_Corner << 0,0,0,0,0,0,0,0;
         for(int i=0; i<5; i++){CVE_Corners.push_back(CVE_Corner);}
     }
-    Arucocalc(image_rgb);
     /* Pose in World Calc */
     // if (Aruco_init){
     //     cv_bridge::CvImagePtr depth_ptr  = cv_bridge::toCvCopy(depth, depth->encoding);
