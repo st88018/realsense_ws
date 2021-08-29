@@ -13,6 +13,10 @@ using namespace cv;
 
 /* Constant velocity estimator */
 std::deque<Vec8I> CVE_Corners;
+/*PNP*/
+cv::Mat cameraMatrix = cv::Mat::eye(3,3, CV_64F);
+cv::Mat depthcameraMatrix = cv::Mat::eye(3,3, CV_64F);
+cv::Mat distCoeffs = cv::Mat::zeros(8, 1, CV_64F);
 vector<cv::Point3f> PNPPoints3D;
 
 inline Vec2I FindMarkerCenter(const Vec8I& markerConerABCD){
@@ -140,10 +144,9 @@ void imageprocess(){
         mu[i] = moments( contours[i] );
     }
     vector<Point2f> mc(ledcounts);
-    for( size_t i = 0; i < ledcounts; i++ ){
-        //add 1e-5 to avoid division by zero
-        mc[i] = Point2f( static_cast<float>(mu[i].m10 / (mu[i].m00 + 1e-5)),
-                         static_cast<float>(mu[i].m01 / (mu[i].m00 + 1e-5)) );
+    for( size_t i = 0; i < ledcounts; i++ ){ 
+        mc[i] = Point2f( static_cast<float>(mu[i].m10 / (mu[i].m00 + 1e-5)), 
+                         static_cast<float>(mu[i].m01 / (mu[i].m00 + 1e-5)) ); //add 1e-5 to avoid division by zero
         // cout << "mc[" << i << "]=" << mc[i] << endl;
     }
     vector<int> mc_hue(ledcounts);
@@ -156,7 +159,7 @@ void imageprocess(){
     
     cv::Vec3d PNPrvec, PNPtvec;
     vector<Point2f> PNPPoints2D; //red orange green blue
-    PNPPoints2D.clear();PNPPoints3D.clear();
+    PNPPoints2D.clear();
     for (unsigned int i = 0; i < ledcounts; i++){
         Point2f pos2D_temp;
         for (unsigned int j = 0; j < ledcounts; j++){
@@ -167,6 +170,7 @@ void imageprocess(){
         PNPPoints2D.push_back(pos2D_temp);
         // cout << "PNPPoints2D[" << i << "]=" << pos2D_temp << endl;
     }
+    solvePnP(PNPPoints3D, PNPPoints2D, cameraMatrix, distCoeffs, PNPrvec, PNPtvec, false, SOLVEPNP_ITERATIVE);
 
 
 

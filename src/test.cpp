@@ -52,10 +52,6 @@ static geometry_msgs::PoseStamped Camera_pose_vicon;
 static geometry_msgs::PoseStamped UAV_pose_pub;
 static geometry_msgs::Twist       UAV_twist_pub;
 Vec7 UAV_lp;
-/*IRR filter parameter*/
-cv::Mat cameraMatrix = cv::Mat::eye(3,3, CV_64F);
-cv::Mat depthcameraMatrix = cv::Mat::eye(3,3, CV_64F);
-cv::Mat distCoeffs = cv::Mat::zeros(8, 1, CV_64F);
 /* FSM */
 Vec7 UAV_desP,UAV_takeoffP;
 int    Mission_state = 0;
