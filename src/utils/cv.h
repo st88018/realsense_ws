@@ -18,6 +18,8 @@ cv::Mat cameraMatrix = cv::Mat::eye(3,3, CV_64F);
 cv::Mat depthcameraMatrix = cv::Mat::eye(3,3, CV_64F);
 cv::Mat distCoeffs = cv::Mat::zeros(8, 1, CV_64F);
 vector<cv::Point3f> PNPPoints3D;
+vector<Point2f> PNPPoints2D; //red orange green blue
+Vec3d PNPrvec, PNPtvec;
 
 inline Vec2I FindMarkerCenter(const Vec8I& markerConerABCD){
     Vec2I MarkerCenter;
@@ -96,54 +98,32 @@ Vec3I HSVaverage(cv::Mat BGRmat){
 //         cout << "GO GO" << endl;
 //     }
 // }
-Vec2I FindLEDCenter(cv::Mat SingleMarker){
-    Vec2I PosXY;
-    Moments oMoments = moments(SingleMarker,true);
-    double dM01 = oMoments.m01;
-    double dM10 = oMoments.m10;
-    double dArea = oMoments.m00;
-
-    // cout << "dM01: " << dM01 << endl;
-    // cout << "dM10: " << dM10 << endl;
-    // cout << "dArea: " << dArea << endl;
-
-    PosXY[0] = dM10 / dArea;
-    PosXY[1] = dM01 / dArea;
-
-    return(PosXY);
-}
-void PNP3Dpoints(){
+void PNP3Dpoints(){  //Determine the LED pos in real world
     PNPPoints3D.push_back(cv::Point3f( 0, 0, 0)); //red
     PNPPoints3D.push_back(cv::Point3f( 0,60, 0)); //orange
     PNPPoints3D.push_back(cv::Point3f(60,60, 0)); //green
     PNPPoints3D.push_back(cv::Point3f(60, 0, 0)); //blue
 }
-void imageprocess(){
+void imageprocess(Mat image_rgb){
     // system("./E10S50.sh");
-    cv::Mat image_jpg = imread("./test.jpg");
+    Mat image_jpg = imread("./test.jpg");
 
-    cv::imshow("image_jpg", image_jpg);
-    cv::Mat image_hsv,image_threshold;
+    imshow("image_jpg", image_jpg);
+    Mat image_hsv,image_threshold;
     cvtColor(image_jpg, image_hsv, COLOR_BGR2HSV);
 
-    inRange(image_hsv, Scalar(0, 0, 100), Scalar(255, 255, 255), image_threshold);
-    // vector<Mat> imageRGBthreshold(3); //R G B
-    // inRange(image_hsv, Scalar(0, 100, 100), Scalar(40, 255, 255), imageRGBthreshold[0]); //Threshold the image
-    // inRange(image_hsv, Scalar(50, 0, 150), Scalar(80, 255, 255), imageRGBthreshold[1]);
-    // inRange(image_hsv, Scalar(80, 0, 100), Scalar(150, 255, 255), imageRGBthreshold[2]);
-
-    vector<vector<Point> > contours;
-
+    inRange(image_hsv, Scalar(0, 0, 100), Scalar(255, 255, 255), image_threshold);  
     dilate(image_threshold, image_threshold, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) );
     erode(image_threshold, image_threshold, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) );
+    
+    vector<vector<Point> > contours;
     findContours( image_threshold, contours, RETR_TREE, CHAIN_APPROX_SIMPLE );
-
     unsigned int ledcounts = contours.size();
     vector<Moments> mu(ledcounts);
+    vector<Point2f> mc(ledcounts); 
     for( size_t i = 0; i < ledcounts; i++ ){
         mu[i] = moments( contours[i] );
     }
-    vector<Point2f> mc(ledcounts);
     for( size_t i = 0; i < ledcounts; i++ ){ 
         mc[i] = Point2f( static_cast<float>(mu[i].m10 / (mu[i].m00 + 1e-5)), 
                          static_cast<float>(mu[i].m01 / (mu[i].m00 + 1e-5)) ); //add 1e-5 to avoid division by zero
@@ -157,8 +137,6 @@ void imageprocess(){
     vector<int> mc_hue_sort = mc_hue;
     sort(mc_hue_sort.begin(), mc_hue_sort.end());
     
-    cv::Vec3d PNPrvec, PNPtvec;
-    vector<Point2f> PNPPoints2D; //red orange green blue
     PNPPoints2D.clear();
     for (unsigned int i = 0; i < ledcounts; i++){
         Point2f pos2D_temp;
@@ -172,13 +150,8 @@ void imageprocess(){
     }
     solvePnP(PNPPoints3D, PNPPoints2D, cameraMatrix, distCoeffs, PNPrvec, PNPtvec, false, SOLVEPNP_ITERATIVE);
 
-
-
-    // cv::imwrite("image_rgb.jpg",image_rgb);
-
-    //https://www.opencv-srf.com/2010/09/object-detection-using-color-seperation.html
-    cv::imshow("image_threshold", image_threshold);
-    cv::imshow("image_hsv", image_hsv);
-    cv::waitKey(1);
+    imshow("image_threshold", image_threshold);
+    imshow("image_hsv", image_hsv);
+    waitKey(1);  
 }
 #endif 

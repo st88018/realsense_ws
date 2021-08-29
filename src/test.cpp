@@ -305,6 +305,8 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
             Depth_PosePub(Pose_calc(Depthrvecs,camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters)));
         }
     }
+
+    imageprocess(image_rgb);
     
     /* SolvePNP test */
     // cv::Vec3d PNPrvec, PNPtvec;
@@ -321,11 +323,8 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     //     cout << "PNP   Tvec: " << PNPtvec << endl;
     // }
 
-
-    // cv::imwrite("E1S100NEW.jpg",image_rgb);
     /* image plot */
-    // cv::Mat depImage = image_dep.clone();
-    // cv::imshow("dep_out", depImage);
+    // cv::imshow("dep_out", image_dep);
     cv::imshow("Aruco_out", ArucoOutput);
     cv::waitKey(1);
 }
@@ -527,8 +526,7 @@ int main(int argc, char **argv){
         if(pubpose_traj){
             local_pos_pub.publish(UAV_pose_pub);
         }}
-        
-        imageprocess();
+
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
         /* ROS timer */
