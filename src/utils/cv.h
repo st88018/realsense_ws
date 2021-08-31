@@ -109,27 +109,19 @@ void PNP3Dpoints(){  //Determine the LED pos in real world
     PNPPoints3D.push_back(cv::Point3f( 0, 0, 0)); //green
     PNPPoints3D.push_back(cv::Point3f(97,69, 0)); //blue
 }
-Vec8 Aruco(Mat image_rgb){
-    // Vec8 ArucoTvecrvec;
-    
-    // ArucoTvecrvec << tvecs[0][0],tvecs[0][1],tvecs[0][2],rvecs[0][0],rvecs[0][1],rvecs[0][2],0,0;
-    // return(ArucoTvecrvec);
-    // cv::imshow("Aruco_out", ArucoOutput);
-    // cv::waitKey(1);
-}
 Vec6 LEDTvecRvec(Mat image_rgb){
     // Mat image_jpg = imread("./test.jpg");
     // imshow("image_jpg", image_jpg);
     Mat image_hsv,image_threshold;
     cvtColor(image_rgb, image_hsv, COLOR_BGR2HSV);
-    Vec6 PNPtvecrvec;
+    Vec6 output;
     Vec3d PNPrvec, PNPtvec;
     inRange(image_hsv, Scalar(0, 0, 100), Scalar(255, 255, 255), image_threshold);  
     dilate(image_threshold, image_threshold, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) );
     erode(image_threshold, image_threshold, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) );
     // imshow("image_hsv", image_hsv);
-    imshow("image_threshold", image_threshold);
-    waitKey(1);
+    // imshow("image_threshold", image_threshold);
+    // waitKey(1);
     vector<vector<Point> > contours;
     findContours( image_threshold, contours, RETR_TREE, CHAIN_APPROX_SIMPLE );
     vector<Moments> mu(contours.size()); 
@@ -137,8 +129,8 @@ Vec6 LEDTvecRvec(Mat image_rgb){
         mu[i] = moments( contours[i] );
     }
     if (mu.size() < 4){ //Return 0 if see less than 4 LEDs
-        PNPtvecrvec << 0,0,0,0,0,0;
-        return(PNPtvecrvec);
+        output << 0,0,0,0,0,0;
+        return(output);
     }
     if (mu.size() > 4){ //Remove small moments till 4
         vector<Moments> mu_temp = mu;
@@ -181,9 +173,7 @@ Vec6 LEDTvecRvec(Mat image_rgb){
         // cout << "PNPPoints2D[" << i << "]=" << pos2D_temp << endl;
     }
     solvePnP(PNPPoints3D, PNPPoints2D, cameraMatrix, distCoeffs, PNPrvec, PNPtvec, false, SOLVEPNP_ITERATIVE);
-
-    PNPtvecrvec << PNPtvec[0]*0.001,PNPtvec[1]*0.001,PNPtvec[2]*0.001,PNPrvec[0],PNPrvec[1],PNPrvec[2];
-    cout << PNPtvec[0]*0.001 << " " << PNPtvec[1]*0.001 << " " << PNPtvec[2]*0.001 << endl;
-    // return(PNPtvecrvec);
+    output << PNPtvec[0]*0.001,PNPtvec[1]*0.001,PNPtvec[2]*0.001,PNPrvec[0],PNPrvec[1],PNPrvec[2];
+    return(output);
 }
 #endif 
