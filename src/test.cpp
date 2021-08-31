@@ -41,6 +41,7 @@ using namespace message_filters;
 /*uav local parameter*/
 static geometry_msgs::PoseStamped Aruco_pose_realsense;
 static geometry_msgs::PoseStamped Depth_pose_realsense;
+static geometry_msgs::PoseStamped LED_pose_realsense;
 static geometry_msgs::PoseStamped UAV_pose_vicon;
 static geometry_msgs::PoseStamped Camera_pose_vicon;
 static geometry_msgs::PoseStamped UAV_pose_pub;
@@ -213,6 +214,18 @@ void Depth_PosePub(Vec6 rpyxyz){
     Depth_pose_realsense.pose.orientation.x = Q.x();
     Depth_pose_realsense.pose.orientation.y = Q.y();
     Depth_pose_realsense.pose.orientation.z = Q.z();
+}
+void LED_PosePub(Vec6 rpyxyz){
+    Quaterniond Q = rpy2Q(Vec3(rpyxyz(0),rpyxyz(1),rpyxyz(2)));
+    LED_pose_realsense.header.stamp = ros::Time::now();
+    LED_pose_realsense.header.frame_id = "world";
+    LED_pose_realsense.pose.position.x = rpyxyz(3);
+    LED_pose_realsense.pose.position.y = rpyxyz(4);
+    LED_pose_realsense.pose.position.z = rpyxyz(5);
+    LED_pose_realsense.pose.orientation.w = Q.w();
+    LED_pose_realsense.pose.orientation.x = Q.x();
+    LED_pose_realsense.pose.orientation.y = Q.y();
+    LED_pose_realsense.pose.orientation.z = Q.z();
 }
 Vec6 Pose_calc(const Vec3 rvecs, const Vec3 tvecs){ // camera coordinate to world coordinate
     Eigen::Quaterniond q;
@@ -438,6 +451,7 @@ int main(int argc, char **argv){
     ros::ServiceClient set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("/mavros/set_mode");
     ros::Publisher ArucoPose_pub = nh.advertise<geometry_msgs::PoseStamped>("ArucoPose",1);
     ros::Publisher DepthPose_pub = nh.advertise<geometry_msgs::PoseStamped>("DepthPose",1);
+    ros::Publisher LEDPose_pub = nh.advertise<geometry_msgs::PoseStamped>("LEDPose",1);
     ros::Publisher local_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 10);
     ros::Publisher local_vel_pub = nh.advertise<geometry_msgs::Twist>("/mavros/setpoint_velocity/cmd_vel_unstamped", 100);
     message_filters::Subscriber<CompressedImage> rgb_sub(nh, "/camera/color/image_raw/compressed", 1);
@@ -506,6 +520,7 @@ int main(int argc, char **argv){
 
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
+        DepthPose_pub.publish(LED_pose_realsense);
         /* ROS timer */
         // auto currentT = ros::Time::now().toSec();
         // cout << "System_Hz: " << 1/(currentT-LastT) << endl;

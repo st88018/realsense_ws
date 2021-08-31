@@ -104,10 +104,10 @@ Vec3I HSVaverage(cv::Mat BGRmat){
 //     }
 // }
 void PNP3Dpoints(){  //Determine the LED pos in real world
-    PNPPoints3D.push_back(cv::Point3f( 0, 0, 0)); //red
-    PNPPoints3D.push_back(cv::Point3f( 0,60, 0)); //orange
-    PNPPoints3D.push_back(cv::Point3f(60,60, 0)); //green
-    PNPPoints3D.push_back(cv::Point3f(60, 0, 0)); //blue
+    PNPPoints3D.push_back(cv::Point3f( 0,69, 0)); //red
+    PNPPoints3D.push_back(cv::Point3f(97, 0, 0)); //orange
+    PNPPoints3D.push_back(cv::Point3f( 0, 0, 0)); //green
+    PNPPoints3D.push_back(cv::Point3f(97,69, 0)); //blue
 }
 Vec8 Aruco(Mat image_rgb){
     // Vec8 ArucoTvecrvec;
@@ -157,13 +157,13 @@ Vec6 LEDTvecRvec(Mat image_rgb){
         }
     }
     vector<Point2f> mc(mu.size());
-    for( size_t i = 0; i < mu.size(); i++ ){ 
+    for( size_t i = 0; i < mu.size(); i++ ){ //Find centers
         mc[i] = Point2f( static_cast<float>(mu[i].m10 / (mu[i].m00 + 1e-5)), 
                          static_cast<float>(mu[i].m01 / (mu[i].m00 + 1e-5)) ); //add 1e-5 to avoid division by zero
         cout << "mc[" << i << "]=" << mc[i] << endl;
     }
-    vector<int> mc_hue(mu.size());
-    for (unsigned int i = 0; i < mu.size(); i++){
+    vector<int> mc_hue(mc.size()); 
+    for (unsigned int i = 0; i < mu.size(); i++){ //Find the hue at each mcs
         mc_hue[i] = image_hsv.at<Vec3b>(mc[i])[0];
         // cout << "mc_hue[" << i << "]=" << mc_hue[i] << endl;
     }
@@ -178,11 +178,12 @@ Vec6 LEDTvecRvec(Mat image_rgb){
             }
         }
         PNPPoints2D.push_back(pos2D_temp);
-        cout << "PNPPoints2D[" << i << "]=" << pos2D_temp << endl;
+        // cout << "PNPPoints2D[" << i << "]=" << pos2D_temp << endl;
     }
-    // solvePnP(PNPPoints3D, PNPPoints2D, cameraMatrix, distCoeffs, PNPrvec, PNPtvec, false, SOLVEPNP_ITERATIVE);
+    solvePnP(PNPPoints3D, PNPPoints2D, cameraMatrix, distCoeffs, PNPrvec, PNPtvec, false, SOLVEPNP_ITERATIVE);
 
-    // PNPtvecrvec << PNPtvec[0]*0.001,PNPtvec[1]*0.001,PNPtvec[2]*0.001,PNPrvec[0],PNPrvec[1],PNPrvec[2];
+    PNPtvecrvec << PNPtvec[0]*0.001,PNPtvec[1]*0.001,PNPtvec[2]*0.001,PNPrvec[0],PNPrvec[1],PNPrvec[2];
+    cout << PNPtvec[0]*0.001 << " " << PNPtvec[1]*0.001 << " " << PNPtvec[2]*0.001 << endl;
     // return(PNPtvecrvec);
 }
 #endif 
