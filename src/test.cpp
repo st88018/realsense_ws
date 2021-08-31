@@ -232,6 +232,7 @@ Vec6 Pose_calc(const Vec3 rvecs, const Vec3 tvecs){ // camera coordinate to worl
 }
 void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs::ImageConstPtr &depth){
     // cout<<"hello callback "<<endl;
+    cout << "iii" << endl;
     cv::Mat image_rgb;
     try{
         image_rgb = cv::imdecode(cv::Mat(rgb->data),1);
@@ -241,35 +242,65 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
         return;
     }
     /* Aruco */
-    Aruco(image_rgb);
-    
-    if (Aruco_init == false){
-        CVE_Corners.clear();
-        Vec8I CVE_Corner;
-        CVE_Corner << 0,0,0,0,0,0,0,0;
-        for(int i=0; i<5; i++){CVE_Corners.push_back(CVE_Corner);}
-    }
-    /* Pose in World Calc */
-    if (Aruco_init){
-        cv_bridge::CvImagePtr depth_ptr  = cv_bridge::toCvCopy(depth, depth->encoding);
-        cv::Mat image_dep = depth_ptr->image;
-        Vec3 Depthrvecs;
-        if(Aruco_found){
-            rvec = rvecs.front();
-            tvec = tvecs.front();
-            Vec3 Aruco_translation_camera(tvec(0),tvec(1),tvec(2));
-            Vec3 Aruco_rpy_camera(rvec(0),rvec(1),rvec(2));
-            Aruco_PosePub(Pose_calc(Aruco_rpy_camera,Aruco_translation_camera));
-            Depthrvecs = Aruco_rpy_camera;
-            double ArucoDepth = find_depth_avg(image_dep,markerConerABCDs.back());
-            last_markerConerABCD = markerConerABCDs.back();
-            Depth_PosePub(Pose_calc(Depthrvecs,camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters)));
-            ArucoLostcounter = 0;
-        }else{ //Aruco not found do constant-velocity predict
-            double ArucoDepth = find_depth_avg(image_dep,last_markerConerABCD);
-            Depth_PosePub(Pose_calc(Depthrvecs,camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters)));
-        }
-    }
+    // cv::Mat ArucoOutput = image_rgb.clone();
+    // std::vector<int> markerIds;
+    // std::vector<Vec8I> markerConerABCDs;
+    // Vec2I markerCenter,last_markerCenter;
+    // Vec8I markerConerABCD;
+    // Vec8I last_markerConerABCD;
+    // std::vector<std::vector<cv::Point2f>> markerCorners, rejectedCandidates;
+    // std::vector<cv::Point2f> markerCorner;
+    // std::vector<cv::Vec3d> rvecs, tvecs;
+    // cv::Vec3d rvec, tvec;
+    // rvecs.clear();tvecs.clear();
+    // cv::Ptr<cv::aruco::DetectorParameters> parameters = cv::aruco::DetectorParameters::create();
+    // cv::Ptr<cv::aruco::Dictionary> dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_250);
+    // cv::aruco::detectMarkers(image_rgb, dictionary, markerCorners, markerIds, parameters, rejectedCandidates);
+    // if (markerIds.size() > 0){
+    //     markerConerABCDs.clear();
+    //     Aruco_init = true;
+    //     Aruco_found = true;
+    //     cv::aruco::drawDetectedMarkers(ArucoOutput, markerCorners, markerIds);
+    //     cv::aruco::estimatePoseSingleMarkers(markerCorners, 0.06, cameraMatrix, distCoeffs, rvecs, tvecs);
+    //     for(unsigned int i=0; i<markerIds.size(); i++){
+    //         cv::aruco::drawAxis(ArucoOutput, cameraMatrix, distCoeffs, rvecs[i], tvecs[i], 0.1);
+    //         markerCorner = markerCorners[i];
+    //         for (unsigned int j=0; j<markerCorner.size();j++){
+    //             cv::Point2f MC = markerCorner[j];
+    //             markerConerABCD[j*2] = MC.x;
+    //             markerConerABCD[j*2+1] = MC.y;
+    //         }
+    //         markerConerABCDs.push_back(markerConerABCD);
+    //     }
+    //     // if (markerIds.size() > 1 ){cout << "Aruco Warning" << endl;}
+    // }else{Aruco_found = false; ArucoLostcounter++;}
+    // if (Aruco_init == false){
+    //     CVE_Corners.clear();
+    //     Vec8I CVE_Corner;
+    //     CVE_Corner << 0,0,0,0,0,0,0,0;
+    //     for(int i=0; i<5; i++){CVE_Corners.push_back(CVE_Corner);}
+    // }
+    // /* Pose in World Calc */
+    // if (Aruco_init){
+    //     cv_bridge::CvImagePtr depth_ptr  = cv_bridge::toCvCopy(depth, depth->encoding);
+    //     cv::Mat image_dep = depth_ptr->image;
+    //     Vec3 Depthrvecs;
+    //     if(Aruco_found){
+    //         rvec = rvecs.front();
+    //         tvec = tvecs.front();
+    //         Vec3 Aruco_translation_camera(tvec(0),tvec(1),tvec(2));
+    //         Vec3 Aruco_rpy_camera(rvec(0),rvec(1),rvec(2));
+    //         Aruco_PosePub(Pose_calc(Aruco_rpy_camera,Aruco_translation_camera));
+    //         Depthrvecs = Aruco_rpy_camera;
+    //         double ArucoDepth = find_depth_avg(image_dep,markerConerABCDs.back());
+    //         last_markerConerABCD = markerConerABCDs.back();
+    //         Depth_PosePub(Pose_calc(Depthrvecs,camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters)));
+    //         ArucoLostcounter = 0;
+    //     }else{ //Aruco not found do constant-velocity predict
+    //         double ArucoDepth = find_depth_avg(image_dep,last_markerConerABCD);
+    //         Depth_PosePub(Pose_calc(Depthrvecs,camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters)));
+    //     }
+    // }
 
     cout << "PNP: " << LEDTvecRvec(image_rgb) << endl;
     // cout << "Aruco Tvec: " << tvec*1000 << endl;
@@ -425,8 +456,6 @@ int main(int argc, char **argv){
     Zero4 << 0,0,0,0;
     Zero7 << 0,0,0,0,0,0,0;
     PNP3Dpoints();
-
-    
 
     while(ros::ok()){
         if (UAV){

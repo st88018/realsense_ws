@@ -110,57 +110,27 @@ void PNP3Dpoints(){  //Determine the LED pos in real world
     PNPPoints3D.push_back(cv::Point3f(60, 0, 0)); //blue
 }
 Vec8 Aruco(Mat image_rgb){
-    Vec8 ArucoTvecrvec;
-    cv::Mat ArucoOutput = image_rgb.clone();
-    std::vector<int> markerIds;
-    std::vector<Vec8I> markerConerABCDs;
-    Vec2I markerCenter,last_markerCenter;
-    Vec8I markerConerABCD;
-    Vec8I last_markerConerABCD;
-    std::vector<std::vector<cv::Point2f>> markerCorners, rejectedCandidates;
-    std::vector<cv::Point2f> markerCorner;
-    std::vector<cv::Vec3d> rvecs, tvecs;
-    cv::Vec3d rvec, tvec;
-    rvecs.clear();tvecs.clear();
-    cv::Ptr<cv::aruco::DetectorParameters> parameters = cv::aruco::DetectorParameters::create();
-    cv::Ptr<cv::aruco::Dictionary> dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_250);
-    cv::aruco::detectMarkers(image_rgb, dictionary, markerCorners, markerIds, parameters, rejectedCandidates);
-    if (markerIds.size() > 0){
-        markerConerABCDs.clear();
-        Aruco_init = true;
-        Aruco_found = true;
-        cv::aruco::drawDetectedMarkers(ArucoOutput, markerCorners, markerIds);
-        cv::aruco::estimatePoseSingleMarkers(markerCorners, 0.06, cameraMatrix, distCoeffs, rvecs, tvecs);
-        for(unsigned int i=0; i<markerIds.size(); i++){
-            cv::aruco::drawAxis(ArucoOutput, cameraMatrix, distCoeffs, rvecs[i], tvecs[i], 0.1);
-            markerCorner = markerCorners[i];
-            for (unsigned int j=0; j<markerCorner.size();j++){
-                cv::Point2f MC = markerCorner[j];
-                markerConerABCD[j*2] = MC.x;
-                markerConerABCD[j*2+1] = MC.y;
-            }
-            markerConerABCDs.push_back(markerConerABCD);
-        }
-        // if (markerIds.size() > 1 ){cout << "Aruco Warning" << endl;}
-    }else{Aruco_found = false; ArucoLostcounter++;}
-    ArucoTvecrvec << tvecs[0][0],tvecs[0][1],tvecs[0][2],rvecs[0][0],rvecs[0][1],rvecs[0][2],0,0;
-    return(ArucoTvecrvec);
+    // Vec8 ArucoTvecrvec;
+    
+    // ArucoTvecrvec << tvecs[0][0],tvecs[0][1],tvecs[0][2],rvecs[0][0],rvecs[0][1],rvecs[0][2],0,0;
+    // return(ArucoTvecrvec);
     // cv::imshow("Aruco_out", ArucoOutput);
     // cv::waitKey(1);
 }
 Vec6 LEDTvecRvec(Mat image_rgb){
+    // Mat image_jpg = imread("./test.jpg");
+    // imshow("image_jpg", image_jpg);
+
+    Mat image_hsv,image_threshold;
+    cvtColor(image_rgb, image_hsv, COLOR_BGR2HSV);
     Vec6 PNPtvecrvec;
     Vec3d PNPrvec, PNPtvec;
-
-    Mat image_jpg = imread("./test.jpg");
-    imshow("image_jpg", image_jpg);
-    Mat image_hsv,image_threshold;
-    cvtColor(image_jpg, image_hsv, COLOR_BGR2HSV);
-
     inRange(image_hsv, Scalar(0, 0, 100), Scalar(255, 255, 255), image_threshold);  
     dilate(image_threshold, image_threshold, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) );
     erode(image_threshold, image_threshold, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) );
-    
+    // imshow("image_hsv", image_hsv);
+    imshow("image_threshold", image_threshold);
+    waitKey(1);
     vector<vector<Point> > contours;
     findContours( image_threshold, contours, RETR_TREE, CHAIN_APPROX_SIMPLE );
     unsigned int ledcounts = contours.size();
@@ -169,36 +139,35 @@ Vec6 LEDTvecRvec(Mat image_rgb){
     for( size_t i = 0; i < ledcounts; i++ ){
         mu[i] = moments( contours[i] );
     }
+
+    cout << "mu.size(): "<< mu.size() << endl;
     for( size_t i = 0; i < ledcounts; i++ ){ 
         mc[i] = Point2f( static_cast<float>(mu[i].m10 / (mu[i].m00 + 1e-5)), 
                          static_cast<float>(mu[i].m01 / (mu[i].m00 + 1e-5)) ); //add 1e-5 to avoid division by zero
         // cout << "mc[" << i << "]=" << mc[i] << endl;
     }
-    vector<int> mc_hue(ledcounts);
-    for (unsigned int i = 0; i < ledcounts; i++){
-        mc_hue[i] = image_hsv.at<Vec3b>(mc[i])[0];
-        // cout << "mc_hue[" << i << "]=" << mc_hue[i] << endl;
-    }
-    vector<int> mc_hue_sort = mc_hue;
-    sort(mc_hue_sort.begin(), mc_hue_sort.end());
+    // vector<int> mc_hue(ledcounts);
+    // for (unsigned int i = 0; i < ledcounts; i++){
+    //     mc_hue[i] = image_hsv.at<Vec3b>(mc[i])[0];
+    //     // cout << "mc_hue[" << i << "]=" << mc_hue[i] << endl;
+    // }
+    // vector<int> mc_hue_sort = mc_hue;
+    // sort(mc_hue_sort.begin(), mc_hue_sort.end());
     
-    PNPPoints2D.clear();
-    for (unsigned int i = 0; i < ledcounts; i++){
-        Point2f pos2D_temp;
-        for (unsigned int j = 0; j < ledcounts; j++){
-            if (mc_hue_sort[i]==mc_hue[j]){
-                pos2D_temp = mc[j];
-            }
-        }
-        PNPPoints2D.push_back(pos2D_temp);
-        // cout << "PNPPoints2D[" << i << "]=" << pos2D_temp << endl;
-    }
-    solvePnP(PNPPoints3D, PNPPoints2D, cameraMatrix, distCoeffs, PNPrvec, PNPtvec, false, SOLVEPNP_ITERATIVE);
+    // PNPPoints2D.clear();
+    // for (unsigned int i = 0; i < ledcounts; i++){
+    //     Point2f pos2D_temp;
+    //     for (unsigned int j = 0; j < ledcounts; j++){
+    //         if (mc_hue_sort[i]==mc_hue[j]){
+    //             pos2D_temp = mc[j];
+    //         }
+    //     }
+    //     PNPPoints2D.push_back(pos2D_temp);
+    //     // cout << "PNPPoints2D[" << i << "]=" << pos2D_temp << endl;
+    // }
+    // solvePnP(PNPPoints3D, PNPPoints2D, cameraMatrix, distCoeffs, PNPrvec, PNPtvec, false, SOLVEPNP_ITERATIVE);
 
-    PNPtvecrvec << PNPtvec[0]*0.001,PNPtvec[1]*0.001,PNPtvec[2]*0.001,PNPrvec[0],PNPrvec[1],PNPrvec[2];
-    return(PNPtvecrvec);
-    // imshow("image_threshold", image_threshold);
-    // imshow("image_hsv", image_hsv);
-    // waitKey(1);
+    // PNPtvecrvec << PNPtvec[0]*0.001,PNPtvec[1]*0.001,PNPtvec[2]*0.001,PNPrvec[0],PNPrvec[1],PNPrvec[2];
+    // return(PNPtvecrvec);
 }
 #endif 
