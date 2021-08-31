@@ -301,7 +301,7 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     //     }
     // }
 
-    cout << "PNP: " << LEDTvecRvec(image_rgb) << endl;
+    LEDTvecRvec(image_rgb);
     // cout << "Aruco Tvec: " << tvec*1000 << endl;
 
     /* image plot */

@@ -132,28 +132,36 @@ Vec6 LEDTvecRvec(Mat image_rgb){
     waitKey(1);
     vector<vector<Point> > contours;
     findContours( image_threshold, contours, RETR_TREE, CHAIN_APPROX_SIMPLE );
-    unsigned int ledcounts = contours.size();
-    vector<Moments> mu(ledcounts);
-    vector<Point2f> mc(ledcounts); 
-    for( size_t i = 0; i < ledcounts; i++ ){
+    vector<Moments> mu(contours.size()); 
+    for( size_t i = 0; i < mu.size(); i++ ){
         mu[i] = moments( contours[i] );
     }
-    cout << "mu.size(): "<< mu.size() << endl;
-    if (mu.size()>3){
+    if (mu.size() < 4){
+        PNPtvecrvec << 0,0,0,0,0,0;
+        return(PNPtvecrvec);
+    }
+    if (mu.size() > 4){
         vector<Moments> mu_temp = mu;
         mu.clear();
-        for( size_t i = 0; i < mu.size(); i++ ){
-            Moments moments_temp;
-            mu.push_back(moments_temp);
+        vector<float> mu_size(mu_temp.size());
+        for( size_t i = 0; i < mu_temp.size(); i++ ){
+            mu_size[i] = mu_temp[i].m00;
         }
-        
+        sort(mu_size.rbegin(), mu_size.rend());
+        for ( size_t i = 0; i < 4; i++ ){
+            for ( size_t j = 0; j < mu_temp.size(); j++ ){
+                if (mu_size[i] == mu_temp[j].m00){
+                    mu.push_back(mu_temp[j]);
+                }
+            }
+        }
     }
+    vector<Point2f> mc(mu.size());
     for( size_t i = 0; i < mu.size(); i++ ){ 
         mc[i] = Point2f( static_cast<float>(mu[i].m10 / (mu[i].m00 + 1e-5)), 
                          static_cast<float>(mu[i].m01 / (mu[i].m00 + 1e-5)) ); //add 1e-5 to avoid division by zero
-        // cout << "mc[" << i << "]=" << mc[i] << endl;
+        cout << "mc[" << i << "]=" << mc[i] << endl;
     }
-
     vector<int> mc_hue(mu.size());
     for (unsigned int i = 0; i < mu.size(); i++){
         mc_hue[i] = image_hsv.at<Vec3b>(mc[i])[0];
@@ -161,18 +169,17 @@ Vec6 LEDTvecRvec(Mat image_rgb){
     }
     vector<int> mc_hue_sort = mc_hue;
     sort(mc_hue_sort.begin(), mc_hue_sort.end());
-    
-    // PNPPoints2D.clear();
-    // for (unsigned int i = 0; i < ledcounts; i++){
-    //     Point2f pos2D_temp;
-    //     for (unsigned int j = 0; j < ledcounts; j++){
-    //         if (mc_hue_sort[i]==mc_hue[j]){
-    //             pos2D_temp = mc[j];
-    //         }
-    //     }
-    //     PNPPoints2D.push_back(pos2D_temp);
-    //     // cout << "PNPPoints2D[" << i << "]=" << pos2D_temp << endl;
-    // }
+    PNPPoints2D.clear();
+    for (unsigned int i = 0; i < mu.size(); i++){
+        Point2f pos2D_temp;
+        for (unsigned int j = 0; j < mu.size(); j++){
+            if (mc_hue_sort[i]==mc_hue[j]){
+                pos2D_temp = mc[j];
+            }
+        }
+        PNPPoints2D.push_back(pos2D_temp);
+        cout << "PNPPoints2D[" << i << "]=" << pos2D_temp << endl;
+    }
     // solvePnP(PNPPoints3D, PNPPoints2D, cameraMatrix, distCoeffs, PNPrvec, PNPtvec, false, SOLVEPNP_ITERATIVE);
 
     // PNPtvecrvec << PNPtvec[0]*0.001,PNPtvec[1]*0.001,PNPtvec[2]*0.001,PNPrvec[0],PNPrvec[1],PNPrvec[2];
