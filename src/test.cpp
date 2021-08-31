@@ -313,8 +313,9 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     //         Depth_PosePub(Pose_calc(Depthrvecs,camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters)));
     //     }
     // }
-
-    LEDTvecRvec(image_rgb);
+    /* LED PNP */
+    Vec6 LEDtvecrvec = LEDTvecRvec(image_rgb);
+    LED_PosePub(Pose_calc(Vec3(LEDtvecrvec[3],LEDtvecrvec[4],LEDtvecrvec[5]),Vec3(LEDtvecrvec[0],LEDtvecrvec[1],LEDtvecrvec[2])));
     // cout << "Aruco Tvec: " << tvec*1000 << endl;
 
     /* image plot */
@@ -520,7 +521,7 @@ int main(int argc, char **argv){
 
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
-        DepthPose_pub.publish(LED_pose_realsense);
+        LEDPose_pub.publish(LED_pose_realsense);
         /* ROS timer */
         // auto currentT = ros::Time::now().toSec();
         // cout << "System_Hz: " << 1/(currentT-LastT) << endl;

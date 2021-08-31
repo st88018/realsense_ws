@@ -152,7 +152,7 @@ Vec6 LEDTvecRvec(Mat image_rgb){
     for( size_t i = 0; i < mu.size(); i++ ){ //Find centers
         mc[i] = Point2f( static_cast<float>(mu[i].m10 / (mu[i].m00 + 1e-5)), 
                          static_cast<float>(mu[i].m01 / (mu[i].m00 + 1e-5)) ); //add 1e-5 to avoid division by zero
-        cout << "mc[" << i << "]=" << mc[i] << endl;
+        // cout << "mc[" << i << "]=" << mc[i] << endl;
     }
     vector<int> mc_hue(mc.size()); 
     for (unsigned int i = 0; i < mu.size(); i++){ //Find the hue at each mcs
@@ -174,6 +174,9 @@ Vec6 LEDTvecRvec(Mat image_rgb){
     }
     solvePnP(PNPPoints3D, PNPPoints2D, cameraMatrix, distCoeffs, PNPrvec, PNPtvec, false, SOLVEPNP_ITERATIVE);
     output << PNPtvec[0]*0.001,PNPtvec[1]*0.001,PNPtvec[2]*0.001,PNPrvec[0],PNPrvec[1],PNPrvec[2];
+    for (unsigned int i = 0; i < output.size(); i++){
+    cout << "output[" << i << "]=" << output[i] << endl;
+    }
     return(output);
 }
 #endif 
