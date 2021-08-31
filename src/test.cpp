@@ -250,26 +250,26 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
         for(int i=0; i<5; i++){CVE_Corners.push_back(CVE_Corner);}
     }
     /* Pose in World Calc */
-    // if (Aruco_init){
-    //     cv_bridge::CvImagePtr depth_ptr  = cv_bridge::toCvCopy(depth, depth->encoding);
-    //     cv::Mat image_dep = depth_ptr->image;
-    //     Vec3 Depthrvecs;
-    //     if(Aruco_found){
-    //         rvec = rvecs.front();
-    //         tvec = tvecs.front();
-    //         Vec3 Aruco_translation_camera(tvec(0),tvec(1),tvec(2));
-    //         Vec3 Aruco_rpy_camera(rvec(0),rvec(1),rvec(2));
-    //         Aruco_PosePub(Pose_calc(Aruco_rpy_camera,Aruco_translation_camera));
-    //         Depthrvecs = Aruco_rpy_camera;
-    //         double ArucoDepth = find_depth_avg(image_dep,markerConerABCDs.back());
-    //         last_markerConerABCD = markerConerABCDs.back();
-    //         Depth_PosePub(Pose_calc(Depthrvecs,camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters)));
-    //         ArucoLostcounter = 0;
-    //     }else{ //Aruco not found do constant-velocity predict
-    //         double ArucoDepth = find_depth_avg(image_dep,last_markerConerABCD);
-    //         Depth_PosePub(Pose_calc(Depthrvecs,camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters)));
-    //     }
-    // }
+    if (Aruco_init){
+        cv_bridge::CvImagePtr depth_ptr  = cv_bridge::toCvCopy(depth, depth->encoding);
+        cv::Mat image_dep = depth_ptr->image;
+        Vec3 Depthrvecs;
+        if(Aruco_found){
+            rvec = rvecs.front();
+            tvec = tvecs.front();
+            Vec3 Aruco_translation_camera(tvec(0),tvec(1),tvec(2));
+            Vec3 Aruco_rpy_camera(rvec(0),rvec(1),rvec(2));
+            Aruco_PosePub(Pose_calc(Aruco_rpy_camera,Aruco_translation_camera));
+            Depthrvecs = Aruco_rpy_camera;
+            double ArucoDepth = find_depth_avg(image_dep,markerConerABCDs.back());
+            last_markerConerABCD = markerConerABCDs.back();
+            Depth_PosePub(Pose_calc(Depthrvecs,camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters)));
+            ArucoLostcounter = 0;
+        }else{ //Aruco not found do constant-velocity predict
+            double ArucoDepth = find_depth_avg(image_dep,last_markerConerABCD);
+            Depth_PosePub(Pose_calc(Depthrvecs,camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters)));
+        }
+    }
 
     cout << "PNP: " << LEDTvecRvec(image_rgb) << endl;
     // cout << "Aruco Tvec: " << tvec*1000 << endl;

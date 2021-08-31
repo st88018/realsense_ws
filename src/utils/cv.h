@@ -195,7 +195,7 @@ Vec6 LEDTvecRvec(Mat image_rgb){
     }
     solvePnP(PNPPoints3D, PNPPoints2D, cameraMatrix, distCoeffs, PNPrvec, PNPtvec, false, SOLVEPNP_ITERATIVE);
 
-    PNPtvecrvec << PNPtvec[0],PNPtvec[1],PNPtvec[2],PNPrvec[0],PNPrvec[1],PNPrvec[2];
+    PNPtvecrvec << PNPtvec[0]*0.001,PNPtvec[1]*0.001,PNPtvec[2]*0.001,PNPrvec[0],PNPrvec[1],PNPrvec[2];
     return(PNPtvecrvec);
     // imshow("image_threshold", image_threshold);
     // imshow("image_hsv", image_hsv);
