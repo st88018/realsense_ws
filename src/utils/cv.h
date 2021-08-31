@@ -133,14 +133,14 @@ Vec6 LEDTvecRvec(Mat image_rgb){
     vector<vector<Point> > contours;
     findContours( image_threshold, contours, RETR_TREE, CHAIN_APPROX_SIMPLE );
     vector<Moments> mu(contours.size()); 
-    for( size_t i = 0; i < mu.size(); i++ ){
+    for( size_t i = 0; i < mu.size(); i++ ){ //Find moments
         mu[i] = moments( contours[i] );
     }
-    if (mu.size() < 4){
+    if (mu.size() < 4){ //Return 0 if see less than 4 LEDs
         PNPtvecrvec << 0,0,0,0,0,0;
         return(PNPtvecrvec);
     }
-    if (mu.size() > 4){
+    if (mu.size() > 4){ //Remove small moments till 4
         vector<Moments> mu_temp = mu;
         mu.clear();
         vector<float> mu_size(mu_temp.size());
