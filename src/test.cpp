@@ -232,7 +232,6 @@ Vec6 Pose_calc(const Vec3 rvecs, const Vec3 tvecs){ // camera coordinate to worl
 }
 void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs::ImageConstPtr &depth){
     // cout<<"hello callback "<<endl;
-    cout << "iii" << endl;
     cv::Mat image_rgb;
     try{
         image_rgb = cv::imdecode(cv::Mat(rgb->data),1);

@@ -120,7 +120,6 @@ Vec8 Aruco(Mat image_rgb){
 Vec6 LEDTvecRvec(Mat image_rgb){
     // Mat image_jpg = imread("./test.jpg");
     // imshow("image_jpg", image_jpg);
-
     Mat image_hsv,image_threshold;
     cvtColor(image_rgb, image_hsv, COLOR_BGR2HSV);
     Vec6 PNPtvecrvec;
@@ -139,20 +138,29 @@ Vec6 LEDTvecRvec(Mat image_rgb){
     for( size_t i = 0; i < ledcounts; i++ ){
         mu[i] = moments( contours[i] );
     }
-
     cout << "mu.size(): "<< mu.size() << endl;
-    for( size_t i = 0; i < ledcounts; i++ ){ 
+    if (mu.size()>3){
+        vector<Moments> mu_temp = mu;
+        mu.clear();
+        for( size_t i = 0; i < mu.size(); i++ ){
+            Moments moments_temp;
+            mu.push_back(moments_temp);
+        }
+        
+    }
+    for( size_t i = 0; i < mu.size(); i++ ){ 
         mc[i] = Point2f( static_cast<float>(mu[i].m10 / (mu[i].m00 + 1e-5)), 
                          static_cast<float>(mu[i].m01 / (mu[i].m00 + 1e-5)) ); //add 1e-5 to avoid division by zero
         // cout << "mc[" << i << "]=" << mc[i] << endl;
     }
-    // vector<int> mc_hue(ledcounts);
-    // for (unsigned int i = 0; i < ledcounts; i++){
-    //     mc_hue[i] = image_hsv.at<Vec3b>(mc[i])[0];
-    //     // cout << "mc_hue[" << i << "]=" << mc_hue[i] << endl;
-    // }
-    // vector<int> mc_hue_sort = mc_hue;
-    // sort(mc_hue_sort.begin(), mc_hue_sort.end());
+
+    vector<int> mc_hue(mu.size());
+    for (unsigned int i = 0; i < mu.size(); i++){
+        mc_hue[i] = image_hsv.at<Vec3b>(mc[i])[0];
+        // cout << "mc_hue[" << i << "]=" << mc_hue[i] << endl;
+    }
+    vector<int> mc_hue_sort = mc_hue;
+    sort(mc_hue_sort.begin(), mc_hue_sort.end());
     
     // PNPPoints2D.clear();
     // for (unsigned int i = 0; i < ledcounts; i++){
