@@ -314,8 +314,8 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     //     }
     // }
     /* LED PNP */
-    Vec6 LEDtvecrvec = LEDTvecRvec(image_rgb);
-    LED_PosePub(Pose_calc(Vec3(LEDtvecrvec[3],LEDtvecrvec[4],LEDtvecrvec[5]),Vec3(LEDtvecrvec[0],LEDtvecrvec[1],LEDtvecrvec[2])));
+    Vec6 LEDtvecrvec = LEDTvecRvec(image_rgb);  
+    // LED_PosePub(Pose_calc(Vec3(LEDtvecrvec[3],LEDtvecrvec[4],LEDtvecrvec[5]),Vec3(LEDtvecrvec[0],LEDtvecrvec[1],LEDtvecrvec[2])));
     // cout << "Aruco Tvec: " << tvec*1000 << endl;
 
     /* image plot */

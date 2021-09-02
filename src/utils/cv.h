@@ -120,8 +120,8 @@ Vec6 LEDTvecRvec(Mat image_rgb){
     dilate(image_threshold, image_threshold, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) );
     erode(image_threshold, image_threshold, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) );
     // imshow("image_hsv", image_hsv);
-    // imshow("image_threshold", image_threshold);
-    // waitKey(1);
+    imshow("image_threshold", image_threshold);
+    cv::waitKey(1);
     vector<vector<Point> > contours;
     findContours( image_threshold, contours, RETR_TREE, CHAIN_APPROX_SIMPLE );
     vector<Moments> mu(contours.size()); 
@@ -129,6 +129,11 @@ Vec6 LEDTvecRvec(Mat image_rgb){
         mu[i] = moments( contours[i] );
     }
     if (mu.size() < 4){ //Return 0 if see less than 4 LEDs
+        output << 0,0,0,0,0,0;
+        cout << "LED not enough, count: " << mu.size() << endl;
+        return(output);
+    }else if (mu.size() >20){
+        cout << "Cam setting wrong, count: " << mu.size() << endl;
         output << 0,0,0,0,0,0;
         return(output);
     }
