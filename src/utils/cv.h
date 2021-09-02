@@ -104,10 +104,15 @@ Vec3I HSVaverage(cv::Mat BGRmat){
 //     }
 // }
 void PNP3Dpoints(){  //Determine the LED pos in real world
-    PNPPoints3D.push_back(cv::Point3f( 0,69, 0)); //red
-    PNPPoints3D.push_back(cv::Point3f(97, 0, 0)); //orange
-    PNPPoints3D.push_back(cv::Point3f( 0, 0, 0)); //green
-    PNPPoints3D.push_back(cv::Point3f(97,69, 0)); //blue
+    PNPPoints3D.push_back(cv::Point3f(159, 121, 0)); //green
+    PNPPoints3D.push_back(cv::Point3f( 80,  42, 0)); //blue
+    PNPPoints3D.push_back(cv::Point3f( 80, -42, 0)); //red  
+    PNPPoints3D.push_back(cv::Point3f(159,-121, 0)); //red   gh034_small
+
+    // PNPPoints3D.push_back(cv::Point3f( 0,69, 0)); //red   Square TestRig
+    // PNPPoints3D.push_back(cv::Point3f(97, 0, 0)); //orange
+    // PNPPoints3D.push_back(cv::Point3f( 0, 0, 0)); //green
+    // PNPPoints3D.push_back(cv::Point3f(97,69, 0)); //blue
 }
 Vec6 LEDTvecRvec(Mat image_rgb){
     // Mat image_jpg = imread("./test.jpg");
@@ -115,8 +120,8 @@ Vec6 LEDTvecRvec(Mat image_rgb){
     Mat image_hsv,image_threshold;
     cvtColor(image_rgb, image_hsv, COLOR_BGR2HSV);
     Vec6 output;
-    Vec3d PNPrvec, PNPtvec;
-    inRange(image_hsv, Scalar(0, 0, 100), Scalar(255, 255, 255), image_threshold);  
+    Vec3d PNPrvec, PNPtvec; 
+    inRange(image_hsv, Scalar(0, 0, 150), Scalar(255, 255, 255), image_threshold);  
     dilate(image_threshold, image_threshold, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) );
     erode(image_threshold, image_threshold, getStructuringElement(MORPH_ELLIPSE, Size(5, 5)) );
     // imshow("image_hsv", image_hsv);
@@ -154,34 +159,40 @@ Vec6 LEDTvecRvec(Mat image_rgb){
         }
     }
     vector<Point2f> mc(mu.size());
+    vector<float> mc_x(mu.size());
     for( size_t i = 0; i < mu.size(); i++ ){ //Find centers
         mc[i] = Point2f( static_cast<float>(mu[i].m10 / (mu[i].m00 + 1e-5)), 
                          static_cast<float>(mu[i].m01 / (mu[i].m00 + 1e-5)) ); //add 1e-5 to avoid division by zero
+        mc_x[i] = mc[i].x;
         // cout << "mc[" << i << "]=" << mc[i] << endl;
     }
-    vector<int> mc_hue(mc.size()); 
+    sort(mc_x.begin(), mc_x.end());
+    vector<Point2f> mc_temp = mc;
+    mc.clear();
+    for( size_t i = 0; i < mu.size(); i++ ){
+        for ( size_t j = 0; j < mu.size(); j++ ){
+            if (mc_x[i] == mc_temp[j].x){
+                mc[i] = mc_temp[j];
+            }
+        }
+        // cout << "mc_sorted[" << i << "]=" << mc[i] << endl;
+    }
+    vector<int> mc_hue(mu.size()); 
     for (unsigned int i = 0; i < mu.size(); i++){ //Find the hue at each mcs
         mc_hue[i] = image_hsv.at<Vec3b>(mc[i])[0];
         // cout << "mc_hue[" << i << "]=" << mc_hue[i] << endl;
     }
-    vector<int> mc_hue_sort = mc_hue;
-    sort(mc_hue_sort.begin(), mc_hue_sort.end());
+    // Green 70~120
     PNPPoints2D.clear();
     for (unsigned int i = 0; i < mu.size(); i++){
-        Point2f pos2D_temp;
-        for (unsigned int j = 0; j < mu.size(); j++){
-            if (mc_hue_sort[i]==mc_hue[j]){
-                pos2D_temp = mc[j];
-            }
-        }
-        PNPPoints2D.push_back(pos2D_temp);
-        // cout << "PNPPoints2D[" << i << "]=" << pos2D_temp << endl;
+        PNPPoints2D.push_back(mc[i]);
+        // cout << "PNPPoints2D[" << i << "]=" << PNPPoints2D.end() << endl;
     }
     solvePnP(PNPPoints3D, PNPPoints2D, cameraMatrix, distCoeffs, PNPrvec, PNPtvec, false, SOLVEPNP_ITERATIVE);
     output << PNPtvec[0]*0.001,PNPtvec[1]*0.001,PNPtvec[2]*0.001,PNPrvec[0],PNPrvec[1],PNPrvec[2];
-    for (unsigned int i = 0; i < output.size(); i++){
-    cout << "output[" << i << "]=" << output[i] << endl;
-    }
+    // for (unsigned int i = 0; i < output.size(); i++){
+    // cout << "output[" << i << "]=" << output[i] << endl;
+    // }
     return(output);
 }
 #endif 
