@@ -45,6 +45,7 @@ static geometry_msgs::PoseStamped LED_pose_realsense;
 static geometry_msgs::PoseStamped UAV_pose_vicon;
 static geometry_msgs::PoseStamped Camera_pose_vicon;
 static geometry_msgs::PoseStamped UAV_pose_pub;
+static geometry_msgs::PoseStamped UGV_pose_pub;
 static geometry_msgs::Twist       UAV_twist_pub;
 Vec7 UAV_lp;
 /* FSM */
@@ -64,6 +65,7 @@ double PID_duration;
 double PID_InitTime;
 /* System */
 bool UAV = true;
+bool UGV = true;
 bool ROS_init = true;
 double System_initT,LastT;
 ros::Time last_request;
@@ -104,7 +106,7 @@ void twist_pub(Vec4 vxyzaz){
     UAV_twist_pub.linear.z = vxyzaz(2);
     UAV_twist_pub.angular.z= vxyzaz(3);
 }
-void pose_pub(Vec7 posepub){
+void pose_pub_uav(Vec7 posepub){
     UAV_pose_pub.header.frame_id = "world";
     UAV_pose_pub.pose.position.x = posepub[0];
     UAV_pose_pub.pose.position.y = posepub[1];
@@ -113,6 +115,16 @@ void pose_pub(Vec7 posepub){
     UAV_pose_pub.pose.orientation.x = posepub[4];
     UAV_pose_pub.pose.orientation.y = posepub[5];
     UAV_pose_pub.pose.orientation.z = posepub[6];
+}
+void pose_pub_ugv(Vec2 xy){
+    UGV_pose_pub.header.frame_id = "world";
+    UGV_pose_pub.pose.position.x = xy[0];
+    UGV_pose_pub.pose.position.y = xy[1];
+    UGV_pose_pub.pose.position.z = 0;
+    UGV_pose_pub.pose.orientation.w = 0;
+    UGV_pose_pub.pose.orientation.x = 0;
+    UGV_pose_pub.pose.orientation.y = 0;
+    UGV_pose_pub.pose.orientation.z = 0;
 }
 void UAV_pub(bool pubtwist_traj, bool pubpose_traj, bool pubtwist){
     if(pubpose_traj){
@@ -124,11 +136,11 @@ void UAV_pub(bool pubtwist_traj, bool pubpose_traj, bool pubtwist){
         Vec7 uavposepub;
         uavposepub << traj1_deque_front[1],traj1_deque_front[2],traj1_deque_front[3],
                         traj1_deque_front[4],traj1_deque_front[5],traj1_deque_front[6],traj1_deque_front[7];
-        pose_pub(uavposepub);
+        pose_pub_uav(uavposepub);
         if (traj1_deque_front[0] > traj1_information[1]){
             Mission_stage++;
             trajectory1.clear();
-            pose_pub(Zero7);
+            pose_pub_uav(Zero7);
         }
     }
     if(pubtwist_traj){
@@ -415,6 +427,12 @@ void Finite_state_WP_mission(){
         Twisttraj_information = Vec2(ros::Time::now().toSec(), traj2[0]-hovertime);
         pubpose_traj = false; pubtwist_traj = true; pubtwist = false;
     }
+    /*For also contorl car section*/
+    if(UGV){
+        if(Mission_state != 1||Mission_state != 6){
+           pose_pub_ugv(Vec2(TargetPos[0],TargetPos[1]));
+        }
+    }
     /*For Debug section plot the whole trajectory*/ 
     // int trajectorysize = trajectory1.size();
     // for (int i = 0; i < trajectorysize; i++){
@@ -454,6 +472,7 @@ int main(int argc, char **argv){
     ros::Publisher DepthPose_pub = nh.advertise<geometry_msgs::PoseStamped>("DepthPose",1);
     ros::Publisher LEDPose_pub = nh.advertise<geometry_msgs::PoseStamped>("LEDPose",1);
     ros::Publisher local_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/gh034_led/mavros/setpoint_position/local", 10);
+    ros::Publisher ugv_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/scout_wp/pose", 10);
     ros::Publisher local_vel_pub = nh.advertise<geometry_msgs::Twist>("/gh034_led/mavros/setpoint_velocity/cmd_vel_unstamped", 100);
     message_filters::Subscriber<CompressedImage> rgb_sub(nh, "/camera/color/image_raw/compressed", 1);
     message_filters::Subscriber<Image> dep_sub(nh, "/camera/aligned_depth_to_color/image_raw", 1);
@@ -480,7 +499,7 @@ int main(int argc, char **argv){
             waypoints = Finite_stage_mission(); //Generate stages
             cout << " System Initialized" << endl;
             /* Waypoints before starting */ 
-            pose_pub(Zero7);
+            pose_pub_uav(Zero7);
             for(int i = 10; ros::ok() && i > 0; --i){
                 local_pos_pub.publish(UAV_pose_pub);
                 ros::spinOnce();
@@ -518,7 +537,10 @@ int main(int argc, char **argv){
         if(pubpose_traj){
             local_pos_pub.publish(UAV_pose_pub);
         }}
-
+        if(UGV){
+            ugv_pos_pub.publish(UGV_pose_pub);
+        }
+        
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
         LEDPose_pub.publish(LED_pose_realsense);

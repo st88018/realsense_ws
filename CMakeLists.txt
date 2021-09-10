@@ -41,29 +41,20 @@ include_directories(include
   ${Sophus_INCLUDE_DIRS}
 )
 
-add_executable(main
-src/main.cpp
-)
-
+add_executable(main src/main.cpp)
 target_link_libraries(main
 ${OpenCV_LIBRARIES}
 ${catkin_LIBRARIES}
 )
 
-add_executable(test
-src/test.cpp
-)
-
+add_executable(test src/test.cpp)
 target_link_libraries(test
 ${OpenCV_LIBRARIES}
 ${catkin_LIBRARIES}
 ${Sophus_LIBRARIES}
 )
 
-add_executable(aruco
-src/aruco.cpp
-)
-
+add_executable(aruco src/aruco.cpp)
 target_link_libraries(aruco
 ${OpenCV_LIBRARIES}
 ${catkin_LIBRARIES}
