@@ -37,7 +37,6 @@ int    Mission_state = 0;
 int    Mission_stage = 0;
 int    Current_Mission_stage = 0;
 Vec8   Current_stage_mission;
-Vec8   Last_stage_mission;
 bool   FSMinit = false;
 bool   pubtwist_traj = false;
 bool   pubpose_traj  = false;
@@ -183,17 +182,15 @@ void Finite_state_WP_mission(){
         Vec4 traj2;
         Vec7 TargetPos;
         Current_Mission_stage = Mission_stage;  //Update Current_Mission_stage
-        Last_stage_mission = Current_stage_mission;
         Current_stage_mission = waypoints.at(Mission_stage-1);
         Quaterniond Targetq;
+        Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
         Mission_state = Current_stage_mission[0];
         if (Mission_state == 1){ //state = 1 take off with no heading change
-            Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
             TargetPos << UAV_lp[0],UAV_lp[1],Current_stage_mission[3],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
             constantVtraj(UAV_lp, TargetPos, 0.1, Current_stage_mission[6]);
         }
         if (Mission_state == 2){ //state = 2; constant velocity trajectory with desired heading.
-            Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
             TargetPos << Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
             constantVtraj(UAV_lp, TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
         }
@@ -201,12 +198,10 @@ void Finite_state_WP_mission(){
             gen_twist_traj(Vec4(Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3],Current_stage_mission[4]),Current_stage_mission[5]);
         }
         if (Mission_state == 4){ //state = 4; constant velocity RTL but with altitude
-            Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
             TargetPos << UAV_takeoffP[0],UAV_takeoffP[1],UAV_lp[2],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
             constantVtraj(UAV_lp, TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
         }
         if (Mission_state == 5){ //state = 5; land.
-            Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
             TargetPos << UAV_takeoffP[0],UAV_takeoffP[1],UAV_takeoffP[2],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
             constantVtraj(UAV_lp, TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
         }
@@ -288,7 +283,7 @@ int main(int argc, char **argv)
     ros::Publisher local_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/gh034_led/mavros/setpoint_position/local", 10);
     ros::Publisher ugv_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/scout_wp/pose", 10);
     ros::Publisher local_vel_pub = nh.advertise<geometry_msgs::Twist>("/gh034_led/mavros/setpoint_velocity/cmd_vel_unstamped", 100);
-    mavros_msgs::SetMode offb_set_mode; 
+    mavros_msgs::SetMode offb_set_mode;
     offb_set_mode.request.custom_mode = "OFFBOARD";
     mavros_msgs::SetMode posctl_set_mode;
     posctl_set_mode.request.custom_mode = "POSCTL";

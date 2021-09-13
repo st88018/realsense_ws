@@ -1,6 +1,6 @@
 #include <ros/ros.h>
 #include <image_transport/image_transport.h>
-#include <sensor_msgs/image_encodings.h>
+
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -18,8 +18,6 @@
 #include <message_filters/time_synchronizer.h>
 #include <message_filters/sync_policies/exact_time.h>
 #include <message_filters/sync_policies/approximate_time.h>
-#include <sensor_msgs/Image.h>
-#include <sensor_msgs/CameraInfo.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <numeric>
 #include <Eigen/Core>
@@ -42,18 +40,6 @@ int coutcounter = 0;
 static Vec7 Zero7;
 static Vec4 Zero4;
 
-
-void camera_info_cb(const sensor_msgs::CameraInfoPtr& msg){
-    fx = msg->K[0];
-    fy = msg->K[4];
-    cx = msg->K[2];
-    cy = msg->K[5];
-    cameraMatrix.at<double>(0,0) = fx;
-    cameraMatrix.at<double>(1,1) = fy;
-    cameraMatrix.at<double>(0,2) = cx;
-    cameraMatrix.at<double>(1,2) = cy;
-    CamParameters << fx,fy,cx,cy;
-}
 void camera_pose_cb(const geometry_msgs::PoseStamped::ConstPtr& pose){
     Camera_pose_vicon.pose.position.x = pose->pose.position.x;
     Camera_pose_vicon.pose.position.y = pose->pose.position.y;

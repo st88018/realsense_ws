@@ -7,6 +7,9 @@
 #include <eigen3/Eigen/Eigen>
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/Geometry>
+#include <sensor_msgs/Image.h>
+#include <sensor_msgs/CameraInfo.h>
+#include <sensor_msgs/image_encodings.h>
 #include "common.h"
 
 using namespace cv;
@@ -26,6 +29,17 @@ cv::Mat distCoeffs = cv::Mat::zeros(8, 1, CV_64F);
 vector<cv::Point3f> PNPPoints3D;
 vector<Point2f> PNPPoints2D; //red orange green blue
 
+void camera_info_cb(const sensor_msgs::CameraInfoPtr& msg){
+    fx = msg->K[0];
+    fy = msg->K[4];
+    cx = msg->K[2];
+    cy = msg->K[5];
+    cameraMatrix.at<double>(0,0) = fx;
+    cameraMatrix.at<double>(1,1) = fy;
+    cameraMatrix.at<double>(0,2) = cx;
+    cameraMatrix.at<double>(1,2) = cy;
+    CamParameters << fx,fy,cx,cy;
+}
 inline Vec2I FindMarkerCenter(const Vec8I& markerConerABCD){
     Vec2I MarkerCenter;
     MarkerCenter << (markerConerABCD[0]+markerConerABCD[2]+markerConerABCD[4]+markerConerABCD[6])/4,
