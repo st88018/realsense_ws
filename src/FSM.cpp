@@ -315,19 +315,21 @@ int main(int argc, char **argv)
             System_init = false;
         }
         /*offboard and arm*****************************************************/
-        if( current_state.mode != "OFFBOARD" && (ros::Time::now() - last_request > ros::Duration(0.5)) && (ros::Time::now() - init_time < ros::Duration(20.0))){
-            //Set Offboard trigger duration here
-            local_pos_pub.publish(UAV_pose_pub);
-            if( set_mode_client.call(offb_set_mode) && offb_set_mode.response.mode_sent){
-                ROS_INFO("Offboard enabled");
-            }
-            last_request = ros::Time::now();
-        }else{
-            if( !current_state.armed && (ros::Time::now() - last_request > ros::Duration(0.5)) && (ros::Time::now() - init_time < ros::Duration(20.0))){
-                if( arming_client.call(arm_cmd) && arm_cmd.response.success){
-                    ROS_INFO("Vehicle armed");
+        if((ros::Time::now() - init_time < ros::Duration(20.0))){
+            if( current_state.mode != "OFFBOARD" && (ros::Time::now() - last_request > ros::Duration(0.5))){
+                //Set Offboard trigger duration here
+                local_pos_pub.publish(UAV_pose_pub);
+                if( set_mode_client.call(offb_set_mode) && offb_set_mode.response.mode_sent){
+                    ROS_INFO("Offboard enabled");
                 }
-            last_request = ros::Time::now();
+                last_request = ros::Time::now();
+            }else{
+                if( !current_state.armed && (ros::Time::now() - last_request > ros::Duration(0.5))){
+                    if( arming_client.call(arm_cmd) && arm_cmd.response.success){
+                        ROS_INFO("Vehicle armed");
+                    }
+                last_request = ros::Time::now();
+                }
             }
         }
         /*FSM******************************************************************/
