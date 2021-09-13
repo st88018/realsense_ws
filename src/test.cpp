@@ -360,72 +360,79 @@ string statestatus(){
     }
 }
 void Finite_state_WP_mission(){ 
-  // Generate trajectory while mission stage change
-  if (Mission_stage != Current_Mission_stage){
-    Vec8 traj1;
-    Vec4 traj2;
-    Vec7 TargetPos;
-    Current_Mission_stage = Mission_stage;  //Update Current_Mission_stage
-    Last_stage_mission = Current_stage_mission;
-    Current_stage_mission = waypoints.at(Mission_stage-1);
-    Quaterniond Targetq;
-    Mission_state = Current_stage_mission[0];
-    if (Mission_state == 1){ //state = 1 take off with no heading change
-        Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
-        TargetPos << UAV_lp[0],UAV_lp[1],Current_stage_mission[3],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
-        constantVtraj(UAV_lp, TargetPos, 0.1, Current_stage_mission[6]);
-    }
-    if (Mission_state == 2){ //state = 2; constant velocity trajectory with desired heading.
-        Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
-        TargetPos << Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
-        constantVtraj(UAV_lp, TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
-    }
-    if (Mission_state == 3){ //state = 3; For Twist test
-        gen_twist_traj(Vec4(Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3],Current_stage_mission[4]),Current_stage_mission[5]);
-    }
-    if (Mission_state == 4){ //state = 4; constant velocity RTL but with altitude
-        Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
-        TargetPos << UAV_takeoffP[0],UAV_takeoffP[1],UAV_lp[2],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
-        constantVtraj(UAV_lp, TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
-    }
-    if (Mission_state == 5){ //state = 5; land.
-        Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
-        TargetPos << UAV_takeoffP[0],UAV_takeoffP[1],UAV_takeoffP[2],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
-        constantVtraj(UAV_lp, TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
-    }
-    if (Mission_state == 6){ //state = 6; PID twist Aruco position hold.
-        pubtwist_traj = false; pubpose_traj = false; pubtwist = true;
-        Pos_setpoint << Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3],Current_stage_mission[3];
-        PID_duration = Current_stage_mission[5];
-        PID_InitTime = ros::Time::now().toSec();
-    }
-    if (Current_stage_mission[7] != 0){ //Wait after finish stage.
-        traj1 = trajectory1.back();
-        int wpc = Current_stage_mission[7]/Trajectory_timestep;
-        for (double i=0; i<wpc; i++){
-            traj1[0] += Trajectory_timestep;
-            trajectory1.push_back(traj1);
+    // Generate trajectory while mission stage change
+    if (Mission_stage != Current_Mission_stage){
+        Vec8 traj1;
+        Vec4 traj2;
+        Vec7 TargetPos;
+        Current_Mission_stage = Mission_stage;  //Update Current_Mission_stage
+        Last_stage_mission = Current_stage_mission;
+        Current_stage_mission = waypoints.at(Mission_stage-1);
+        Quaterniond Targetq;
+        Mission_state = Current_stage_mission[0];
+        if (Mission_state == 1){ //state = 1 take off with no heading change
+            Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
+            TargetPos << UAV_lp[0],UAV_lp[1],Current_stage_mission[3],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
+            constantVtraj(UAV_lp, TargetPos, 0.1, Current_stage_mission[6]);
         }
-    }
-    /*For CPP deque safety. Default generate 10 second of hover*/
-    int hovertime = 10;
-    if(trajectory1.size()>0){
-        traj1 = trajectory1.back();
-        for (int i=0; i<(hovertime/Trajectory_timestep); i++){
-            traj1[0] += Trajectory_timestep;
-            trajectory1.push_back(traj1);
+        if (Mission_state == 2){ //state = 2; constant velocity trajectory with desired heading.
+            Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
+            TargetPos << Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
+            constantVtraj(UAV_lp, TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
         }
-        traj1_information = Vec2(ros::Time::now().toSec(), traj1[0]-hovertime);
-        pubpose_traj = true; pubtwist_traj = false; pubtwist = false;
-    }
-    if(Twisttraj.size()>0){
-        traj2 = Twisttraj.back();
-        for (int i=0; i<(hovertime/Trajectory_timestep); i++){
-            traj2[0] += Trajectory_timestep;
-            Twisttraj.push_back(traj2);
+        if (Mission_state == 3){ //state = 3; For Twist test
+            gen_twist_traj(Vec4(Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3],Current_stage_mission[4]),Current_stage_mission[5]);
         }
-        Twisttraj_information = Vec2(ros::Time::now().toSec(), traj2[0]-hovertime);
-        pubpose_traj = false; pubtwist_traj = true; pubtwist = false;
+        if (Mission_state == 4){ //state = 4; constant velocity RTL but with altitude
+            Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
+            TargetPos << UAV_takeoffP[0],UAV_takeoffP[1],UAV_lp[2],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
+            constantVtraj(UAV_lp, TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
+        }
+        if (Mission_state == 5){ //state = 5; land.
+            Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
+            TargetPos << UAV_takeoffP[0],UAV_takeoffP[1],UAV_takeoffP[2],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
+            constantVtraj(UAV_lp, TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
+        }
+        if (Mission_state == 6){ //state = 6; PID twist Aruco position hold.
+            pubtwist_traj = false; pubpose_traj = false; pubtwist = true;
+            Pos_setpoint << Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3],Current_stage_mission[3];
+            PID_duration = Current_stage_mission[5];
+            PID_InitTime = ros::Time::now().toSec();
+        }
+        if (Current_stage_mission[7] != 0){ //Wait after finish stage.
+            traj1 = trajectory1.back();
+            int wpc = Current_stage_mission[7]/Trajectory_timestep;
+            for (double i=0; i<wpc; i++){
+                traj1[0] += Trajectory_timestep;
+                trajectory1.push_back(traj1);
+            }
+        }
+        /*For CPP deque safety. Default generate 10 second of hover*/
+        int hovertime = 10;
+        if(trajectory1.size()>0){
+            traj1 = trajectory1.back();
+            for (int i=0; i<(hovertime/Trajectory_timestep); i++){
+                traj1[0] += Trajectory_timestep;
+                trajectory1.push_back(traj1);
+            }
+            traj1_information = Vec2(ros::Time::now().toSec(), traj1[0]-hovertime);
+            pubpose_traj = true; pubtwist_traj = false; pubtwist = false;
+        }
+        if(Twisttraj.size()>0){
+            traj2 = Twisttraj.back();
+            for (int i=0; i<(hovertime/Trajectory_timestep); i++){
+                traj2[0] += Trajectory_timestep;
+                Twisttraj.push_back(traj2);
+            }
+            Twisttraj_information = Vec2(ros::Time::now().toSec(), traj2[0]-hovertime);
+            pubpose_traj = false; pubtwist_traj = true; pubtwist = false;
+        }
+        /*For Debug section plot the whole trajectory*/ 
+        // int trajectorysize = trajectory1.size();
+        // for (int i = 0; i < trajectorysize; i++){
+        //   Vec8 current_traj = trajectory1.at(i);
+        //   cout << "dt: " << current_traj[0] << " x: " << current_traj[1] << " y: " << current_traj[2] << " z: " << current_traj[3] << endl;
+        // }
     }
     /*For also contorl car section*/
     if(UGV){
@@ -433,15 +440,8 @@ void Finite_state_WP_mission(){
            pose_pub_ugv(Vec2(TargetPos[0],TargetPos[1]));
         }
     }
-    /*For Debug section plot the whole trajectory*/ 
-    // int trajectorysize = trajectory1.size();
-    // for (int i = 0; i < trajectorysize; i++){
-    //   Vec8 current_traj = trajectory1.at(i);
-    //   cout << "dt: " << current_traj[0] << " x: " << current_traj[1] << " y: " << current_traj[2] << " z: " << current_traj[3] << endl;
-    // }
-  }
-  UAV_pub(pubtwist_traj,pubpose_traj,pubtwist);
-  /*Mission information cout*********************************************/
+    UAV_pub(pubtwist_traj,pubpose_traj,pubtwist);
+    /*Mission information cout*********************************************/
     if(coutcounter > 10){ //reduce cout rate
         cout << "------------------------------------------------------------------------------" << endl;
         cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
