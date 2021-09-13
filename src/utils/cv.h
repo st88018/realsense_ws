@@ -84,7 +84,7 @@ Vec2I Constant_velocity_predictor(const Vec8I last_markerConer,const int Lostcou
 }
 Vec3I HSVaverage(cv::Mat BGRmat){
     cv::Mat HSVmat;
-    int Haverage,Saverage,Vaverage;
+    // int Haverage,Saverage,Vaverage;
     int Htotal = 0;
     int Stotal = 0;
     int Vtotal = 0;
