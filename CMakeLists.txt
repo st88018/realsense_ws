@@ -54,10 +54,9 @@ ${catkin_LIBRARIES}
 ${Sophus_LIBRARIES}
 )
 
-add_executable(aruco src/aruco.cpp)
-target_link_libraries(aruco
-${OpenCV_LIBRARIES}
+
+add_executable(FSM src/FSM.cpp)
+target_link_libraries(FSM
 ${catkin_LIBRARIES}
-${Sophus_LIBRARIES}
 )
 

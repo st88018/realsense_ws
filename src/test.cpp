@@ -435,11 +435,11 @@ void Finite_state_WP_mission(){
         // }
     }
     /*For also contorl car section*/
-    if(UGV){
-        if(Mission_state != 1||Mission_state != 6){
-           pose_pub_ugv(Vec2(TargetPos[0],TargetPos[1]));
-        }
-    }
+    // if(UGV&&pubpose_traj){
+    //     if(Mission_state != 1||Mission_state != 6){
+    //        pose_pub_ugv(Vec2(TargetPos[0],TargetPos[1]));
+    //     }
+    // }
     UAV_pub(pubtwist_traj,pubpose_traj,pubtwist);
     /*Mission information cout*********************************************/
     if(coutcounter > 10){ //reduce cout rate
