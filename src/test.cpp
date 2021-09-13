@@ -54,7 +54,7 @@ void camera_info_cb(const sensor_msgs::CameraInfoPtr& msg){
     cameraMatrix.at<double>(1,2) = cy;
     CamParameters << fx,fy,cx,cy;
 }
-void CameraPose_cb(const geometry_msgs::PoseStamped::ConstPtr& pose){
+void camera_pose_cb(const geometry_msgs::PoseStamped::ConstPtr& pose){
     Camera_pose_vicon.pose.position.x = pose->pose.position.x;
     Camera_pose_vicon.pose.position.y = pose->pose.position.y;
     Camera_pose_vicon.pose.position.z = pose->pose.position.z;
@@ -198,7 +198,7 @@ int main(int argc, char **argv){
     ros::init(argc, argv, "camera");
     ros::NodeHandle nh;
     ros::Subscriber camera_info_sub = nh.subscribe("/camera/aligned_depth_to_color/camera_info",1,camera_info_cb);
-    ros::Subscriber camerapose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_l515/pose", 1, CameraPose_cb);
+    ros::Subscriber camerapose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_l515/pose", 1, camera_pose_cb);
     ros::Publisher ArucoPose_pub = nh.advertise<geometry_msgs::PoseStamped>("ArucoPose",1);
     ros::Publisher DepthPose_pub = nh.advertise<geometry_msgs::PoseStamped>("DepthPose",1);
     ros::Publisher LEDPose_pub = nh.advertise<geometry_msgs::PoseStamped>("LEDPose",1);
