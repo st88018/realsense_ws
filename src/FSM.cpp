@@ -21,7 +21,7 @@ static geometry_msgs::Twist       UAV_twist_pub;
 static Vec7 UAV_lp;
 
 /* System */
-bool System_init = true;
+bool System_init = false;
 double System_initT;
 ros::Time init_time,last_request; /* Use at System start up */
 static Vec7 Zero7;
@@ -300,7 +300,8 @@ int main(int argc, char **argv)
     ros::Rate loop_rate(50); /* ROS system Hz */
     
     while(ros::ok()){
-        if (System_init){
+        /* System initailize ***************************************************/
+        if (!System_init){
             System_initT = ros::Time::now().toSec();
             init_time = ros::Time::now();
             waypoints = Finite_stage_mission(); //Generate stages
@@ -312,9 +313,9 @@ int main(int argc, char **argv)
                 ros::spinOnce();
                 loop_rate.sleep();
             }
-            System_init = false;
+            System_init = true;
         }
-        /*offboard and arm*****************************************************/
+        /* offboard and arm ****************************************************/
         if((ros::Time::now() - init_time < ros::Duration(20.0))){
             if( current_state.mode != "OFFBOARD" && (ros::Time::now() - last_request > ros::Duration(0.5))){
                 //Set Offboard trigger duration here
@@ -332,7 +333,7 @@ int main(int argc, char **argv)
                 }
             }
         }
-        /*FSM******************************************************************/
+        /* FSM initailize */
         if (current_state.mode == "OFFBOARD" && current_state.armed && !FSMinit){
             FSMinit = true;
             Mission_stage = 1;
@@ -340,6 +341,7 @@ int main(int argc, char **argv)
             cout << "UAV_takeoff_Position: " << UAV_takeoffP[0] << " " << UAV_takeoffP[1] << " " << UAV_takeoffP[2] << endl;
             cout << "Mission stage = 1 Mission start!" <<endl;
         }
+        /* FSM *****************************************************************/
         Finite_state_WP_mission();
         if(pubtwist_traj || pubtwist){local_vel_pub.publish(UAV_twist_pub);}
         if(pubpose_traj){local_pos_pub.publish(UAV_pose_pub);}
