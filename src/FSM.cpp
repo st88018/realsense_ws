@@ -41,6 +41,7 @@ bool   FSMinit = false;
 bool   pubtwist_traj = false;
 bool   pubpose_traj  = false;
 bool   pubtwist      = false;
+bool   Force_start   = false;
 
 Vec4 Poistion_controller_PID(Vec4 pose, Vec4 setpoint){ // From Depth calculate XYZ position and yaw
     Vec4 error,last_error,u_p,u_i,u_d,output; // Position Error
@@ -335,6 +336,14 @@ int main(int argc, char **argv)
             UAV_takeoffP = UAV_lp;
             cout << "UAV_takeoff_Position: " << UAV_takeoffP[0] << " " << UAV_takeoffP[1] << " " << UAV_takeoffP[2] << endl;
             cout << "Mission stage = 1 Mission start!" <<endl;
+        }
+        if (Force_start){
+            FSMinit = true;
+            Mission_stage = 1;
+            UAV_takeoffP = UAV_lp;
+            cout << "UAV_takeoff_Position: " << UAV_takeoffP[0] << " " << UAV_takeoffP[1] << " " << UAV_takeoffP[2] << endl;
+            cout << "------------------Dangerous!------------------" << endl;
+            cout << "Mission stage = 1 Mission start!" << endl;
         }
         /* FSM *****************************************************************/
         Finite_state_WP_mission();
