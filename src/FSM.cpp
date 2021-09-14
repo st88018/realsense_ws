@@ -344,6 +344,7 @@ int main(int argc, char **argv)
             cout << "UAV_takeoff_Position: " << UAV_takeoffP[0] << " " << UAV_takeoffP[1] << " " << UAV_takeoffP[2] << endl;
             cout << "------------------Dangerous!------------------" << endl;
             cout << "Mission stage = 1 Mission start!" << endl;
+            Force_start = false;
         }
         /* FSM *****************************************************************/
         Finite_state_WP_mission();
