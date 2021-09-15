@@ -13,13 +13,13 @@ double velocity_angular = 0.3;
 //     Vec8 stage; // state x y z yaw v av waittime
 //     stage << 1, 0, 0, 0.75, 3.14, velocity_mission, velocity_angular, 10;   // state = 1; takeoff
 //     waypoints.push_back(stage);
-//     stage << 6, 0.5, 0.75, 0.5, 3.14, 10, 0, 0;
+//     stage << 6, 0.5, 0.75, 0.5, 3.14, 0, 0, 10;
 //     waypoints.push_back(stage);
-//     stage << 6, -0.5, 0.75, 0.5, 3.14, 10, 0, 0;
+//     stage << 6, -0.5, 0.75, 0.5, 3.14, 0, 0, 10;
 //     waypoints.push_back(stage);
-//     stage << 6, -0.5, -0.5, 0.75, 3.14, 10, 0, 0;
+//     stage << 6, -0.5, -0.5, 0.75, 3.14, 0, 0, 10;
 //     waypoints.push_back(stage);
-//     stage << 6, 0.5, -0.5, 0.75, 3.14, 10, 0, 0;
+//     stage << 6, 0.5, -0.5, 0.75, 3.14, 0, 0, 10;
 //     waypoints.push_back(stage);
 //     stage << 4, 0, 0, 0.75, 3.14, velocity_mission, velocity_angular, 20;  // state = 4; constant velocity RTL but with altitude.
 //     waypoints.push_back(stage);

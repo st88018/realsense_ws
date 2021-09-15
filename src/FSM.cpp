@@ -137,11 +137,18 @@ void uav_pub(bool pubtwist_traj, bool pubpose_traj, bool pubtwist){
             uav_twist_pub(Zero4);
         }
     }
-    if(pubtwist){
+    if(pubtwist){  //Use PID position controller
         Quaterniond localq(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]);
         Vec3 localrpy = Q2rpy(localq);
         Vec4 xyzyaw;
         xyzyaw << UAV_pose_vicon.pose.position.x,UAV_pose_vicon.pose.position.y,UAV_pose_vicon.pose.position.z,localrpy[2];
+        if(Mission_state == 7){
+            Vec4 ugv_lp;
+            Quaterniond UGVq;
+            Vec3 UGVrpy = Q2rpy(UGVq);
+            ugv_lp << UGV_lp[0],UGV_lp[1],UGV_lp[2],UGVrpy[2];
+            Pos_setpoint = ugv_lp;
+        }
         uav_twist_pub(uav_poistion_controller_PID(xyzyaw,Pos_setpoint));
         if (PID_InitTime+PID_duration < ros::Time::now().toSec()){
             Mission_stage++;
@@ -170,13 +177,15 @@ string statestatus(){
     }else if(Mission_state == 5){
         return("Landing(5)");
     }else if(Mission_state == 6){
-        return("PID(6)");
+        return("PID_constant(6)");
+    }else if(Mission_state == 7){
+        return("PID(7)");
     }else{
         return("System error");
     }
 }
 void Finite_state_WP_mission(){ 
-    if (Mission_stage != Current_Mission_stage){    // Generate trajectory while mission stage change
+    if (Mission_stage != Current_Mission_stage){// Generate trajectory while mission stage change
         Vec8 traj1;
         Vec4 traj2;
         Vec7 TargetPos;
@@ -204,10 +213,15 @@ void Finite_state_WP_mission(){
             TargetPos << UAV_takeoffP[0],UAV_takeoffP[1],UAV_takeoffP[2],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
             constantVtraj(UAV_lp, TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
         }
-        if (Mission_state == 6){ //state = 6; PID position control
+        if (Mission_state == 6){ //state = 6; PID constant pose position control
             pubtwist_traj = false; pubpose_traj = false; pubtwist = true;
             Pos_setpoint << Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3],Current_stage_mission[3];
-            PID_duration = Current_stage_mission[5];
+            PID_duration = Current_stage_mission[7];
+            PID_InitTime = ros::Time::now().toSec();
+        }
+        if (Mission_state == 7){ //state = 7; PID position control
+            pubtwist_traj = false; pubpose_traj = false; pubtwist = true;
+            PID_duration = Current_stage_mission[7];
             PID_InitTime = ros::Time::now().toSec();
         }
         if (Current_stage_mission[7] != 0){ //Wait after finish stage.
