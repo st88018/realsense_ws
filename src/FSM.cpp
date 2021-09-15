@@ -43,7 +43,7 @@ bool   pubpose_traj  = false;
 bool   pubtwist      = false;
 bool   Force_start   = false;
 
-Vec4 Poistion_controller_PID(Vec4 pose, Vec4 setpoint){ // From Depth calculate XYZ position and yaw
+Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){ // From Depth calculate XYZ position and yaw
     Vec4 error,last_error,u_p,u_i,u_d,output; // Position Error
     double Last_time = ros::Time::now().toSec();
     double iteration_time = ros::Time::now().toSec() - Last_time;
@@ -68,10 +68,10 @@ Vec4 Poistion_controller_PID(Vec4 pose, Vec4 setpoint){ // From Depth calculate 
     }
     return(output);
 }
-void state_cb(const mavros_msgs::State::ConstPtr& msg){
+void uav_state_sub(const mavros_msgs::State::ConstPtr& msg){
     current_state = *msg;
 }
-void UAVPose_cb(const geometry_msgs::PoseStamped::ConstPtr& pose){
+void uav_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UAV_pose_vicon.pose.position.x = pose->pose.position.x;
     UAV_pose_vicon.pose.position.y = pose->pose.position.y;
     UAV_pose_vicon.pose.position.z = pose->pose.position.z;
@@ -133,7 +133,7 @@ void UAV_pub(bool pubtwist_traj, bool pubpose_traj, bool pubtwist){
         Vec3 localrpy = Q2rpy(localq);
         Vec4 xyzyaw;
         xyzyaw << UAV_pose_vicon.pose.position.x,UAV_pose_vicon.pose.position.y,UAV_pose_vicon.pose.position.z,localrpy[2];
-        uav_twist_pub(Poistion_controller_PID(xyzyaw,Pos_setpoint));
+        uav_twist_pub(uav_poistion_controller_PID(xyzyaw,Pos_setpoint));
         if (PID_InitTime+PID_duration < ros::Time::now().toSec()){
             Mission_stage++;
             uav_twist_pub(Zero4);
@@ -246,13 +246,14 @@ void Finite_state_WP_mission(){
         //   Vec8 current_traj = trajectory1.at(i);
         //   cout << "dt: " << current_traj[0] << " x: " << current_traj[1] << " y: " << current_traj[2] << " z: " << current_traj[3] << endl;
         // }
+        /*For also contorl car section*/
+        if(pubpose_traj){
+            if(Mission_state != 1||Mission_state != 6){
+               pose_pub_ugv(Vec2(TargetPos[0],TargetPos[1]));
+            }
+        }
     }
-    /*For also contorl car section*/
-    // if(UGV&&pubpose_traj){
-    //     if(Mission_state != 1||Mission_state != 6){
-    //        pose_pub_ugv(Vec2(TargetPos[0],TargetPos[1]));
-    //     }
-    // }
+    
     UAV_pub(pubtwist_traj,pubpose_traj,pubtwist);
     /*Mission information cout*********************************************/
     if(coutcounter > 10){ //reduce cout rate
@@ -260,11 +261,11 @@ void Finite_state_WP_mission(){
         cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
         cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
         cout << "Mission_State: " << statestatus() << endl;
-        // cout << "aruco__pos_x: " << Aruco_pose_realsense.pose.position.x << " y: " << Aruco_pose_realsense.pose.position.y << " z: "<< Aruco_pose_realsense.pose.position.z << endl;
-        // cout << "depth__pos_x: " << Depth_pose_realsense.pose.position.x << " y: " << Depth_pose_realsense.pose.position.y << " z: "<< Depth_pose_realsense.pose.position.z << endl;
-        cout << "local__pos_x: " << UAV_lp[0] << " y: " << UAV_lp[1] << " z: "<< UAV_lp[2] << endl;
-        cout << "desiredpos_x: " << UAV_pose_pub.pose.position.x << " y: " << UAV_pose_pub.pose.position.y << " z: "<< UAV_pose_pub.pose.position.z << endl;
-        cout << "desiredtwist_x: " << UAV_twist_pub.linear.x << " y: " << UAV_twist_pub.linear.y << " z: "<< UAV_twist_pub.linear.z << " az: " << UAV_twist_pub.angular.z << endl;
+        cout << "vicon__pos_x: " << UAV_lp[0] << " y: " << UAV_lp[1] << " z: "<< UAV_lp[2] << endl;
+        if(pubpose_traj){
+        cout << "desiredpos_x: " << UAV_pose_pub.pose.position.x << " y: " << UAV_pose_pub.pose.position.y << " z: "<< UAV_pose_pub.pose.position.z << endl;}
+        if(pubtwist){
+        cout << "desiredtwist_x: " << UAV_twist_pub.linear.x << " y: " << UAV_twist_pub.linear.y << " z: "<< UAV_twist_pub.linear.z << " az: " << UAV_twist_pub.angular.z << endl;}
         cout << "CAr____pos_x: " << UGV_pose_pub.pose.position.x << " y: " << UGV_pose_pub.pose.position.y << endl;
         cout << "Trajectory timer countdown: " << traj1_information[1] - ros::Time::now().toSec() << endl;
         cout << "ROS_time: " << fixed << ros::Time::now().toSec() << endl;
@@ -277,8 +278,8 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "FSM");
     ros::NodeHandle nh;
-    ros::Subscriber uavpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/gh034_led/mavros/local_position/pose", 1, UAVPose_cb);
-    ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>("/gh034_led/mavros/state", 10, state_cb);
+    ros::Subscriber uavpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/gh034_led/mavros/local_position/pose", 1, uav_pose_sub);
+    ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>("/gh034_led/mavros/state", 10, uav_state_sub);
     ros::ServiceClient arming_client = nh.serviceClient<mavros_msgs::CommandBool>("/gh034_led/mavros/cmd/arming");
     ros::ServiceClient set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("/gh034_led/mavros/set_mode");
     ros::Publisher local_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/gh034_led/mavros/setpoint_position/local", 10);
