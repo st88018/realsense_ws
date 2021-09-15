@@ -23,7 +23,7 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <fstream>
-#include "utils/kinetic_math.h"
+#include "utils/kinetic_math.hpp"
 #include "utils/cv.h"
 
 using namespace std;

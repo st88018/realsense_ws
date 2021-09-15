@@ -1,5 +1,5 @@
-#ifndef MISSION_H
-#define MISSION_H
+#ifndef UAV_MISSION_H
+#define UAV_MISSION_H
 
 #include "common.h"
 
