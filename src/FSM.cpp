@@ -184,7 +184,7 @@ string statestatus(){
         return("System error");
     }
 }
-void Finite_state_WP_mission(){ 
+void Finite_state_machine(){ 
     if (Mission_stage != Current_Mission_stage){// Generate trajectory while mission stage change
         Vec8 traj1;
         Vec4 traj2;
@@ -334,7 +334,7 @@ int main(int argc, char **argv)
             Force_start = false;
         }
         /* FSM *****************************************************************/
-        Finite_state_WP_mission();
+        Finite_state_machine();
         uav_pub(pubtwist_traj,pubpose_traj,pubtwist);
         if(pubtwist_traj || pubtwist){uav_vel_pub.publish(UAV_twist_pub);}
         if(pubpose_traj){uav_pos_pub.publish(UAV_pose_pub);}
