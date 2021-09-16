@@ -11,7 +11,6 @@
 #include "utils/kinetic_math.hpp"
 #include "utils/uav_mission.hpp"
 #include "utils/trajectories.hpp"
-#include "utils/cv.h"
 
 static mavros_msgs::State current_state;
 static geometry_msgs::PoseStamped UAV_pose_vicon,UGV_pose_vicon,UAV_pose_pub,UGV_pose_pub;

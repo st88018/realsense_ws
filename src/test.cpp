@@ -24,7 +24,7 @@
 #include <Eigen/Geometry>
 #include <fstream>
 #include "utils/kinetic_math.hpp"
-#include "utils/cv.h"
+#include "utils/cv.hpp"
 
 using namespace std;
 using namespace sensor_msgs;
