@@ -141,11 +141,11 @@ void uav_pub(bool pubtwist_traj, bool pubpose_traj, bool pubtwist){
         Vec3 localrpy = Q2rpy(localq);
         Vec4 xyzyaw;
         xyzyaw << UAV_pose_vicon.pose.position.x,UAV_pose_vicon.pose.position.y,UAV_pose_vicon.pose.position.z,localrpy[2];
-        if(Mission_state == 7){
+        if(Mission_state == 7){  //Follow the UGV
             Vec4 ugv_lp;
             Quaterniond UGVq;
             Vec3 UGVrpy = Q2rpy(UGVq);
-            ugv_lp << UGV_lp[0],UGV_lp[1],UGV_lp[2],UGVrpy[2];
+            ugv_lp << UGV_lp[0],UGV_lp[1],1.5,UGVrpy[2];
             Pos_setpoint = ugv_lp;
         }
         uav_twist_pub(uav_poistion_controller_PID(xyzyaw,Pos_setpoint));
