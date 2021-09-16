@@ -275,6 +275,7 @@ int main(int argc, char **argv)
     mavros_msgs::SetMode posctl_set_mode;
     posctl_set_mode.request.custom_mode = "POSCTL";
     mavros_msgs::CommandBool arm_cmd;
+    nh.getParam("/FSM_node/Force_start", Force_start);
     arm_cmd.request.value = true;
     Zero4 << 0,0,0,0;
     Zero7 << 0,0,0,0,0,0,0;
@@ -287,7 +288,7 @@ int main(int argc, char **argv)
             System_initT = ros::Time::now().toSec();
             init_time = ros::Time::now();
             waypoints = Finite_stage_mission(); //Generate stages
-            cout << " System Initialized" << endl;
+            cout << " System Initialized" << " Force_start: " << Force_start << endl;
             /* Waypoints before starting */ 
             uav_pose_pub(Zero7);
             for(int i = 10; ros::ok() && i > 0; --i){
@@ -338,7 +339,7 @@ int main(int argc, char **argv)
         if(pubtwist_traj || pubtwist){uav_vel_pub.publish(UAV_twist_pub);}
         if(pubpose_traj){uav_pos_pub.publish(UAV_pose_pub);}
         /*Mission information cout**********************************************/
-        if(coutcounter > 10){ //reduce cout rate
+        if(coutcounter > 10 && FSMinit){ //reduce cout rate
             cout << "------------------------------------------------------------------------------" << endl;
             cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
             cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;

@@ -1,0 +1,8 @@
+<launch>
+    <arg name="Force_start" default="false" />
+
+    <node name="FSM_node" pkg="real" type="FSM" output="screen">
+            <param name="Force_start" type="bool" value="$(arg Force_start)" />
+    </node>
+
+</launch>   
