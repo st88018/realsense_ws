@@ -56,15 +56,4 @@ void constantVtraj( Vec7 StartPose, Vec7 EndPose,double velocity,double angular_
       trajectory1.push_back(traj1);
   }
 }
-void gen_twist_traj(Vec4 vxyzvaz, double duration){
-    Twisttraj.clear();
-    double traj2_init_time = ros::Time::now().toSec();
-    int wpc = duration/Trajectory_timestep;
-    for(int i=0; i<wpc; i++){
-        double dt = Trajectory_timestep*i;
-        Vec4 traj2;
-        traj2 << dt+traj2_init_time, vxyzvaz[0], vxyzvaz[1], vxyzvaz[2], vxyzvaz[3];
-        Twisttraj.push_back(traj2);
-    }
-}
 #endif
