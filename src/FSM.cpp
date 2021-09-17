@@ -36,6 +36,8 @@ int    Mission_stage = 0;
 int    Current_Mission_stage = 0;
 Vec8   Current_stage_mission;
 bool   FSMinit = false;
+bool   Mission8init  = false;
+double M8start_alt;
 bool   pubpose_traj  = false;
 bool   pubtwist      = false;
 bool   Force_start   = false;
@@ -55,13 +57,13 @@ Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){
     Vec4 error,last_error,u_p,u_i,u_d,output; // Position Error
     double Last_time = ros::Time::now().toSec();
     double iteration_time = ros::Time::now().toSec() - Last_time;
-    Vec4 K_p(0.6,0.6,1.2,0.1);
+    Vec4 K_p(0.8,0.8,1.2,0.1);
     Vec4 K_i(0.2,0.2,0.2,0);
     Vec4 K_d(0,0,0,0);
     error = setpoint-pose;
     last_error = error;
-    if (error[3]>=M_PI)  error[3]-=2*M_PI;
-    if (error[3]<=-M_PI) error[3]+=2*M_PI;
+    if (error[3]>=M_PI){error[3]-=2*M_PI;}
+    if (error[3]<=-M_PI){error[3]+=2*M_PI;}
     Vec4 integral;
     Vec4 derivative;
     for (int i=0; i<4; i++){
@@ -75,15 +77,15 @@ Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){
         output[i] = u_p[i]+u_i[i]+u_d[i];
     }
     for (int i=0; i<3; i++){
-        if(output[i] >  1.5){ output[i]= 1.5;}
-        if(output[i] < -1.5){ output[i]= -1.5;}
+        if(output[i] >  0.8){ output[i]= 0.8;}
+        if(output[i] < -0.8){ output[i]= -0.8;}
     }
-    if(coutcounter > 10){
-    cout << "-----------------------------------------------------------------------" << endl;
-    cout << "pose____: " << pose[0] << " " << pose[1] << " " << pose[2] << " " << pose[3] << endl;
-    cout << "setpoint: " << setpoint[0] << " " << setpoint[1] << " " << setpoint[2] << " " << setpoint[3] << endl;
-    cout << "output: " << output[0] << " " << output[1] << " " << output[2] << " " << output[3] << endl;
-    }else{coutcounter++;}
+    // if(coutcounter > 10){
+    // cout << "-----------------------------------------------------------------------" << endl;
+    // cout << "pose____: " << pose[0] << " " << pose[1] << " " << pose[2] << " " << pose[3] << endl;
+    // cout << "setpoint: " << setpoint[0] << " " << setpoint[1] << " " << setpoint[2] << " " << setpoint[3] << endl;
+    // cout << "output: " << output[0] << " " << output[1] << " " << output[2] << " " << output[3] << endl;
+    // }else{coutcounter++;}
     return(output);
 }
 void uav_state_sub(const mavros_msgs::State::ConstPtr& msg){
@@ -145,6 +147,17 @@ void uav_pub(bool pubpose_traj, bool pubtwist){
             ugv_lp << UGV_lp[0],UGV_lp[1],1,UGVrpy[2];
             Pos_setpoint = ugv_lp;
         }
+        if(Mission_state == 8){  //PID landing
+            if(!Mission8init){
+                Mission8init = true;
+                M8start_alt = xyzyaw[2];
+            }
+            Vec4 ugv_lp;
+            Quaterniond UGVq;
+            Vec3 UGVrpy = Q2rpy(UGVq);
+            ugv_lp << UGV_lp[0],UGV_lp[1],M8start_alt-=0.001,UGVrpy[2];
+            Pos_setpoint = ugv_lp;
+        }
         uav_twist_pub(uav_poistion_controller_PID(xyzyaw,Pos_setpoint));
         if (PID_InitTime+PID_duration < ros::Time::now().toSec()){
             Mission_stage++;
@@ -176,6 +189,8 @@ string statestatus(){
         return("PID_constant(6)");
     }else if(Mission_state == 7){
         return("PID(7)");
+    }else if(Mission_state == 8){
+        return("PID_landing(8)");
     }else{
         return("System error");
     }
@@ -221,6 +236,12 @@ void Finite_state_machine(){
             PID_InitTime = ros::Time::now().toSec();
         }
         if (Mission_state == 7){ //state = 7; PID position control
+            pubpose_traj = false; pubtwist = true;
+            trajectory1.clear();
+            PID_duration = Current_stage_mission[7];
+            PID_InitTime = ros::Time::now().toSec();
+        }
+        if (Mission_state == 8){ //state = 8; PID position control with landing
             pubpose_traj = false; pubtwist = true;
             trajectory1.clear();
             PID_duration = Current_stage_mission[7];
@@ -335,23 +356,23 @@ int main(int argc, char **argv)
         if(pubtwist){uav_vel_pub.publish(UAV_twist_pub);}
         if(pubpose_traj){uav_pos_pub.publish(UAV_pose_pub);}
         /*Mission information cout**********************************************/
-        // if(coutcounter > 50 && FSMinit){ //reduce cout rate
-        //     cout << "-----------------------------------------------------------------------" << endl;
-        //     cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
-        //     cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
-        //     cout << "Mission_State: " << statestatus() << endl;
-        //     cout << "vicon__pos_x: " << UAV_lp[0] << " y: " << UAV_lp[1] << " z: "<< UAV_lp[2] << endl;
-        //     if(pubpose_traj){
-        //     cout << "desiredpos_x: " << UAV_pose_pub.pose.position.x << " y: " << UAV_pose_pub.pose.position.y << " z: "<< UAV_pose_pub.pose.position.z << endl;}
-        //     if(pubtwist){
-        //     cout << "desiredtwist_x: " << UAV_twist_pub.linear.x << " y: " << UAV_twist_pub.linear.y << " z: "<< UAV_twist_pub.linear.z << " az: " << UAV_twist_pub.angular.z << endl;}
-        //     cout << "CAr____pos_x: " << UGV_pose_pub.pose.position.x << " y: " << UGV_pose_pub.pose.position.y << endl;
-        //     cout << "Trajectory timer countdown: " << traj1_information[1] - ros::Time::now().toSec() << endl;
-        //     cout << "ROS_time: " << fixed << ros::Time::now().toSec() << endl;
-        //     cout << "traj1_size: " << trajectory1.size() << "  traj2_size: " << Twisttraj.size() << endl;
-        //     cout << "-----------------------------------------------------------------------" << endl;
-        //     coutcounter = 0;
-        // }else{coutcounter++;}
+        if(coutcounter > 25 && FSMinit){ //reduce cout rate
+            cout << "-----------------------------------------------------------------------" << endl;
+            cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
+            cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
+            cout << "Mission_State: " << statestatus() << endl;
+            cout << "vicon__pos_x: " << UAV_lp[0] << " y: " << UAV_lp[1] << " z: "<< UAV_lp[2] << endl;
+            if(pubpose_traj){
+            cout << "desiredpos_x: " << UAV_pose_pub.pose.position.x << " y: " << UAV_pose_pub.pose.position.y << " z: "<< UAV_pose_pub.pose.position.z << endl;}
+            if(pubtwist){
+            cout << "desiredtwist_x: " << UAV_twist_pub.linear.x << " y: " << UAV_twist_pub.linear.y << " z: "<< UAV_twist_pub.linear.z << " az: " << UAV_twist_pub.angular.z << endl;}
+            cout << "CAr____pos_x: " << UGV_pose_pub.pose.position.x << " y: " << UGV_pose_pub.pose.position.y << endl;
+            cout << "Trajectory timer countdown: " << traj1_information[1] - ros::Time::now().toSec() << endl;
+            cout << "ROS_time: " << fixed << ros::Time::now().toSec() << endl;
+            cout << "traj1_size: " << trajectory1.size() << "  traj2_size: " << Twisttraj.size() << endl;
+            cout << "-----------------------------------------------------------------------" << endl;
+            coutcounter = 0;
+        }else{coutcounter++;}
         ros::spinOnce();
         loop_rate.sleep();
     }
