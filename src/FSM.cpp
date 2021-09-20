@@ -28,6 +28,10 @@ static int coutcounter;
 Vec4   Pos_setpoint;
 double PID_duration;
 double PID_InitTime;
+/* Fail safe */
+static double safe_dist = 1;
+bool   Failsafe_enable  = false;
+bool   FailsafeFlag  = false;
 /* FSM */
 Vec7 UAV_desP,UAV_takeoffP;
 Vec7 TargetPos;
@@ -41,10 +45,13 @@ double M8start_alt;
 bool   pubpose  = false;
 bool   pubtwist      = false;
 bool   Force_start   = false;
-bool   FailsafeFlag  = false;
 
-void failsafe_checker(bool FailsafeFlag){
 
+void failsafe(){
+    double dist = sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow(((UAV_lp[1]-UGV_lp[1]),2),2)+pow(((UAV_lp[2]-UGV_lp[2]),2),2));
+    if (dist < safe_dist){
+
+    }
 }
 void ugv_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UGV_pose_sub.pose.position.x = pose->pose.position.x;
@@ -278,7 +285,7 @@ void Finite_state_machine(){  // Main FSM
         //     }
         // }
     }
-    failsafe_checker(FailsafeFlag);
+    failsafe();//Start failsafe 
     uav_pub(pubpose,pubtwist);
 }
 int main(int argc, char **argv)

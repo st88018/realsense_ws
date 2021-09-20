@@ -10,7 +10,7 @@ Vec2 Twisttraj_information;
 void landapproachtraj(Vec7 StartPose){
     
 }
-void constantVtraj( Vec7 StartPose, Vec7 EndPose,double velocity,double angular_velocity){
+void constantVtraj( Vec7 StartPose, Vec7 EndPose, double velocity, double angular_velocity){
   Quaterniond localq(StartPose[3],StartPose[4],StartPose[5],StartPose[6]);
   Vec3 localrpy = Q2rpy(localq);
   Vec3 start_rpy = Vec3(0,0,localrpy[2]);
@@ -45,7 +45,7 @@ void constantVtraj( Vec7 StartPose, Vec7 EndPose,double velocity,double angular_
           q = rpy2Q(des_rpy);
       }
       // Position_xyz
-      if(dt<=duration){
+      if(dt<=dist_duration){
           xyz = Vec3(start_xyz[0]+dt*vxyz[0],start_xyz[1]+dt*vxyz[1],start_xyz[2]+dt*vxyz[2]);
       }else{
           xyz << EndPose[0],EndPose[1],EndPose[2];
