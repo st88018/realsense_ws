@@ -54,9 +54,12 @@ ${catkin_LIBRARIES}
 ${Sophus_LIBRARIES}
 )
 
-
 add_executable(FSM src/FSM.cpp)
 target_link_libraries(FSM
 ${catkin_LIBRARIES}
 )
 
+add_executable(Failsafe src/Failsafe.cpp)
+target_link_libraries(Failsafe
+${catkin_LIBRARIES}
+)
