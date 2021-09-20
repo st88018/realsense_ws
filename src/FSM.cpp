@@ -50,7 +50,7 @@ bool   Force_start   = false;
 void failsafe(){
     double dist = sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow(((UAV_lp[1]-UGV_lp[1]),2),2)+pow(((UAV_lp[2]-UGV_lp[2]),2),2));
     if (dist < safe_dist){
-
+        FailsafeFlag = true;
     }
 }
 void ugv_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
