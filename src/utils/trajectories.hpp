@@ -5,7 +5,6 @@
 deque<Vec8> trajectory1;
 Vec2 traj1_information;
 double Trajectory_timestep = 0.02;
-deque<Vec4> Twisttraj; // For Twist test (time vx vy vz)
 Vec2 Twisttraj_information;
 
 void landapproachtraj(Vec7 StartPose){

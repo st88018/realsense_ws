@@ -43,6 +43,9 @@ bool   pubtwist      = false;
 bool   Force_start   = false;
 bool   FailsafeFlag  = false;
 
+void failsafe_checker(bool FailsafeFlag){
+
+}
 void ugv_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UGV_pose_sub.pose.position.x = pose->pose.position.x;
     UGV_pose_sub.pose.position.y = pose->pose.position.y;
@@ -186,7 +189,7 @@ string statestatus(){
     }else if(Mission_state == 5){
         return("Landing(5)");
     }else if(Mission_state == 6){
-        return("PID_constant(6)");
+        return("PID_step(6)");
     }else if(Mission_state == 7){
         return("PID(7)");
     }else if(Mission_state == 8){
@@ -275,6 +278,7 @@ void Finite_state_machine(){  // Main FSM
         //     }
         // }
     }
+    failsafe_checker(FailsafeFlag);
     uav_pub(pubpose,pubtwist);
 }
 int main(int argc, char **argv)
@@ -370,9 +374,10 @@ int main(int argc, char **argv)
                 cout << "des__twist_x: " << UAV_twist_pub.linear.x << " y: " << UAV_twist_pub.linear.y << " z: "<< UAV_twist_pub.linear.z << " az: " << UAV_twist_pub.angular.z << endl;
                 cout << "PID  countdown: " << PID_InitTime+PID_duration - ros::Time::now().toSec() << endl;
             }
-            cout << "CAr____pos_x: " << UGV_pose_sub.pose.position.x << " y: " << UGV_pose_sub.pose.position.y << endl;
-            cout << "ROS_time: " << fixed << ros::Time::now().toSec() << endl;
-            cout << "traj1_size: " << trajectory1.size() << "  traj2_size: " << Twisttraj.size() << endl;
+            if(Mission_state == 7 || Mission_state == 8){
+                cout << "CAr____pos_x: " << UGV_pose_sub.pose.position.x << " y: " << UGV_pose_sub.pose.position.y << endl;
+            }   
+            cout << "Failsafe_state: " << FailsafeFlag << endl;
             cout << "-----------------------------------------------------------------------" << endl;
             coutcounter = 0;
         }else{coutcounter++;}

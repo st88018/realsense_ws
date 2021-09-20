@@ -10,9 +10,10 @@
 #include "utils/trajectories.hpp"
 
 static mavros_msgs::State current_state;
-static geometry_msgs::PoseStamped UAV_pose_vicon,UGV_pose_vicon;
+static geometry_msgs::PoseStamped UGV_pose_sub,UAV_pose_sub;
 static geometry_msgs::Twist       UAV_twist_pub;
 static Vec7 UAV_lp,UGV_lp;
+static double safe_dist = 1;
 
 void ugv_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UGV_pose_sub.pose.position.x = pose->pose.position.x;

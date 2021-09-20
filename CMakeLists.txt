@@ -41,14 +41,8 @@ include_directories(include
   ${Sophus_INCLUDE_DIRS}
 )
 
-add_executable(main src/main.cpp)
-target_link_libraries(main
-${OpenCV_LIBRARIES}
-${catkin_LIBRARIES}
-)
-
-add_executable(test src/test.cpp)
-target_link_libraries(test
+add_executable(CV src/CV.cpp)
+target_link_libraries(CV
 ${OpenCV_LIBRARIES}
 ${catkin_LIBRARIES}
 ${Sophus_LIBRARIES}

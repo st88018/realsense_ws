@@ -5,4 +5,7 @@
             <param name="Force_start" type="bool" value="$(arg Force_start)" />
     </node>
 
+    <node name="Failsafe_node" pkg="real" type="Failsafe">
+    </node>
+
 </launch>   
