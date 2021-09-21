@@ -44,7 +44,7 @@ bool   Mission8init  = false;
 double M8start_alt;
 bool   pubpose  = false;
 bool   pubtwist      = false;
-bool   Force_start   = false;
+bool   Force_start   = true;
 
 
 void failsafe(){

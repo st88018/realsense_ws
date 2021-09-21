@@ -2,6 +2,7 @@
 #define UAV_MISSION_H
 
 #include "common.h"
+#include <string>
 
 deque<Vec8> waypoints;
 double velocity_mission = 0.5;
@@ -9,6 +10,14 @@ double velocity_angular = 1;
 
 // 1 take off 2 constant velocity traj 4 RTL 5 Land 
 // 6 PID single pose (step) 7 PID follow 8 PID land
+
+// deque<Vec8> Finite_stage_mission(){
+//     fstream Missioncsv;
+//     Missioncsv.open("Misions/square.csv", ios::in);
+//     waypoints.clear();
+//     // Waypoints
+//     Vec8 stage; // state x y z yaw v av waittime
+// }
 
 // deque<Vec8> Finite_stage_mission(){
 //     waypoints.clear();
@@ -31,13 +40,13 @@ deque<Vec8> Finite_stage_mission(){
     waypoints.push_back(stage);
     stage << 6, 0, 0, 0.75, 3.14, 0, 0, 40;
     waypoints.push_back(stage);
-    stage << 6, -5, 5, 0.75, 3.14, 0, 0, 40;
+    stage << 6, -1, 1, 0.75, 3.14, 0, 0, 40;
     waypoints.push_back(stage);
-    stage << 6, -5, -5, 0.75, 3.14, 0, 0, 40;
+    stage << 6, -1, -1, 0.75, 3.14, 0, 0, 40;
     waypoints.push_back(stage);
-    stage << 6, 5, -5, 0.75, 3.14, 0, 0, 40;
+    stage << 6, 1, -1, 0.75, 3.14, 0, 0, 40;
     waypoints.push_back(stage);
-    stage << 6, 5, 5, 0.75, 3.14, 0, 0, 40;
+    stage << 6, 1, 1, 0.75, 3.14, 0, 0, 40;
     waypoints.push_back(stage);
     stage << 4, 0, 0, 0.75, 3.14, velocity_mission, velocity_angular, 10;  // state = 4; constant velocity RTL but with altitude.
     waypoints.push_back(stage);
