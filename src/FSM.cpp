@@ -28,6 +28,7 @@ static int coutcounter;
 Vec4   Pos_setpoint;
 double PID_duration;
 double PID_InitTime;
+static Vec4 last_error,integral;
 /* Fail safe */
 static double safe_dist = 1;
 bool   Failsafe_enable  = false;
@@ -44,7 +45,7 @@ bool   Mission8init  = false;
 double M8start_alt;
 bool   pubpose  = false;
 bool   pubtwist      = false;
-bool   Force_start   = true;
+bool   Force_start   = false;
 
 
 void failsafe(){
@@ -66,28 +67,27 @@ void ugv_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
 }
 Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){
     Vec4 error,u_p,u_i,u_d,output,derivative;
-    static Vec4 last_error,integral;
     double Last_time = ros::Time::now().toSec();
     double iteration_time = ros::Time::now().toSec() - Last_time;
-    Vec4 K_p(0.8,0.8,1.2,0.1);
-    Vec4 K_i(0.2,0.2,0.2,0);
+    Vec4 K_p(1.8,1.8,0.8,0.2);
+    Vec4 K_i(0.4,0.4,0.2,0);
     Vec4 K_d(0,0,0,0);
     error = setpoint-pose;
     if (error[3]>=M_PI){error[3]-=2*M_PI;}
     if (error[3]<=-M_PI){error[3]+=2*M_PI;}
     for (int i=0; i<4; i++){
         integral[i] += (error[i]*iteration_time);
-        derivative[i] = (error[i] - last_error[i])/iteration_time;
+        // derivative[i] = (error[i] - last_error[i])/iteration_time;
     }
     for (int i=0; i<4; i++){             //i = x,y,z
         u_p[i] = error[i]*K_p[i];        //P controller
         u_i[i] = integral[i]*K_i[i];     //I controller
-        u_d[i] = derivative[i]*K_d[i];   //D controller
-        output[i] = u_p[i]+u_i[i]+u_d[i];
+        // u_d[i] = derivative[i]*K_d[i];   //D controller
+        output[i] = u_p[i]+u_i[i]; // u_d[i];
     }
     for (int i=0; i<3; i++){
-        if(output[i] >  2){ output[i]= 2;}
-        if(output[i] < -2){ output[i]= -2;}
+        if(output[i] >  1){ output[i]= 1;}
+        if(output[i] < -1){ output[i]= -1;}
     }
     // if(coutcounter > 10){
     // cout << "-----------------------------------------------------------------------" << endl;
@@ -154,7 +154,7 @@ void uav_pub(bool pubpose, bool pubtwist){
             Vec4 ugv_lp;
             Quaterniond UGVq;
             Vec3 UGVrpy = Q2rpy(UGVq);
-            ugv_lp << UGV_lp[0],UGV_lp[1],1,UGVrpy[2];
+            ugv_lp << UGV_lp[0],UGV_lp[1],Current_stage_mission[3],UGVrpy[2];
             Pos_setpoint = ugv_lp;
         }
         if(Mission_state == 8){  //PID landing
