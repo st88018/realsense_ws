@@ -8,7 +8,7 @@
 
 static geometry_msgs::PoseStamped UGV_pose_sub,UGV_estimated_pose_pub;
 static Vec7 UGV_lp; // xyz yaw
-Vec3 pose_XYyaw;
+static double Last_time;
 
 void ugv_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UGV_pose_sub.pose.position.x = pose->pose.position.x;
@@ -21,9 +21,18 @@ void ugv_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UGV_lp << UGV_pose_sub.pose.position.x,UGV_pose_sub.pose.position.y,UGV_pose_sub.pose.position.z,
               UGV_pose_sub.pose.orientation.w,UGV_pose_sub.pose.orientation.x,
               UGV_pose_sub.pose.orientation.y,UGV_pose_sub.pose.orientation.z;
+}
+
+Vec7 PoseEstimator(Vec7 UGV_lp){
+    Vec7 EstimatedPose;
+    Quaterniond localq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
     Vec3 localrpy = Q2rpy(localq);
-    pose_XYyaw = Vec4(UGV_pose_sub.pose.position.x,UGV_pose_sub.pose.position.y,
-                      UGV_pose_sub.pose.position.z,localrpy[2]);
+    Vec4 pose_XYZyaw = Vec4(UGV_lp[0],UGV_lp[1],UGV_lp[2],localrpy[2]);
+    double iteration_time = ros::Time::now().toSec() - Last_time;
+
+
+    Last_time = ros::Time::now().toSec();
+    return(EstimatedPose);
 }
 
 int main(int argc, char **argv)

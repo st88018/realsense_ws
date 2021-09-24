@@ -25,9 +25,10 @@ static Vec7 Zero7;
 static Vec4 Zero4;
 static int coutcounter;
 /* PID Position controller */
-Vec4   Pos_setpoint;
-double PID_duration;
-double PID_InitTime;
+static Vec4   Pos_setpoint;
+static double PID_duration;
+static double PID_InitTime;
+static double Last_time = 0;
 static Vec4 last_error,integral;
 /* Fail safe */
 static double safe_dist = 1;
@@ -47,7 +48,20 @@ bool   pubpose  = false;
 bool   pubtwist      = false;
 bool   Force_start   = false;
 
-
+Vec7 ugv_pred_land_pose(Vec7 UGV_lp,Vec4 UGV_twist,double est_duration){
+    Vec7 EstimatedPose;
+    Quaterniond ugvq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
+    Vec3 ugvrpy = Q2rpy(ugvq);
+    Vec4 ugv_XYZyaw = Vec4(UGV_lp[0],UGV_lp[1],UGV_lp[2],ugvrpy[2]);
+    Vec4 ugv_pred_XYZyaw;
+    for(int i=0; i<4; i++){
+        ugv_pred_XYZyaw[i] = ugv_XYZyaw[i]+UGV_twist[i]*est_duration;
+    }
+    ugvq = rpy2Q(Vec3(0,0,ugv_pred_XYZyaw[3]));
+    EstimatedPose << ugv_pred_XYZyaw[0],ugv_pred_XYZyaw[1],ugv_pred_XYZyaw[2],
+                     ugvq.w(),ugvq.x(),ugvq.y(),ugvq.z();
+    return(EstimatedPose);
+}
 void failsafe(){
     double dist = sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow(((UAV_lp[1]-UGV_lp[1]),2),2)+pow(((UAV_lp[2]-UGV_lp[2]),2),2));
     if (dist < safe_dist){
@@ -67,7 +81,6 @@ void ugv_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
 }
 Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){
     Vec4 error,u_p,u_i,u_d,output,derivative;
-    double Last_time = ros::Time::now().toSec();
     double iteration_time = ros::Time::now().toSec() - Last_time;
     Vec4 K_p(1.8,1.8,0.8,0.2);
     Vec4 K_i(0.4,0.4,0.2,0);
@@ -98,8 +111,9 @@ Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){
     // cout << "pose____: " << pose[0] << " " << pose[1] << " " << pose[2] << " " << pose[3] << endl;
     // cout << "setpoint: " << setpoint[0] << " " << setpoint[1] << " " << setpoint[2] << " " << setpoint[3] << endl;
     // cout << "output: " << output[0] << " " << output[1] << " " << output[2] << " " << output[3] << endl;
-    // }else{coutcounter++;}
+    // }else{coutcounter++;}p
     last_error = error;
+    Last_time = ros::Time::now().toSec();
     return(output);
 }
 void uav_state_sub(const mavros_msgs::State::ConstPtr& msg){
