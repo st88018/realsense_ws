@@ -57,3 +57,8 @@ add_executable(Failsafe src/Failsafe.cpp)
 target_link_libraries(Failsafe
 ${catkin_LIBRARIES}
 )
+
+add_executable(TargetPredictor src/TargetPredictor.cpp)
+target_link_libraries(TargetPredictor
+${catkin_LIBRARIES}
+)

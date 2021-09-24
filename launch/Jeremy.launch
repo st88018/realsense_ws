@@ -8,4 +8,7 @@
     <node name="Failsafe_node" pkg="real" type="Failsafe">
     </node>
 
+    <node name="TargetPredictor_node" pkg="real" type="TargetPredictor">
+    </node>
+
 </launch>   

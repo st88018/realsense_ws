@@ -77,16 +77,20 @@ Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){
     if (error[3]<=-M_PI){error[3]+=2*M_PI;}
     for (int i=0; i<4; i++){
         integral[i] += (error[i]*iteration_time);
-        // derivative[i] = (error[i] - last_error[i])/iteration_time;
+        derivative[i] = (error[i] - last_error[i])/(iteration_time + 1e-10);
     }
+
+
+    cout << "iteration_time: " << iteration_time << endl;
     for (int i=0; i<4; i++){             //i = x,y,z
         u_p[i] = error[i]*K_p[i];        //P controller
         u_i[i] = integral[i]*K_i[i];     //I controller
-        // u_d[i] = derivative[i]*K_d[i];   //D controller
-        output[i] = u_p[i]+u_i[i]; // u_d[i];
+        u_d[i] = derivative[i]*K_d[i];   //D controller
+        output[i] = u_p[i]+u_i[i]+u_d[i];
+        cout << "u_p[" << i << "]=" << u_p[i] << " u_i[" << i << "]=" << u_i[i] << " u_d[" << i << "]=" << u_d[i] << endl;
     }
     for (int i=0; i<3; i++){
-        if(output[i] >  1){ output[i]= 1;}
+        if(output[i] >  1){ output[i]=  1;}
         if(output[i] < -1){ output[i]= -1;}
     }
     // if(coutcounter > 10){
@@ -218,7 +222,7 @@ void Finite_state_machine(){  // Main FSM
         if (Mission_state == 1){ //state = 1 take off with no heading change
             pubpose = true;  pubtwist = false;
             TargetPos << UAV_lp[0],UAV_lp[1],Current_stage_mission[3],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
-            constantVtraj(UAV_lp, TargetPos, 0.1, Current_stage_mission[6]);
+            constantVtraj(UAV_lp, TargetPos, 0.3, Current_stage_mission[6]);
         }
         if (Mission_state == 2){ //state = 2; constant velocity trajectory with desired heading.
             pubpose = true;  pubtwist = false;
