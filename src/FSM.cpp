@@ -5,6 +5,7 @@
 #include <Eigen/Geometry>
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/Twist.h>
+#include <geometry_msgs/TwistStamped.h>
 #include <mavros_msgs/CommandBool.h>
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/State.h>
@@ -14,6 +15,7 @@
 
 static mavros_msgs::State current_state;
 static geometry_msgs::PoseStamped UAV_pose_sub,UGV_pose_sub,UAV_pose_pub,UGV_pose_pub;
+static geometry_msgs::TwistStamped UGV_twist_sub;
 static geometry_msgs::Twist       UAV_twist_pub;
 static Vec7 UAV_lp,UGV_lp;
 
@@ -25,7 +27,7 @@ static Vec7 Zero7;
 static Vec4 Zero4;
 static int coutcounter;
 /* PID Position controller */
-static Vec4   Pos_setpoint;
+static Vec4   Pos_setpoint,UGV_twist;
 static double PID_duration;
 static double PID_InitTime;
 static double Last_time = 0;
@@ -48,6 +50,12 @@ bool   pubpose  = false;
 bool   pubtwist      = false;
 bool   Force_start   = false;
 
+void failsafe(){
+    double dist = sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow(((UAV_lp[1]-UGV_lp[1]),2),2)+pow(((UAV_lp[2]-UGV_lp[2]),2),2));
+    if (dist < safe_dist){
+        FailsafeFlag = true;
+    }
+}
 Vec7 ugv_pred_land_pose(Vec7 UGV_lp,Vec4 UGV_twist,double est_duration){
     Vec7 EstimatedPose;
     Quaterniond ugvq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
@@ -62,12 +70,6 @@ Vec7 ugv_pred_land_pose(Vec7 UGV_lp,Vec4 UGV_twist,double est_duration){
                      ugvq.w(),ugvq.x(),ugvq.y(),ugvq.z();
     return(EstimatedPose);
 }
-void failsafe(){
-    double dist = sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow(((UAV_lp[1]-UGV_lp[1]),2),2)+pow(((UAV_lp[2]-UGV_lp[2]),2),2));
-    if (dist < safe_dist){
-        FailsafeFlag = true;
-    }
-}
 void ugv_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UGV_pose_sub.pose.position.x = pose->pose.position.x;
     UGV_pose_sub.pose.position.y = pose->pose.position.y;
@@ -79,12 +81,22 @@ void ugv_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UGV_lp << UGV_pose_sub.pose.position.x,UGV_pose_sub.pose.position.y,UGV_pose_sub.pose.position.z,
               UGV_pose_sub.pose.orientation.w,UGV_pose_sub.pose.orientation.x,UGV_pose_sub.pose.orientation.y,UGV_pose_sub.pose.orientation.z;
 }
+void ugv_twist_sub(const geometry_msgs::TwistStamped::ConstPtr& twist){
+    UGV_twist_sub.twist.linear.x = twist->twist.linear.x;
+    UGV_twist_sub.twist.linear.y = twist->twist.linear.y;
+    UGV_twist_sub.twist.linear.z = twist->twist.linear.z;
+    UGV_twist_sub.twist.angular.x = twist->twist.angular.x;
+    UGV_twist_sub.twist.angular.y = twist->twist.angular.y;
+    UGV_twist_sub.twist.angular.z = twist->twist.angular.z;
+    UGV_twist << UGV_twist_sub.twist.linear.x,UGV_twist_sub.twist.linear.y,
+                 UGV_twist_sub.twist.linear.z,UGV_twist_sub.twist.angular.z;
+}
 Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){
     Vec4 error,u_p,u_i,u_d,output,derivative;
     double iteration_time = ros::Time::now().toSec() - Last_time;
-    Vec4 K_p(1.8,1.8,0.8,0.2);
-    Vec4 K_i(0.4,0.4,0.2,0);
-    Vec4 K_d(0,0,0,0);
+    Vec4 K_p(1.5,1.5,0.5,1);
+    Vec4 K_i(0,0,0,0);
+    Vec4 K_d(0.5,0.5,0,0);
     error = setpoint-pose;
     if (error[3]>=M_PI){error[3]-=2*M_PI;}
     if (error[3]<=-M_PI){error[3]+=2*M_PI;}
@@ -93,14 +105,13 @@ Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){
         derivative[i] = (error[i] - last_error[i])/(iteration_time + 1e-10);
     }
 
-
-    cout << "iteration_time: " << iteration_time << endl;
+    // cout << "iteration_time: " << iteration_time << endl;
     for (int i=0; i<4; i++){             //i = x,y,z
         u_p[i] = error[i]*K_p[i];        //P controller
         u_i[i] = integral[i]*K_i[i];     //I controller
         u_d[i] = derivative[i]*K_d[i];   //D controller
         output[i] = u_p[i]+u_i[i]+u_d[i];
-        cout << "u_p[" << i << "]=" << u_p[i] << " u_i[" << i << "]=" << u_i[i] << " u_d[" << i << "]=" << u_d[i] << endl;
+        // cout << "u_p[" << i << "]=" << u_p[i] << " u_i[" << i << "]=" << u_i[i] << " u_d[" << i << "]=" << u_d[i] << endl;
     }
     for (int i=0; i<3; i++){
         if(output[i] >  1){ output[i]=  1;}
@@ -170,10 +181,10 @@ void uav_pub(bool pubpose, bool pubtwist){
         xyzyaw << UAV_pose_sub.pose.position.x,UAV_pose_sub.pose.position.y,UAV_pose_sub.pose.position.z,localrpy[2];
         if(Mission_state == 7){  //Follow the UGV
             Vec4 ugv_lp;
-            Quaterniond UGVq;
+            Quaterniond UGVq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
             Vec3 UGVrpy = Q2rpy(UGVq);
-            ugv_lp << UGV_lp[0],UGV_lp[1],Current_stage_mission[3],UGVrpy[2];
-            Pos_setpoint = ugv_lp;
+            Vec7 UGV_pred_lp = ugv_pred_land_pose(UGV_lp,UGV_twist,1);
+            Pos_setpoint << UGV_pred_lp[0],UGV_pred_lp[1],Current_stage_mission[3],UGVrpy[2];
         }
         if(Mission_state == 8){  //PID landing
             if(!Mission8init){
@@ -181,10 +192,11 @@ void uav_pub(bool pubpose, bool pubtwist){
                 M8start_alt = xyzyaw[2];
             }
             Vec4 ugv_lp;
-            Quaterniond UGVq;
+
+            Quaterniond UGVq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
             Vec3 UGVrpy = Q2rpy(UGVq);
-            ugv_lp << UGV_lp[0],UGV_lp[1],M8start_alt-=0.001,UGVrpy[2];
-            Pos_setpoint = ugv_lp;
+            Vec7 UGV_pred_lp = ugv_pred_land_pose(UGV_lp,UGV_twist,1);
+            Pos_setpoint << UGV_pred_lp[0],UGV_pred_lp[1],M8start_alt-=0.001,UGVrpy[2];
         }
         if (PID_InitTime+PID_duration < ros::Time::now().toSec()){ // EndMission if timesup
             Mission_stage++;
@@ -311,6 +323,7 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "FSM");
     ros::NodeHandle nh;
     ros::Subscriber ugvpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_car/pose", 5, ugv_pose_sub);
+    ros::Subscriber ugvtwist_sub = nh.subscribe<geometry_msgs::TwistStamped>("/vrpn_client_node/gh034_car/twist", 5, ugv_twist_sub);
     ros::Subscriber uavpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("mavros/local_position/pose", 1, uav_pose_sub);
     ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>("/mavros/state", 10, uav_state_sub);
     ros::ServiceClient arming_client = nh.serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");
@@ -402,6 +415,7 @@ int main(int argc, char **argv)
             if(Mission_state == 7 || Mission_state == 8){
                 cout << "CAr____pos_x: " << UGV_pose_sub.pose.position.x << " y: " << UGV_pose_sub.pose.position.y << endl;
             }   
+            cout << "CAr__twist_x: " << UGV_twist_sub.twist.linear.x << " y: " << UGV_twist_sub.twist.linear.y << endl;
             cout << "Failsafe_state: " << FailsafeFlag << endl;
             cout << "-----------------------------------------------------------------------" << endl;
             coutcounter = 0;
