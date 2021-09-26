@@ -107,25 +107,18 @@ Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){
         integral[i] += (error[i]*iteration_time);
         derivative[i] = (error[i] - last_error[i])/(iteration_time + 1e-10);
     }
-
     // cout << "iteration_time: " << iteration_time << endl;
     for (int i=0; i<4; i++){             //i = x,y,z
         u_p[i] = error[i]*K_p[i];        //P controller
         u_i[i] = integral[i]*K_i[i];     //I controller
         u_d[i] = derivative[i]*K_d[i];   //D controller
         output[i] = u_p[i]+u_i[i]+u_d[i];
-        // cout << "u_p[" << i << "]=" << u_p[i] << " u_i[" << i << "]=" << u_i[i] << " u_d[" << i << "]=" << u_d[i] << endl;
+        // cout << "output[" << i << "]=" << output[i] << " u_p[" << i << "]=" << u_p[i] << " u_i[" << i << "]=" << u_i[i] << " u_d[" << i << "]=" << u_d[i] << endl;
     }
     for (int i=0; i<3; i++){
         if(output[i] >  1){ output[i]=  1;}
         if(output[i] < -1){ output[i]= -1;}
     }
-    // if(coutcounter > 10){
-    // cout << "-----------------------------------------------------------------------" << endl;
-    // cout << "pose____: " << pose[0] << " " << pose[1] << " " << pose[2] << " " << pose[3] << endl;
-    // cout << "setpoint: " << setpoint[0] << " " << setpoint[1] << " " << setpoint[2] << " " << setpoint[3] << endl;
-    // cout << "output: " << output[0] << " " << output[1] << " " << output[2] << " " << output[3] << endl;
-    // }else{coutcounter++;}p
     last_error = error;
     Last_time = ros::Time::now().toSec();
     return(output);
@@ -206,17 +199,6 @@ void uav_pub(bool pubpose, bool pubtwist){
             uav_twist_pub(Zero4);
         }
         uav_twist_pub(uav_poistion_controller_PID(xyzyaw,Pos_setpoint));
-    }
-}
-void uav_shutdown(bool Shut_down){
-    if(Shut_down){
-        cout << "Warning Shutting Down" << endl;
-        pubtwist = false;
-        pubpose = false;
-        ros::NodeHandle nh;
-        ros::Publisher uav_AttitudeTarget = nh.advertise<mavros_msgs::AttitudeTarget>("/mavros/setpoint_raw/attitude",1);
-        UAV_AttitudeTarget.thrust = 0; 
-        uav_AttitudeTarget.publish(UAV_AttitudeTarget);
     }
 }
 string armstatus(){
