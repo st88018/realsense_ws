@@ -410,7 +410,7 @@ int main(int argc, char **argv)
         /* FSM *****************************************************************/
         Finite_state_machine();
         if(Shut_down){
-            cout << "Warning Shutting Down" << endl;
+            cout << "Warning Vehicle Shut Down" << endl;
             pubtwist = false;
             pubpose = false;
             UAV_AttitudeTarget.thrust = 0; 
@@ -419,7 +419,7 @@ int main(int argc, char **argv)
         if(pubtwist){uav_vel_pub.publish(UAV_twist_pub);}
         if(pubpose){uav_pos_pub.publish(UAV_pose_pub);}
         /*Mission information cout**********************************************/
-        if(coutcounter > 25 && FSMinit){ //reduce cout rate
+        if(coutcounter > 25 && FSMinit && !Shut_down){ //reduce cout rate
             cout << "-----------------------------------------------------------------------" << endl;
             cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
             cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
