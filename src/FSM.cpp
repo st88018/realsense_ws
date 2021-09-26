@@ -418,7 +418,8 @@ int main(int argc, char **argv)
             if(Mission_state == 7 || Mission_state == 8){
                 cout << "CAr____pos_x: " << UGV_pose_sub.pose.position.x << " y: " << UGV_pose_sub.pose.position.y << endl;
             }   
-            cout << "CAr__twist_x: " << UGV_twist_sub.twist.linear.x << " y: " << UGV_twist_sub.twist.linear.y << endl;
+            cout << "Dist_UAVtoUGV_horizontal: " << sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) << endl;
+            cout << "Dist_UAVtoUGV___vertical: " << sqrt(pow((UAV_lp[2]-UGV_lp[2]),2)) << endl;
             cout << "Failsafe_state: " << FailsafeFlag << endl;
             cout << "-----------------------------------------------------------------------" << endl;
             coutcounter = 0;
