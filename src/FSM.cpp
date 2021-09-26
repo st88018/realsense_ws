@@ -14,11 +14,11 @@
 #include "utils/uav_mission.hpp"
 #include "utils/trajectories.hpp"
 
-static mavros_msgs::State current_state;
-static mavros_msgs::AttitudeTarget UAV_AttitudeTarget;
-static geometry_msgs::PoseStamped UAV_pose_sub,UGV_pose_sub,UAV_pose_pub,UGV_pose_pub;
-static geometry_msgs::TwistStamped UGV_twist_sub;
-static geometry_msgs::Twist       UAV_twist_pub;
+static mavros_msgs::State           current_state;
+static mavros_msgs::AttitudeTarget  UAV_AttitudeTarget;
+static geometry_msgs::PoseStamped   UAV_pose_sub,UGV_pose_sub,UAV_pose_pub,UGV_pose_pub;
+static geometry_msgs::TwistStamped  UGV_twist_sub;
+static geometry_msgs::Twist         UAV_twist_pub;
 static Vec7 UAV_lp,UGV_lp;
 
 /* System */
@@ -51,6 +51,7 @@ double M8start_alt;
 bool   pubpose  = false;
 bool   pubtwist      = false;
 bool   Force_start   = false;
+bool   Shut_down     = false;
 
 void failsafe(){
     double dist = sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow(((UAV_lp[1]-UGV_lp[1]),2),2)+pow(((UAV_lp[2]-UGV_lp[2]),2),2));
@@ -207,6 +208,17 @@ void uav_pub(bool pubpose, bool pubtwist){
         uav_twist_pub(uav_poistion_controller_PID(xyzyaw,Pos_setpoint));
     }
 }
+void uav_shutdown(bool Shut_down){
+    if(Shut_down){
+        cout << "Warning Shutting Down" << endl;
+        pubtwist = false;
+        pubpose = false;
+        ros::NodeHandle nh;
+        ros::Publisher uav_AttitudeTarget = nh.advertise<mavros_msgs::AttitudeTarget>("/mavros/setpoint_raw/attitude",1);
+        UAV_AttitudeTarget.thrust = 0; 
+        uav_AttitudeTarget.publish(UAV_AttitudeTarget);
+    }
+}
 string armstatus(){
     if(current_state.armed){
         return("Armed   ");
@@ -258,7 +270,7 @@ void Finite_state_machine(){  // Main FSM
             constantVtraj(UAV_lp, TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
         }
         if (Mission_state == 3){ //state = 3;
-
+            Shut_down = true;
         }
         if (Mission_state == 4){ //state = 4; constant velocity RTL but with altitude
             pubpose = true;  pubtwist = false;
@@ -330,9 +342,9 @@ int main(int argc, char **argv)
     ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>("/mavros/state", 10, uav_state_sub);
     ros::ServiceClient arming_client = nh.serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");
     ros::ServiceClient set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("mavros/set_mode");
-    ros::Publisher uav_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 5);
+    ros::Publisher uav_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 5); 
     ros::Publisher uav_vel_pub = nh.advertise<geometry_msgs::Twist>("/mavros/setpoint_velocity/cmd_vel_unstamped", 5);
-    ros::Publisher uav_AttitudeTarget = nh.advertise<mavros_msgs::AttitudeTarget>("/mavros/setpoint_raw/attitude", 5);
+    ros::Publisher uav_AttitudeTarget = nh.advertise<mavros_msgs::AttitudeTarget>("/mavros/setpoint_raw/attitude",5);
     mavros_msgs::SetMode offb_set_mode,posctl_set_mode;
     offb_set_mode.request.custom_mode = "OFFBOARD";
     posctl_set_mode.request.custom_mode = "POSCTL";
@@ -397,14 +409,12 @@ int main(int argc, char **argv)
         }
         /* FSM *****************************************************************/
         Finite_state_machine();
-        if(Mission_state == 3){
-            cout << "go go go" << endl;
+        if(Shut_down){
+            cout << "Warning Shutting Down" << endl;
             pubtwist = false;
             pubpose = false;
-            UAV_AttitudeTarget.thrust = 0;
-            for (int i=0; i<100000; i++){
-                uav_AttitudeTarget.publish(UAV_AttitudeTarget);
-            }
+            UAV_AttitudeTarget.thrust = 0; 
+            uav_AttitudeTarget.publish(UAV_AttitudeTarget);
         }
         if(pubtwist){uav_vel_pub.publish(UAV_twist_pub);}
         if(pubpose){uav_pos_pub.publish(UAV_pose_pub);}
