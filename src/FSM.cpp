@@ -9,12 +9,13 @@
 #include <mavros_msgs/CommandBool.h>
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/State.h>
-#include <mavros_msgs/OverrideRCIn.h>
+#include <mavros_msgs/AttitudeTarget.h>
 #include "utils/kinetic_math.hpp"
 #include "utils/uav_mission.hpp"
 #include "utils/trajectories.hpp"
 
 static mavros_msgs::State current_state;
+static mavros_msgs::AttitudeTarget UAV_AttitudeTarget;
 static geometry_msgs::PoseStamped UAV_pose_sub,UGV_pose_sub,UAV_pose_pub,UGV_pose_pub;
 static geometry_msgs::TwistStamped UGV_twist_sub;
 static geometry_msgs::Twist       UAV_twist_pub;
@@ -257,7 +258,6 @@ void Finite_state_machine(){  // Main FSM
             constantVtraj(UAV_lp, TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
         }
         if (Mission_state == 3){ //state = 3;
-            ros::NodeHandle nh;
 
         }
         if (Mission_state == 4){ //state = 4; constant velocity RTL but with altitude
@@ -332,6 +332,7 @@ int main(int argc, char **argv)
     ros::ServiceClient set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("mavros/set_mode");
     ros::Publisher uav_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 5);
     ros::Publisher uav_vel_pub = nh.advertise<geometry_msgs::Twist>("/mavros/setpoint_velocity/cmd_vel_unstamped", 5);
+    ros::Publisher uav_AttitudeTarget = nh.advertise<mavros_msgs::AttitudeTarget>("/mavros/setpoint_raw/attitude", 5);
     mavros_msgs::SetMode offb_set_mode,posctl_set_mode;
     offb_set_mode.request.custom_mode = "OFFBOARD";
     posctl_set_mode.request.custom_mode = "POSCTL";
@@ -396,6 +397,15 @@ int main(int argc, char **argv)
         }
         /* FSM *****************************************************************/
         Finite_state_machine();
+        if(Mission_state == 3){
+            cout << "go go go" << endl;
+            pubtwist = false;
+            pubpose = false;
+            UAV_AttitudeTarget.thrust = 0;
+            for (int i=0; i<100000; i++){
+                uav_AttitudeTarget.publish(UAV_AttitudeTarget);
+            }
+        }
         if(pubtwist){uav_vel_pub.publish(UAV_twist_pub);}
         if(pubpose){uav_pos_pub.publish(UAV_pose_pub);}
         /*Mission information cout**********************************************/
