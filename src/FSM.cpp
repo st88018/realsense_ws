@@ -9,6 +9,7 @@
 #include <mavros_msgs/CommandBool.h>
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/State.h>
+#include <mavros_msgs/OverrideRCIn.h>
 #include "utils/kinetic_math.hpp"
 #include "utils/uav_mission.hpp"
 #include "utils/trajectories.hpp"
@@ -255,8 +256,9 @@ void Finite_state_machine(){  // Main FSM
             TargetPos << Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
             constantVtraj(UAV_lp, TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
         }
-        if (Mission_state == 3){ //state = 3; 
-            
+        if (Mission_state == 3){ //state = 3;
+            ros::NodeHandle nh;
+
         }
         if (Mission_state == 4){ //state = 4; constant velocity RTL but with altitude
             pubpose = true;  pubtwist = false;
@@ -330,13 +332,12 @@ int main(int argc, char **argv)
     ros::ServiceClient set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("mavros/set_mode");
     ros::Publisher uav_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 5);
     ros::Publisher uav_vel_pub = nh.advertise<geometry_msgs::Twist>("/mavros/setpoint_velocity/cmd_vel_unstamped", 5);
-    mavros_msgs::SetMode offb_set_mode;
+    mavros_msgs::SetMode offb_set_mode,posctl_set_mode;
     offb_set_mode.request.custom_mode = "OFFBOARD";
-    mavros_msgs::SetMode posctl_set_mode;
     posctl_set_mode.request.custom_mode = "POSCTL";
     mavros_msgs::CommandBool arm_cmd;
-    nh.getParam("/FSM_node/Force_start", Force_start);
     arm_cmd.request.value = true;
+    nh.getParam("/FSM_node/Force_start", Force_start);
     Zero4 << 0,0,0,0;
     Zero7 << 0,0,0,0,0,0,0;
 
