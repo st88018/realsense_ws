@@ -45,10 +45,10 @@ int    Mission_state = 0;
 int    Mission_stage = 0;
 int    Current_Mission_stage = 0;
 Vec8   Current_stage_mission;
-bool   FSMinit = false;
+bool   FSMinit       = false;
 bool   Mission8init  = false;
 double M8start_alt;
-bool   pubpose  = false;
+bool   pubpose       = false;
 bool   pubtwist      = false;
 bool   Force_start   = false;
 bool   Shut_down     = false;
@@ -176,7 +176,6 @@ void uav_pub(bool pubpose, bool pubtwist){
         Vec4 xyzyaw;
         xyzyaw << UAV_pose_sub.pose.position.x,UAV_pose_sub.pose.position.y,UAV_pose_sub.pose.position.z,localrpy[2];
         if(Mission_state == 7){  //Follow the UGV
-            Vec4 ugv_lp;
             Quaterniond UGVq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
             Vec3 UGVrpy = Q2rpy(UGVq);
             Vec7 UGV_pred_lp = ugv_pred_land_pose(UGV_lp,UGV_twist,1);
@@ -187,14 +186,12 @@ void uav_pub(bool pubpose, bool pubtwist){
                 Mission8init = true;
                 M8start_alt = xyzyaw[2];
             }
-            Vec4 ugv_lp;
-
             Quaterniond UGVq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
             Vec3 UGVrpy = Q2rpy(UGVq);
             Vec7 UGV_pred_lp = ugv_pred_land_pose(UGV_lp,UGV_twist,1);
             Pos_setpoint << UGV_pred_lp[0],UGV_pred_lp[1],M8start_alt-=0.001,UGVrpy[2];
         }
-        if (PID_InitTime+PID_duration < ros::Time::now().toSec()){ // EndMission if timesup
+        if (PID_InitTime+PID_duration < ros::Time::now().toSec()){ // EndMission
             Mission_stage++;
             uav_twist_pub(Zero4);
         }
