@@ -97,7 +97,7 @@ void ugv_twist_sub(const geometry_msgs::TwistStamped::ConstPtr& twist){
 Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){
     Vec4 error,u_p,u_i,u_d,output,derivative;
     double iteration_time = ros::Time::now().toSec() - Last_time;
-    Vec4 K_p(1.5,1.5,0.5,1);
+    Vec4 K_p(1.8,1.8,1,1);
     Vec4 K_i(0,0,0,0);
     Vec4 K_d(0.5,0.5,0,0);
     error = setpoint-pose;
@@ -188,9 +188,9 @@ void uav_pub(bool pubpose, bool pubtwist){
             }
             Quaterniond UGVq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
             Vec3 UGVrpy = Q2rpy(UGVq);
-            Vec7 UGV_pred_lp = ugv_pred_land_pose(UGV_lp,UGV_twist,1);
+            Vec7 UGV_pred_lp = ugv_pred_land_pose(UGV_lp,UGV_twist,0.5);
             Pos_setpoint << UGV_pred_lp[0],UGV_pred_lp[1],M8start_alt-=0.001,UGVrpy[2];
-            if( sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) < 0.05 && sqrt(pow((UAV_lp[2]-UGV_lp[2]),2)) < 0.05 ){
+            if( sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) < 0.15 && sqrt(pow((UAV_lp[2]-UGV_lp[2]),2)) < 0.1 ){
                 Shut_down = true;
             }
         }

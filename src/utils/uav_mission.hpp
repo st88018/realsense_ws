@@ -23,7 +23,7 @@ deque<Vec8> Finite_stage_mission(){
     waypoints.clear();
     // Waypoints
     Vec8 stage; // state x y z yaw v av waittime
-    stage << 1, 0, 0, 1, 3.14, velocity_mission, velocity_angular, 5;   // state = 1; takeoff
+    stage << 1, 0, 0, 1, 3.14, velocity_mission, velocity_angular, 20;   // state = 1; takeoff
     waypoints.push_back(stage);
     stage << 7, 0, 0, 1, 3.14, 0, 0, 15;
     waypoints.push_back(stage);
