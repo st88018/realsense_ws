@@ -97,6 +97,7 @@ void ugv_twist_sub(const geometry_msgs::TwistStamped::ConstPtr& twist){
 Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){
     Vec4 error,u_p,u_i,u_d,output,derivative;
     double iteration_time = ros::Time::now().toSec() - Last_time;
+    // cout << "iteration_time: " << iteration_time << endl;
     Vec4 K_p(1.8,1.8,1,1);
     Vec4 K_i(0,0,0,0);
     Vec4 K_d(0.5,0.5,0,0);
@@ -107,7 +108,6 @@ Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){
         integral[i] += (error[i]*iteration_time);
         derivative[i] = (error[i] - last_error[i])/(iteration_time + 1e-10);
     }
-    // cout << "iteration_time: " << iteration_time << endl;
     for (int i=0; i<4; i++){             //i = x,y,z
         u_p[i] = error[i]*K_p[i];        //P controller
         u_i[i] = integral[i]*K_i[i];     //I controller
