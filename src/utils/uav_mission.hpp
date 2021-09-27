@@ -27,7 +27,7 @@ deque<Vec8> Finite_stage_mission(){
     waypoints.push_back(stage);
     stage << 7, 0, 0, 1, 3.14, 0, 0, 15;
     waypoints.push_back(stage);
-    stage << 7, 0, 0, 0.4, 3.14, 0, 0, 15;
+    stage << 7, 0, 0, 0.5, 3.14, 0, 0, 15;
     waypoints.push_back(stage);
     stage << 8, 0, 0, 1, 3.14, 0, 0, 120;
     waypoints.push_back(stage);
