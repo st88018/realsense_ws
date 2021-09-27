@@ -104,11 +104,9 @@ Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){
     error = setpoint-pose;
     if (error[3]>=M_PI){error[3]-=2*M_PI;}
     if (error[3]<=-M_PI){error[3]+=2*M_PI;}
-    for (int i=0; i<4; i++){
+    for (int i=0; i<4; i++){ //i = x,y,z
         integral[i] += (error[i]*iteration_time);
         derivative[i] = (error[i] - last_error[i])/(iteration_time + 1e-10);
-    }
-    for (int i=0; i<4; i++){             //i = x,y,z
         u_p[i] = error[i]*K_p[i];        //P controller
         u_i[i] = integral[i]*K_i[i];     //I controller
         u_d[i] = derivative[i]*K_d[i];   //D controller
