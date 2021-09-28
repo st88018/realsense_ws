@@ -7,9 +7,6 @@ Vec2 traj1_information;
 double Trajectory_timestep = 0.02;
 Vec2 Twisttraj_information;
 
-void landapproachtraj(Vec7 StartPose){
-    
-}
 void constantVtraj( Vec7 StartPose, Vec7 EndPose, double velocity, double angular_velocity){
   Quaterniond localq(StartPose[3],StartPose[4],StartPose[5],StartPose[6]);
   Vec3 localrpy = Q2rpy(localq);

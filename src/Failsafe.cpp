@@ -70,7 +70,7 @@ int main(int argc, char **argv)
     ros::Subscriber uavpose_sub = nh.subscribe<geometry_msgs::PoseStamped>
                     ("mavros/local_position/pose", 1, uav_pose_sub);
     ros::Publisher uav_vel_pub = nh.advertise<geometry_msgs::Twist>
-                    ("/FSM/failsafe/cmd_vel_unstamped", 5);
+                    ("/FSM/failsafe/detach_vel_unstamped", 5);
     ros::Rate loop_rate(50); /* ROS system Hz */
 
     while(ros::ok()){

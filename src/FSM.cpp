@@ -34,9 +34,9 @@ static double PID_duration;
 static double PID_InitTime;
 static double Last_time = 0;
 static Vec4 last_error,integral;
-/* Fail safe */
-static double safe_dist = 1;
-bool   Failsafe_enable  = false;
+/* Fail safe (not ready)*/
+static double safe_dist = 0.5;
+bool   Failsafe_System_enable  = false;
 bool   FailsafeFlag  = false;
 /* FSM */
 Vec7 UAV_desP,UAV_takeoffP;
@@ -54,10 +54,10 @@ bool   Force_start   = false;
 bool   Shut_down     = false;
 
 void failsafe(){
-    double dist = sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow(((UAV_lp[1]-UGV_lp[1]),2),2)+pow(((UAV_lp[2]-UGV_lp[2]),2),2));
+    double dist = sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)+pow((UAV_lp[2]-UGV_lp[2]),2));
     if (dist < safe_dist){
         FailsafeFlag = true;
-    }
+    }else{FailsafeFlag = false;}
 }
 Vec7 ugv_pred_land_pose(Vec7 UGV_lp,Vec4 UGV_twist,double est_duration){
     Vec7 EstimatedPose;
@@ -100,7 +100,7 @@ Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){
     // cout << "iteration_time: " << iteration_time << endl;
     Vec4 K_p(2,2,1,1);
     Vec4 K_i(0.05,0.05,0.05,0.05);
-    Vec4 K_d(1,1,0,0);
+    Vec4 K_d(1.5,1.5,0,0);
     error = setpoint-pose;
     if (error[3]>=M_PI){error[3]-=2*M_PI;}
     if (error[3]<=-M_PI){error[3]+=2*M_PI;}
@@ -314,8 +314,10 @@ void Finite_stage_machine(){  // Main FSM
         //     }
         // }
     }
-    failsafe();//Start failsafe 
     uav_pub(pubpose,pubtwist);
+}
+void Finite_state_machine(){
+    
 }
 int main(int argc, char **argv)
 {
@@ -338,7 +340,6 @@ int main(int argc, char **argv)
     nh.getParam("/FSM_node/Force_start", Force_start);
     Zero4 << 0,0,0,0;
     Zero7 << 0,0,0,0,0,0,0;
-
     ros::Rate loop_rate(50); /* ROS system Hz */
 
     while(ros::ok()){
@@ -394,6 +395,9 @@ int main(int argc, char **argv)
         }
         /* FSM *****************************************************************/
         Finite_stage_machine();
+        if(Failsafe_System_enable){
+            failsafe();
+        }
         if(Shut_down){ // UAV shut down
             cout << "Warning Vehicle Shut Down" << endl;
             pubtwist = false;
@@ -405,7 +409,6 @@ int main(int argc, char **argv)
         if(pubpose){uav_pos_pub.publish(UAV_pose_pub);}
         /*Mission information cout**********************************************/
         if(coutcounter > 25 && FSMinit && !Shut_down && !pubtwist){ //reduce cout rate
-            cout << "-----------------------------------------------------------------------" << endl;
             cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
             cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
             cout << "Mission_State: " << statestatus() << endl;
@@ -423,8 +426,8 @@ int main(int argc, char **argv)
             }   
             cout << "Dist_UAVtoUGV_horizontal: " << sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) << endl;
             cout << "Dist_UAVtoUGV___vertical: " << sqrt(pow((UAV_lp[2]-UGV_lp[2]),2)) << endl;
-            cout << "Failsafe_state: " << FailsafeFlag << endl;
-            cout << "-----------------------------------------------------------------------" << endl;
+            cout << "Failsafe_System_enable: " << Failsafe_System_enable <<  " Failsafe_state: " << FailsafeFlag << endl;
+            cout << "---------------------------------------------------" << endl;
             coutcounter = 0;
         }else{coutcounter++;}
         ros::spinOnce();
