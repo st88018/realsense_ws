@@ -98,20 +98,25 @@ Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){
     Vec4 error,u_p,u_i,u_d,output,derivative;
     double iteration_time = ros::Time::now().toSec() - Last_time;
     // cout << "iteration_time: " << iteration_time << endl;
-    Vec4 K_p(1.8,1.8,1,1);
-    Vec4 K_i(0,0,0,0);
-    Vec4 K_d(0.5,0.5,0,0);
+    Vec4 K_p(2,2,1,1);
+    Vec4 K_i(0.05,0.05,0.05,0.05);
+    Vec4 K_d(1,1,0,0);
     error = setpoint-pose;
     if (error[3]>=M_PI){error[3]-=2*M_PI;}
     if (error[3]<=-M_PI){error[3]+=2*M_PI;}
     for (int i=0; i<4; i++){ //i = x,y,z
         integral[i] += (error[i]*iteration_time);
+        if(integral[i] >  1){ integral[i]=  1;}
+        if(integral[i] < -1){ integral[i]=-1;}
         derivative[i] = (error[i] - last_error[i])/(iteration_time + 1e-10);
         u_p[i] = error[i]*K_p[i];        //P controller
         u_i[i] = integral[i]*K_i[i];     //I controller
         u_d[i] = derivative[i]*K_d[i];   //D controller
         output[i] = u_p[i]+u_i[i]+u_d[i];
-        // cout << "output[" << i << "]=" << output[i] << " u_p[" << i << "]=" << u_p[i] << " u_i[" << i << "]=" << u_i[i] << " u_d[" << i << "]=" << u_d[i] << endl;
+        cout << "-----------------------------------------------------------------------" << endl;
+        cout << "error[" << i << "]=" << error[i] << " last_error[" << i << "]=" << last_error[i] << endl;
+        cout << "iteration_time=" << iteration_time << " integral[" << i << "]=" << integral[i] << endl;
+        cout << "output[" << i << "]=" << output[i] << " u_p[" << i << "]=" << u_p[i] << " u_i[" << i << "]=" << u_i[i] << " u_d[" << i << "]=" << u_d[i] << endl;
     }
     for (int i=0; i<3; i++){
         if(output[i] >  1){ output[i]=  1;}
@@ -229,7 +234,7 @@ string statestatus(){
         return("System error");
     }
 }
-void Finite_state_machine(){  // Main FSM
+void Finite_stage_machine(){  // Main FSM
     if (Mission_stage != Current_Mission_stage){// Generate trajectory while mission stage change
         Vec8 traj1;
         Vec4 traj2;
@@ -388,8 +393,8 @@ int main(int argc, char **argv)
             Force_start = false;
         }
         /* FSM *****************************************************************/
-        Finite_state_machine();
-        if(Shut_down){
+        Finite_stage_machine();
+        if(Shut_down){ // UAV shut down
             cout << "Warning Vehicle Shut Down" << endl;
             pubtwist = false;
             pubpose = false;
@@ -399,7 +404,7 @@ int main(int argc, char **argv)
         if(pubtwist){uav_vel_pub.publish(UAV_twist_pub);}
         if(pubpose){uav_pos_pub.publish(UAV_pose_pub);}
         /*Mission information cout**********************************************/
-        if(coutcounter > 25 && FSMinit && !Shut_down){ //reduce cout rate
+        if(coutcounter > 25 && FSMinit && !Shut_down && !pubtwist){ //reduce cout rate
             cout << "-----------------------------------------------------------------------" << endl;
             cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
             cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
