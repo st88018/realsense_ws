@@ -316,7 +316,7 @@ void Finite_stage_machine(){  // Main FSM
     }
     uav_pub(pubpose,pubtwist);
 }
-void Finite_state_machine(){
+void Finite_state_machine(){ //Currently four stage: Free flying, Follow1, Follow2
     
 }
 int main(int argc, char **argv)
