@@ -2,7 +2,7 @@
 <launch>
 
 <!--Input######################################################################################################-->
-<node pkg="rosbag" type="play" name="rosbag0" args="$(find flvis)/bag/agent0.bag -s1 -r 0.5"/>
+<node pkg="rosbag" type="play" name="rosbag0" args="car.bag -s1 -r 0.5"/>
 
 
 </launch>
