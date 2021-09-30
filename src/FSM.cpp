@@ -342,13 +342,12 @@ void Finite_state_machine(){
         Quaterniond FSM2q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
         Vec3 FSM2rpy = Q2rpy(FSM2q);
         Vec2 uavxy = Vec2(UGV_lp[0]-0.5*cos(FSM2rpy[2]),UGV_lp[1]-0.5*sin(FSM2rpy[2]));
-
         FSM_2_pose << uavxy[0],uavxy[1],UGV_lp[2]+0.3,UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6];
         uav_pose_pub(FSM_2_pose);
         pubpose = true; pubtwist = false;
-        // if(){
-        //     FSM_state++;
-        // }
+        if(Mission_state != 3){
+            FSM_state++;
+        }
     }
     if(FSM_state==3){ //Follow 2 (using vision)
 
@@ -460,9 +459,7 @@ int main(int argc, char **argv)
                 cout << "des__twist_x: " << UAV_twist_pub.linear.x << " y: " << UAV_twist_pub.linear.y << " z: "<< UAV_twist_pub.linear.z << " az: " << UAV_twist_pub.angular.z << endl;
                 cout << "PID  countdown: " << PID_InitTime+PID_duration - ros::Time::now().toSec() << endl;
             }
-            if(Mission_state == 7 || Mission_state == 8){
-                cout << "CAr____pos_x: " << UGV_pose_sub.pose.position.x << " y: " << UGV_pose_sub.pose.position.y << endl;
-            }   
+            cout << "CAr____pos_x: " << UGV_pose_sub.pose.position.x << " y: " << UGV_pose_sub.pose.position.y << endl;
             cout << "Dist_UAVtoUGV_horizontal: " << sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) << endl;
             cout << "Dist_UAVtoUGV___vertical: " << sqrt(pow((UAV_lp[2]-UGV_lp[2]),2)) << endl;
             cout << "Failsafe_System_enable: " << Failsafe_System_enable <<  " Failsafe_state: " << FailsafeFlag << endl;
