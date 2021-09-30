@@ -28,7 +28,7 @@ deque<Vec8> Mission_generator(){
     waypoints.push_back(stage);
     stage << 2,-1, 1, 1, 3.14, velocity_mission, velocity_angular, 0;
     waypoints.push_back(stage);
-    stage << 3,-1,-1, 1, 3.14, velocity_mission, velocity_angular, 120;
+    stage << 2,-1,-1, 1, 3.14, velocity_mission, velocity_angular, 0;
     waypoints.push_back(stage);
     stage << 2, 1,-1, 1, 3.14, velocity_mission, velocity_angular, 0;
     waypoints.push_back(stage);
