@@ -41,6 +41,9 @@ bool   FailsafeFlag  = false;
 /* FSM */
 Vec7 UAV_desP,UAV_takeoffP;
 Vec7 TargetPos;
+int    FSM_state = 0;
+bool   FSM_1_init = false;
+Vec7   FSM_1_pose;
 int    Mission_state = 0;
 int    Mission_stage = 0;
 int    Current_Mission_stage = 0;
@@ -113,10 +116,10 @@ Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){
         u_i[i] = integral[i]*K_i[i];     //I controller
         u_d[i] = derivative[i]*K_d[i];   //D controller
         output[i] = u_p[i]+u_i[i]+u_d[i];
-        cout << "-----------------------------------------------------------------------" << endl;
-        cout << "error[" << i << "]=" << error[i] << " last_error[" << i << "]=" << last_error[i] << endl;
-        cout << "iteration_time=" << iteration_time << " integral[" << i << "]=" << integral[i] << endl;
-        cout << "output[" << i << "]=" << output[i] << " u_p[" << i << "]=" << u_p[i] << " u_i[" << i << "]=" << u_i[i] << " u_d[" << i << "]=" << u_d[i] << endl;
+        // cout << "-----------------------------------------------------------------------" << endl;
+        // cout << "error[" << i << "]=" << error[i] << " last_error[" << i << "]=" << last_error[i] << endl;
+        // cout << "iteration_time=" << iteration_time << " integral[" << i << "]=" << integral[i] << endl;
+        // cout << "output[" << i << "]=" << output[i] << " u_p[" << i << "]=" << u_p[i] << " u_i[" << i << "]=" << u_i[i] << " u_d[" << i << "]=" << u_d[i] << endl;
     }
     for (int i=0; i<3; i++){
         if(output[i] >  1){ output[i]=  1;}
@@ -234,7 +237,7 @@ string statestatus(){
         return("System error");
     }
 }
-void Finite_stage_machine(){  // Main FSM
+void Finite_stage_mission(){  // Main FSM
     if (Mission_stage != Current_Mission_stage){// Generate trajectory while mission stage change
         Vec8 traj1;
         Vec4 traj2;
@@ -255,7 +258,7 @@ void Finite_stage_machine(){  // Main FSM
             constantVtraj(UAV_lp, TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
         }
         if (Mission_state == 3){ //state = 3;
-    
+            FSM_state = 2;
         }
         if (Mission_state == 4){ //state = 4; constant velocity RTL but with altitude
             pubpose = true;  pubtwist = false;
@@ -316,8 +319,43 @@ void Finite_stage_machine(){  // Main FSM
     }
     uav_pub(pubpose,pubtwist);
 }
-void Finite_state_machine(){ //Currently four stage: Free flying, Follow1, Follow2
-    
+void Finite_state_machine(){
+    if(FSM_state==1){ //Free Flying (position hold while triggered)
+        if(!FSM_1_init){
+            FSM_1_pose = UAV_lp;
+            FSM_1_init = true;
+        }
+        Vec7 position_hold_pose;
+        Quaterniond PHq(FSM_1_pose[3],FSM_1_pose[4],FSM_1_pose[5],FSM_1_pose[6]);
+        Vec3 PHrpy = Q2rpy(PHq);
+        PHq = rpy2Q(Vec3(0,0,PHrpy[2]));
+        position_hold_pose << UAV_lp[0],UAV_lp[1],UAV_lp[2],PHq.w(),PHq.x(),PHq.y(),PHq.z();
+        uav_pose_pub(position_hold_pose);
+        pubpose = true; pubtwist = false;
+        // if(){ //wait until have ugv estimated pose
+        //     FSM_1_init = false;
+        //     FSM_state++;
+        // }
+    }
+    if(FSM_state==2){ //Follow 1 (using GPS or vicon) stay at 
+        Vec7 FSM_2_pose;
+        Quaterniond FSM2q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
+        Vec3 FSM2rpy = Q2rpy(FSM2q);
+        Vec2 uavxy = Vec2(UGV_lp[0]-0.5*cos(FSM2rpy[2]),UGV_lp[1]-0.5*sin(FSM2rpy[2]));
+
+        FSM_2_pose << uavxy[0],uavxy[1],UGV_lp[2]+0.3,UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6];
+        uav_pose_pub(FSM_2_pose);
+        pubpose = true; pubtwist = false;
+        // if(){
+        //     FSM_state++;
+        // }
+    }
+    if(FSM_state==3){ //Follow 2 (using vision)
+
+    }
+    if(FSM_state==4){ //Land trajectory
+
+    }
 }
 int main(int argc, char **argv)
 {
@@ -347,7 +385,7 @@ int main(int argc, char **argv)
         if (!System_init){
             System_initT = ros::Time::now().toSec();
             init_time = ros::Time::now();
-            waypoints = Finite_stage_mission(); //Generate stages
+            waypoints = Mission_generator(); //Generate stages
             cout << " System Initialized" << " Force_start: " << Force_start << endl;
             /* Waypoints before starting */ 
             uav_pose_pub(Zero7);
@@ -394,10 +432,11 @@ int main(int argc, char **argv)
             Force_start = false;
         }
         /* FSM *****************************************************************/
-        Finite_stage_machine();
+        Finite_stage_mission();
         if(Failsafe_System_enable){
             failsafe();
         }
+        Finite_state_machine();
         if(Shut_down){ // UAV shut down
             cout << "Warning Vehicle Shut Down" << endl;
             pubtwist = false;
@@ -408,7 +447,7 @@ int main(int argc, char **argv)
         if(pubtwist){uav_vel_pub.publish(UAV_twist_pub);}
         if(pubpose){uav_pos_pub.publish(UAV_pose_pub);}
         /*Mission information cout**********************************************/
-        if(coutcounter > 25 && FSMinit && !Shut_down && !pubtwist){ //reduce cout rate
+        if(coutcounter > 25 && FSMinit && !Shut_down){ //reduce cout rate
             cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
             cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
             cout << "Mission_State: " << statestatus() << endl;

@@ -11,14 +11,14 @@ double velocity_angular = 1;
 // 1 take off 2 constant velocity traj 4 RTL 5 Land 
 // 6 PID single pose (step) 7 PID follow 8 PID land
 
-// deque<Vec8> Finite_stage_mission(){
+// deque<Vec8> Mission_generator(){
 //     fstream Missioncsv;
 //     Missioncsv.open("Misions/square.csv", ios::in);
 //     waypoints.clear();
 //     // Waypoints
 //     Vec8 stage; // state x y z yaw v av waittime
 // }
-deque<Vec8> Finite_stage_mission(){
+deque<Vec8> Mission_generator(){
     waypoints.clear();
     // Waypoints
     Vec8 stage; // state x y z yaw v av waittime
@@ -28,7 +28,7 @@ deque<Vec8> Finite_stage_mission(){
     waypoints.push_back(stage);
     stage << 2,-1, 1, 1, 3.14, velocity_mission, velocity_angular, 0;
     waypoints.push_back(stage);
-    stage << 2,-1,-1, 1, 3.14, velocity_mission, velocity_angular, 0;
+    stage << 3,-1,-1, 1, 3.14, velocity_mission, velocity_angular, 0;
     waypoints.push_back(stage);
     stage << 2, 1,-1, 1, 3.14, velocity_mission, velocity_angular, 0;
     waypoints.push_back(stage);
@@ -40,7 +40,7 @@ deque<Vec8> Finite_stage_mission(){
     return(waypoints);
 }
 
-// deque<Vec8> Finite_stage_mission(){
+// deque<Vec8> Mission_generator(){
 //     waypoints.clear();
 //     // Waypoints
 //     Vec8 stage; // state x y z yaw v av waittime
@@ -55,7 +55,7 @@ deque<Vec8> Finite_stage_mission(){
 //     cout << " Mission generated!" << " Stage count: " << waypoints.size() << endl;
 //     return(waypoints);
 // }
-// deque<Vec8> Finite_stage_mission(){
+// deque<Vec8> Mission_generator(){
 //     waypoints.clear();
 //     // Waypoints
 //     Vec8 stage; // state x y z yaw v av waittime
@@ -78,7 +78,7 @@ deque<Vec8> Finite_stage_mission(){
 //     cout << " Mission generated!" << " Stage count: " << waypoints.size() << endl;
 //     return(waypoints);
 // }
-// deque<Vec8> Finite_stage_mission(){ //Normal mission
+// deque<Vec8> Mission_generator(){ //Normal mission
 //     waypoints.clear();
 //     // Waypoints
 //     Vec8 stage; // state x y z yaw v av waittime
