@@ -222,7 +222,7 @@ string statestatus(){
     }else if(Mission_state == 2){
         return("constantVtraj(2)");
     }else if(Mission_state == 3){
-        return("Twist(3)");
+        return("Landing FSM(3)");
     }else if(Mission_state == 4){
         return("RTL(4)");
     }else if(Mission_state == 5){
