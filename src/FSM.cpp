@@ -337,12 +337,14 @@ void Finite_state_machine(){
         //     FSM_state++;
         // }
     }
-    if(FSM_state==2){ //Follow 1 (using GPS or vicon) stay at 
+    if(FSM_state==2){ //Follow 1 (using GPS or vicon) stay at horizontal_dist, vertical_dist
         Vec7 FSM_2_pose;
         Quaterniond FSM2q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
         Vec3 FSM2rpy = Q2rpy(FSM2q);
-        Vec2 uavxy = Vec2(UGV_lp[0]-0.5*cos(FSM2rpy[2]),UGV_lp[1]-0.5*sin(FSM2rpy[2]));
-        FSM_2_pose << uavxy[0],uavxy[1],UGV_lp[2]+0.3,UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6];
+        double horizontal_dist = 0.5;
+        double vertical_dist = 0.5;
+        Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM2rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM2rpy[2]));
+        FSM_2_pose << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6];
         uav_pose_pub(FSM_2_pose);
         pubpose = true; pubtwist = false;
         if(Mission_state != 3){
