@@ -196,7 +196,7 @@ void uav_pub(bool pubpose, bool pubtwist){
             Vec3 UGVrpy = Q2rpy(UGVq);
             Vec7 UGV_pred_lp = ugv_pred_land_pose(UGV_lp,UGV_twist,0.5);
             Pos_setpoint << UGV_pred_lp[0],UGV_pred_lp[1],M8start_alt-=0.001,UGVrpy[2];
-            if( sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) < 0.15 && sqrt(pow((UAV_lp[2]-UGV_lp[2]),2)) < 0.12 ){
+            if( sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) < 0.15 && sqrt(pow((UAV_lp[2]-UGV_lp[2]),2)) < 0.1 ){
                 Shut_down = true;
             }
         }
