@@ -55,6 +55,15 @@ void constantVtraj( Vec7 StartPose, Vec7 EndPose, double velocity, double angula
 }
 
 void AM_traj(vector<Vector3d> WPs){
-    AmTraj amTrajOpt(1024,16,0.4,1,0.5,23,0.02); //(weightT,weightAcc,weightJerk,maxVelRate,maxAccRate,iterations,epsilon);
+    //(weightT,weightAcc,weightJerk,maxVelRate,maxAccRate,iterations,epsilon);
+    AmTraj amTrajOpt(1024,16,0.4,0.8,1,23,0.02); 
+    Trajectory am_traj;
+    am_traj = amTrajOpt.genOptimalTrajDTC(WPs, 0, 0, 0, 0);
+    // cout << "BLUE: Constrained Spatial Optimal Trajectory with Trapezoidal Time Allocation" << endl
+    //      << "      Lap Time: " << AMtraj.getTotalDuration() << " s" << std::endl
+    //      << "      Cost: " << amTrajOpt.evaluateObjective(AMtraj) << std::endl
+    //      << "      Maximum Velocity Rate: " << AMtraj.getMaxVelRate() << " m/s" << std::endl
+    //      << "      Maximum Acceleration Rate: " << AMtraj.getMaxAccRate() << " m/s^2" << std::endl;
+
 }
 #endif
