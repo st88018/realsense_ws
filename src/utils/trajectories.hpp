@@ -58,12 +58,13 @@ void AM_traj(vector<Vector3d> WPs){
     //(weightT,weightAcc,weightJerk,maxVelRate,maxAccRate,iterations,epsilon);
     AmTraj amTrajOpt(1024,16,0.4,0.8,1,23,0.02); 
     Trajectory am_traj;
-    am_traj = amTrajOpt.genOptimalTrajDTC(WPs, 0, 0, 0, 0);
-    // cout << "BLUE: Constrained Spatial Optimal Trajectory with Trapezoidal Time Allocation" << endl
-    //      << "      Lap Time: " << AMtraj.getTotalDuration() << " s" << std::endl
-    //      << "      Cost: " << amTrajOpt.evaluateObjective(AMtraj) << std::endl
-    //      << "      Maximum Velocity Rate: " << AMtraj.getMaxVelRate() << " m/s" << std::endl
-    //      << "      Maximum Acceleration Rate: " << AMtraj.getMaxAccRate() << " m/s^2" << std::endl;
+    Vector3d zeroVec(0.0, 0.0, 0.0);
+    am_traj = amTrajOpt.genOptimalTrajDTC(WPs, zeroVec, zeroVec, zeroVec, zeroVec);
+    cout << "BLUE: Constrained Spatial Optimal Trajectory with Trapezoidal Time Allocation" << endl
+          << "      Lap Time: " << am_traj.getTotalDuration() << " s" << std::endl
+          << "      Cost: " << amTrajOpt.evaluateObjective(am_traj) << std::endl
+          << "      Maximum Velocity Rate: " << am_traj.getMaxVelRate() << " m/s" << std::endl
+          << "      Maximum Acceleration Rate: " << am_traj.getMaxAccRate() << " m/s^2" << std::endl;
 
 }
 #endif
