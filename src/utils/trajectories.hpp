@@ -1,6 +1,7 @@
 #ifndef TRAJECTORIES_H
 #define TRAJECTORIES_H
 #include "common.h"
+#include "../am_traj/am_traj.hpp"
 
 deque<Vec8> trajectory1;
 Vec2 traj1_information;
@@ -51,5 +52,9 @@ void constantVtraj( Vec7 StartPose, Vec7 EndPose, double velocity, double angula
       traj1 << dt+traj1_init_time, xyz[0], xyz[1], xyz[2], q.w(), q.x(), q.y(), q.z();
       trajectory1.push_back(traj1);
   }
+}
+
+void AM_traj(vector<Vector3d> WPs){
+    AmTraj amTrajOpt(1024,16,0.4,1,0.5,23,0.02); //(weightT,weightAcc,weightJerk,maxVelRate,maxAccRate,iterations,epsilon);
 }
 #endif
