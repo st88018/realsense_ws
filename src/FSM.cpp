@@ -200,7 +200,7 @@ void uav_pub(bool pub_trajpose, bool pub_pidtwist){
                 Shut_down = true;
             }
         }
-        if (PID_InitTime+PID_duration < ros::Time::now().toSec()){ // EndMission
+        if (PID_InitTime+PID_duration < ros::Time::now().toSec() && PID_duration != 0){ // EndMission
             Mission_stage++;
             uav_twist_pub(Zero4);
         }
@@ -303,7 +303,7 @@ void Finite_stage_mission(){  // Main FSM
             PID_duration = Current_stage_mission[7];
             PID_InitTime = ros::Time::now().toSec();
         }
-        if (Mission_state == 9){ //state = 9;
+        if (Mission_state == 9){ //state = 9; Switch into Finite state machine
             FSM_state = 2;
         }
         if (Mission_state < 6){
@@ -334,7 +334,6 @@ void Finite_stage_mission(){  // Main FSM
         //     }
         // }
     }
-    uav_pub(pub_trajpose,pub_pidtwist);
 }
 void Finite_state_machine(){
     if(FSM_state==1){ //Free Flying (position hold while triggered)
@@ -364,15 +363,22 @@ void Finite_state_machine(){
         FSM_2_pose << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6];
         uav_pose_pub(FSM_2_pose);
         pub_trajpose = false; pub_pidtwist = false;
-        if(Mission_state != 3){
-            // FSM_state++;
+        static double FSM_2_finish_time;
+        static bool FSM_2_finished;
+        if(sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) < 0.5 && !FSM_2_finished){
+            FSM_2_finish_time = ros::Time::now().toSec();
+            FSM_2_finished = true;
+        }else{
+            FSM_2_finished = false;
+        }
+        if(ros::Time::now().toSec() - FSM_2_finish_time > 10){
+            FSM_state++;
         }
     }
     if(FSM_state==3){ //Follow 2 (using PID)
         pub_trajpose = false; pub_pidtwist = true;
         trajectory1.clear();
-        PID_duration = Current_stage_mission[7];
-        PID_InitTime = ros::Time::now().toSec(); 
+        PID_duration = 0; 
     }
     if(FSM_state==4){ //Land trajectory
 
@@ -458,6 +464,7 @@ int main(int argc, char **argv)
             failsafe();
         }
         Finite_state_machine();
+        uav_pub(pub_trajpose,pub_pidtwist);
         if(Shut_down){ // UAV shut down
             cout << "Warning Vehicle Shut Down" << endl;
             pub_pidtwist = false;
