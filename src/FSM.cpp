@@ -222,7 +222,7 @@ string statestatus(){
     }else if(Mission_state == 2){
         return("constantVtraj(2)");
     }else if(Mission_state == 3){
-        return("Landing FSM(3)");
+        return("AM_traj(3)");
     }else if(Mission_state == 4){
         return("RTL(4)");
     }else if(Mission_state == 5){
@@ -294,6 +294,9 @@ void Finite_stage_mission(){  // Main FSM
             trajectory1.clear();
             PID_duration = Current_stage_mission[7];
             PID_InitTime = ros::Time::now().toSec();
+        }
+        if (Mission_state == 9){ //state = 9;
+            FSM_state = 2;
         }
         if (Mission_state < 6){
             if (Current_stage_mission[7] != 0){ //Wait after finish stage.
