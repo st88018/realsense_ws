@@ -64,7 +64,7 @@ void failsafe(){
         FailsafeFlag = true;
     }else{FailsafeFlag = false;}
 }
-Vec7 ugv_pred_land_pose(Vec7 UGV_lp,Vec4 UGV_twist,double est_duration){
+Vec7 ugv_pred_land_pose(double est_duration){
     Vec7 EstimatedPose;
     Quaterniond ugvq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
     Vec3 ugvrpy = Q2rpy(ugvq);
@@ -186,7 +186,7 @@ void uav_pub(bool pub_trajpose, bool pub_pidtwist){
         if(Mission_state == 7){  //Follow the UGV
             Quaterniond UGVq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
             Vec3 UGVrpy = Q2rpy(UGVq);
-            Vec7 UGV_pred_lp = ugv_pred_land_pose(UGV_lp,UGV_twist,1);
+            Vec7 UGV_pred_lp = ugv_pred_land_pose(1);
             Pos_setpoint << UGV_pred_lp[0],UGV_pred_lp[1],Current_stage_mission[3],UGVrpy[2];
         }
         if(Mission_state == 8){  //PID landing
@@ -196,7 +196,7 @@ void uav_pub(bool pub_trajpose, bool pub_pidtwist){
             }
             Quaterniond UGVq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
             Vec3 UGVrpy = Q2rpy(UGVq);
-            Vec7 UGV_pred_lp = ugv_pred_land_pose(UGV_lp,UGV_twist,0.5);
+            Vec7 UGV_pred_lp = ugv_pred_land_pose(0.5);
             Pos_setpoint << UGV_pred_lp[0],UGV_pred_lp[1],M8start_alt-=0.001,UGVrpy[2];
             if( sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) < 0.15 && sqrt(pow((UAV_lp[2]-UGV_lp[2]),2)) < 0.1 ){
                 Shut_down = true;
@@ -406,7 +406,25 @@ void Finite_state_machine(){
         }
     }
     if(FSM_state==4){ //Land trajectory
-        
+        pub_trajpose = true;  pub_pidtwist = false;
+        vector<Vector3d> WPs;
+        WPs.clear();
+        Vector3d StartP(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
+        WPs.push_back(StartP);
+        Vector3d MidP((UAV_lp[0]-UGV_lp[0])/2,(UAV_lp[1]-UGV_lp[1])/2,(UAV_lp[2]-UGV_lp[2])/2);
+        WPs.push_back(MidP);
+        Vector3d EndP(UGV_lp[0],UGV_lp[1],UGV_lp[2]);
+        WPs.push_back(EndP);
+        AM_traj(WPs,UAV_lp);
+        Vec7 UGV_pred_lp = ugv_pred_land_pose(AM_traj_duration);
+        WPs.clear();
+        StartP = Vector3d(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
+        WPs.push_back(StartP);
+        MidP = Vector3d((UAV_lp[0]-UGV_pred_lp[0])/2,(UAV_lp[1]-UGV_pred_lp[1])/2,(UAV_lp[2]-UGV_pred_lp[2])/2);
+        WPs.push_back(MidP);
+        EndP = Vector3d(UGV_pred_lp[0],UGV_pred_lp[1],UGV_pred_lp[2]);
+        WPs.push_back(EndP);
+        AM_traj(WPs,UAV_lp);
     }
     if(FSM_state==5){ //Back up
     }

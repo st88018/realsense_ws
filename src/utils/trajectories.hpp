@@ -4,6 +4,7 @@
 #include "../am_traj/am_traj.hpp"
 
 deque<Vec8> trajectory1;
+double AM_traj_duration;
 Vec2 traj1_information;
 double Trajectory_timestep = 0.02;
 Vec2 Twisttraj_information;
@@ -59,10 +60,10 @@ void AM_traj(vector<Vector3d> WPs,Vec7 UAV_lp){
     Vec3 localrpy = Q2rpy(localq);
     Vec3 desrpy(0,0,localrpy[2]);
     Quaterniond desq;
+    Trajectory am_traj;
     desq = rpy2Q(desrpy);
     //(weightT,weightAcc,weightJerk,maxVelRate,maxAccRate,iterations,epsilon);
     AmTraj amTrajOpt(1024,16,0.4,0.8,2,100,0.02);
-    Trajectory am_traj;
     Vector3d zero3(0.0, 0.0, 0.0);
     am_traj = amTrajOpt.genOptimalTrajDTC(WPs, zero3, zero3, zero3, zero3);
     cout<< "      WPs.size: " << WPs.size() << endl
@@ -70,7 +71,8 @@ void AM_traj(vector<Vector3d> WPs,Vec7 UAV_lp){
         << "      Lap Time: " << am_traj.getTotalDuration() << " s" << std::endl
         << "      Cost: " << amTrajOpt.evaluateObjective(am_traj) << std::endl
         << "      Maximum Velocity Rate: " << am_traj.getMaxVelRate() << " m/s" << std::endl
-        << "      Maximum Acceleration Rate: " << am_traj.getMaxAccRate() << " m/s^2" << std::endl;  
+        << "      Maximum Acceleration Rate: " << am_traj.getMaxAccRate() << " m/s^2" << std::endl;
+    AM_traj_duration = am_traj.getTotalDuration();
     //initialize trajectory
     trajectory1.clear();
     double traj1_init_time = ros::Time::now().toSec();
