@@ -56,16 +56,16 @@ void constantVtraj( Vec7 StartPose, Vec7 EndPose, double velocity, double angula
 
 void AM_traj(vector<Vector3d> WPs){
     //(weightT,weightAcc,weightJerk,maxVelRate,maxAccRate,iterations,epsilon);
-    AmTraj amTrajOpt(1024,16,0.4,0.8,1,100,0.02);
+    AmTraj amTrajOpt(1024,16,0.4,0.5,1,100,0.02);
     Trajectory am_traj;
     Vector3d zero3(0.0, 0.0, 0.0);
     am_traj = amTrajOpt.genOptimalTrajDTC(WPs, zero3, zero3, zero3, zero3);
-    cout<< "      Constrained Spatial Optimal Trajectory with Trapezoidal Time Allocation" << endl
+    cout<< "      WPs.size: " << WPs.size() << endl
+        << "      Constrained Spatial Optimal Trajectory with Trapezoidal Time Allocation" << endl
         << "      Lap Time: " << am_traj.getTotalDuration() << " s" << std::endl
         << "      Cost: " << amTrajOpt.evaluateObjective(am_traj) << std::endl
         << "      Maximum Velocity Rate: " << am_traj.getMaxVelRate() << " m/s" << std::endl
-        << "      Maximum Acceleration Rate: " << am_traj.getMaxAccRate() << " m/s^2" << std::endl;
-    
+        << "      Maximum Acceleration Rate: " << am_traj.getMaxAccRate() << " m/s^2" << std::endl;  
     //initialize trajectory
     trajectory1.clear();
     double traj1_init_time = ros::Time::now().toSec();

@@ -240,7 +240,6 @@ string statestatus(){
 void Finite_stage_mission(){  // Main FSM
     if (Mission_stage != Current_Mission_stage){// Generate trajectory while mission stage change
         Vec8 traj1;
-        Vec4 traj2;
         trajectory1.clear();
         Current_Mission_stage = Mission_stage;      //Update Current_Mission_stage
         Current_stage_mission = waypoints.at(Mission_stage-1);
@@ -270,6 +269,14 @@ void Finite_stage_mission(){  // Main FSM
             WPs.push_back(StartP);
             Vector3d WP(Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3]);
             WPs.push_back(WP);
+            while(waypoints.at(Mission_stage)[0] == 3){
+                cout << "Mission_stage: " << Mission_stage << endl;
+                Mission_stage++;
+                Current_Mission_stage = Mission_stage;
+                Current_stage_mission = waypoints.at(Mission_stage-1);
+                WP = Vector3d(Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3]);
+                WPs.push_back(WP);
+            }
             AM_traj(WPs);
         }
         if (Mission_state == 4){ //state = 4; constant velocity RTL but with altitude
