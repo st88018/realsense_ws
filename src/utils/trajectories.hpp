@@ -54,7 +54,12 @@ void constantVtraj( Vec7 StartPose, Vec7 EndPose, double velocity, double angula
   }
 }
 
-void AM_traj(vector<Vector3d> WPs){
+void AM_traj(vector<Vector3d> WPs,Vec7 UAV_lp){
+    Quaterniond localq(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]);
+    Vec3 localrpy = Q2rpy(localq);
+    Vec3 desrpy(0,0,localrpy[2]);
+    Quaterniond desq;
+    desq = rpy2Q(desrpy);
     //(weightT,weightAcc,weightJerk,maxVelRate,maxAccRate,iterations,epsilon);
     AmTraj amTrajOpt(1024,16,0.4,0.5,1,100,0.02);
     Trajectory am_traj;
@@ -73,7 +78,7 @@ void AM_traj(vector<Vector3d> WPs){
     for  (double dt = 0; dt < am_traj.getTotalDuration(); dt += T){
         Vector3d xyz = am_traj.getPos(dt);
         Vec8 traj1;
-        traj1 << dt+traj1_init_time, xyz[0], xyz[1], xyz[2], 0, 0, 0, 0;
+        traj1 << dt+traj1_init_time, xyz[0], xyz[1], xyz[2], desq.w(), desq.x(), desq.y(), desq.z();
         trajectory1.push_back(traj1);
     }
 }

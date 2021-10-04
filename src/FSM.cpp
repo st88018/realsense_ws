@@ -258,11 +258,6 @@ void Finite_stage_mission(){  // Main FSM
         }
         if (Mission_state == 3){ //state = 3 AM_traj;
             pubpose = true;  pubtwist = false;
-            // Quaterniond localq(StartPose[3],StartPose[4],StartPose[5],StartPose[6]);
-            // Vec3 localrpy = Q2rpy(localq);
-            // Vec3 desrpy(0,0,localrpy[2]);
-            // Quaterniond desq;
-            // desq = rpy2Q(desrpy);
             vector<Vector3d> WPs;
             WPs.clear();
             Vector3d StartP(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
@@ -277,7 +272,7 @@ void Finite_stage_mission(){  // Main FSM
                 WP = Vector3d(Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3]);
                 WPs.push_back(WP);
             }
-            AM_traj(WPs);
+            AM_traj(WPs,UAV_lp);
         }
         if (Mission_state == 4){ //state = 4; constant velocity RTL but with altitude
             pubpose = true;  pubtwist = false;
