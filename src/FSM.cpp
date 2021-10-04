@@ -257,8 +257,14 @@ void Finite_stage_mission(){  // Main FSM
             TargetPos << Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
             constantVtraj(UAV_lp, TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
         }
-        if (Mission_state == 3){ //state = 3;
-            FSM_state = 2;
+        if (Mission_state == 3){ //state = 3 AM_traj;
+            pubpose = true;  pubtwist = false;
+            TargetPos << Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
+            vector<Vector3d> WPs;
+            WPs.clear();
+            Vector3d WP(Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3]);
+            WPs.push_back(WP);
+            AM_traj(UAV_lp, WPs);
         }
         if (Mission_state == 4){ //state = 4; constant velocity RTL but with altitude
             pubpose = true;  pubtwist = false;
@@ -348,7 +354,7 @@ void Finite_state_machine(){
         uav_pose_pub(FSM_2_pose);
         pubpose = true; pubtwist = false;
         if(Mission_state != 3){
-            FSM_state++;
+            // FSM_state++;
         }
     }
     if(FSM_state==3){ //Follow 2 (using vision)
