@@ -51,8 +51,8 @@ Vec8   Current_stage_mission;
 bool   FSMinit       = false;
 bool   Mission8init  = false;
 double M8start_alt;
-bool   pubpose       = false;
-bool   pubtwist      = false;
+bool   pub_trajpose  = false;
+bool   pub_pidtwist  = false;
 bool   Force_start   = false;
 bool   Shut_down     = false;
 
@@ -159,8 +159,8 @@ void uav_twist_pub(Vec4 vxyzaz){
     UAV_twist_pub.linear.z = vxyzaz(2);
     UAV_twist_pub.angular.z= vxyzaz(3);
 }
-void uav_pub(bool pubpose, bool pubtwist){
-    if(pubpose){
+void uav_pub(bool pub_trajpose, bool pub_pidtwist){
+    if(pub_trajpose){
         Vec8 traj1_deque_front = trajectory1.front();
         while (ros::Time::now().toSec() - traj1_deque_front[0] > 0){
             trajectory1.pop_front();
@@ -176,7 +176,7 @@ void uav_pub(bool pubpose, bool pubtwist){
             uav_pose_pub(Zero7);
         }
     }
-    if(pubtwist){  //Use PID position controller
+    if(pub_pidtwist){  //Use PID position controller
         Quaterniond localq(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]);
         Vec3 localrpy = Q2rpy(localq);
         Vec4 xyzyaw;
@@ -247,17 +247,17 @@ void Finite_stage_mission(){  // Main FSM
         Targetq = rpy2Q(Vec3(0,0,Current_stage_mission[4]));
         Mission_state = Current_stage_mission[0];
         if (Mission_state == 1){ //state = 1 take off with no heading change
-            pubpose = true;  pubtwist = false;
+            pub_trajpose = true;  pub_pidtwist = false;
             TargetPos << UAV_lp[0],UAV_lp[1],Current_stage_mission[3],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
             constantVtraj(UAV_lp, TargetPos, 0.3, Current_stage_mission[6]);
         }
         if (Mission_state == 2){ //state = 2; constant velocity trajectory with desired heading.
-            pubpose = true;  pubtwist = false;
+            pub_trajpose = true;  pub_pidtwist = false;
             TargetPos << Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
             constantVtraj(UAV_lp, TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
         }
         if (Mission_state == 3){ //state = 3 AM_traj;
-            pubpose = true;  pubtwist = false;
+            pub_trajpose = true;  pub_pidtwist = false;
             vector<Vector3d> WPs;
             WPs.clear();
             Vector3d StartP(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
@@ -275,30 +275,30 @@ void Finite_stage_mission(){  // Main FSM
             AM_traj(WPs,UAV_lp);
         }
         if (Mission_state == 4){ //state = 4; constant velocity RTL but with altitude
-            pubpose = true;  pubtwist = false;
+            pub_trajpose = true;  pub_pidtwist = false;
             TargetPos << UAV_takeoffP[0],UAV_takeoffP[1],Current_stage_mission[3],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
             constantVtraj(UAV_lp, TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
         }
         if (Mission_state == 5){ //state = 5; land.
-            pubpose = true;  pubtwist = false;
+            pub_trajpose = true;  pub_pidtwist = false;
             TargetPos << UAV_takeoffP[0],UAV_takeoffP[1],UAV_takeoffP[2],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
             constantVtraj(UAV_lp, TargetPos, Current_stage_mission[5], Current_stage_mission[6]);
         }
         if (Mission_state == 6){ //state = 6; PID constant pose position control
-            pubpose = false; pubtwist = true;
+            pub_trajpose = false; pub_pidtwist = true;
             trajectory1.clear();
             Pos_setpoint << Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3],Current_stage_mission[4];
             PID_duration = Current_stage_mission[7];
             PID_InitTime = ros::Time::now().toSec();
         }
         if (Mission_state == 7){ //state = 7; PID position control
-            pubpose = false; pubtwist = true;
+            pub_trajpose = false; pub_pidtwist = true;
             trajectory1.clear();
             PID_duration = Current_stage_mission[7];
             PID_InitTime = ros::Time::now().toSec();
         }
         if (Mission_state == 8){ //state = 8; PID position control with landing
-            pubpose = false; pubtwist = true;
+            pub_trajpose = false; pub_pidtwist = true;
             trajectory1.clear();
             PID_duration = Current_stage_mission[7];
             PID_InitTime = ros::Time::now().toSec();
@@ -334,7 +334,7 @@ void Finite_stage_mission(){  // Main FSM
         //     }
         // }
     }
-    uav_pub(pubpose,pubtwist);
+    uav_pub(pub_trajpose,pub_pidtwist);
 }
 void Finite_state_machine(){
     if(FSM_state==1){ //Free Flying (position hold while triggered)
@@ -348,7 +348,7 @@ void Finite_state_machine(){
         PHq = rpy2Q(Vec3(0,0,PHrpy[2]));
         position_hold_pose << UAV_lp[0],UAV_lp[1],UAV_lp[2],PHq.w(),PHq.x(),PHq.y(),PHq.z();
         uav_pose_pub(position_hold_pose);
-        pubpose = true; pubtwist = false;
+        pub_trajpose = true; pub_pidtwist = false;
         // if(){ //wait until have ugv estimated pose
         //     FSM_1_init = false;
         //     FSM_state++;
@@ -363,13 +363,16 @@ void Finite_state_machine(){
         Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM2rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM2rpy[2]));
         FSM_2_pose << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6];
         uav_pose_pub(FSM_2_pose);
-        pubpose = true; pubtwist = false;
+        pub_trajpose = false; pub_pidtwist = false;
         if(Mission_state != 3){
             // FSM_state++;
         }
     }
-    if(FSM_state==3){ //Follow 2 (using vision)
-
+    if(FSM_state==3){ //Follow 2 (using PID)
+        pub_trajpose = false; pub_pidtwist = true;
+        trajectory1.clear();
+        PID_duration = Current_stage_mission[7];
+        PID_InitTime = ros::Time::now().toSec(); 
     }
     if(FSM_state==4){ //Land trajectory
 
@@ -457,27 +460,36 @@ int main(int argc, char **argv)
         Finite_state_machine();
         if(Shut_down){ // UAV shut down
             cout << "Warning Vehicle Shut Down" << endl;
-            pubtwist = false;
-            pubpose = false;
+            pub_pidtwist = false;
+            pub_trajpose = false;
             UAV_AttitudeTarget.thrust = 0; 
             uav_AttitudeTarget.publish(UAV_AttitudeTarget);
         }
-        if(pubtwist){uav_vel_pub.publish(UAV_twist_pub);}
-        if(pubpose){uav_pos_pub.publish(UAV_pose_pub);}
+        if(pub_pidtwist){uav_vel_pub.publish(UAV_twist_pub);}
+        if(pub_trajpose){uav_pos_pub.publish(UAV_pose_pub);}
         /*Mission information cout**********************************************/
         if(coutcounter > 25 && FSMinit && !Shut_down){ //reduce cout rate
-            cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
-            cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
-            cout << "Mission_State: " << statestatus() << endl;
+            if (FSM_state == 0){
+                cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
+                cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
+                cout << "Mission_State: " << statestatus() << endl;
+            }else{
+                cout << "FSM State: "<< FSM_state << endl;
+            }
+
             cout << "vicon__pos_x: " << UAV_lp[0] << " y: " << UAV_lp[1] << " z: "<< UAV_lp[2] << endl;
-            if(pubpose){
+            
+            if(pub_trajpose){
                 cout << "desiredpos___x: " << UAV_pose_pub.pose.position.x << " y: " << UAV_pose_pub.pose.position.y << " z: "<< UAV_pose_pub.pose.position.z << endl;
                 cout << "Traj countdown: " << traj1_information[1] - ros::Time::now().toSec() << endl;
             }
-            if(pubtwist){
+            if(pub_pidtwist){
                 cout << "des__twist_x: " << UAV_twist_pub.linear.x << " y: " << UAV_twist_pub.linear.y << " z: "<< UAV_twist_pub.linear.z << " az: " << UAV_twist_pub.angular.z << endl;
-                cout << "PID  countdown: " << PID_InitTime+PID_duration - ros::Time::now().toSec() << endl;
+                if (FSM_state == 0){
+                    cout << "PID  countdown: " << PID_InitTime+PID_duration - ros::Time::now().toSec() << endl;
+                }
             }
+            
             cout << "CAr____pos_x: " << UGV_pose_sub.pose.position.x << " y: " << UGV_pose_sub.pose.position.y << endl;
             cout << "Dist_UAVtoUGV_horizontal: " << sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) << endl;
             cout << "Dist_UAVtoUGV___vertical: " << sqrt(pow((UAV_lp[2]-UGV_lp[2]),2)) << endl;
