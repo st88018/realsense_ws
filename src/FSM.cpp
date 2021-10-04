@@ -37,13 +37,14 @@ static Vec4 last_error,integral;
 /* Fail safe (not ready)*/
 static double safe_dist = 0.5;
 bool   Failsafe_System_enable  = false;
-bool   FailsafeFlag  = false;
+bool   Failsafe_trigger  = false;
 /* FSM */
 Vec7 UAV_desP,UAV_takeoffP;
 Vec7 TargetPos;
 int    FSM_state = 0;
-bool   FSM_1_init = false;
-Vec7   FSM_1_pose;
+bool   FSM_init = false;
+Vec7   FSM_init_pose;
+double FSM_init_time;
 double FSM_finish_time;
 bool   FSM_finished= false;
 int    Mission_state = 0;
@@ -58,11 +59,10 @@ bool   pub_pidtwist  = false;
 bool   Force_start   = false;
 bool   Shut_down     = false;
 
-void failsafe(){
-    double dist = sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)+pow((UAV_lp[2]-UGV_lp[2]),2));
-    if (dist < safe_dist){
-        FailsafeFlag = true;
-    }else{FailsafeFlag = false;}
+void failsafe(bool Failsafe_trigger){
+    if(Failsafe_trigger){
+
+    }
 }
 Vec7 ugv_pred_land_pose(double est_duration){
     Vec7 EstimatedPose;
@@ -341,19 +341,19 @@ void Finite_stage_mission(){  // Main FSM
 }
 void Finite_state_machine(){
     if(FSM_state==1){ //Free Flying (position hold while triggered)
-        if(!FSM_1_init){
-            FSM_1_pose = UAV_lp;
-            FSM_1_init = true;
+        if(!FSM_init){
+            FSM_init_pose = UAV_lp;
+            FSM_init = true;
         }
         Vec7 position_hold_pose;
-        Quaterniond PHq(FSM_1_pose[3],FSM_1_pose[4],FSM_1_pose[5],FSM_1_pose[6]);
+        Quaterniond PHq(FSM_init_pose[3],FSM_init_pose[4],FSM_init_pose[5],FSM_init_pose[6]);
         Vec3 PHrpy = Q2rpy(PHq);
         PHq = rpy2Q(Vec3(0,0,PHrpy[2]));
         position_hold_pose << UAV_lp[0],UAV_lp[1],UAV_lp[2],PHq.w(),PHq.x(),PHq.y(),PHq.z();
         uav_pose_pub(position_hold_pose);
         pub_trajpose = true; pub_pidtwist = false;
         // if(){ //wait until have ugv estimated pose
-        //     FSM_1_init = false;
+        //     FSM_init = false;
         //     FSM_state++;
         // }
     }
@@ -406,25 +406,32 @@ void Finite_state_machine(){
         }
     }
     if(FSM_state==4){ //Land trajectory
-        pub_trajpose = true;  pub_pidtwist = false;
-        vector<Vector3d> WPs;
-        WPs.clear();
-        Vector3d StartP(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
-        WPs.push_back(StartP);
-        Vector3d MidP((UAV_lp[0]-UGV_lp[0])/2,(UAV_lp[1]-UGV_lp[1])/2,(UAV_lp[2]-UGV_lp[2])/2);
-        WPs.push_back(MidP);
-        Vector3d EndP(UGV_lp[0],UGV_lp[1],UGV_lp[2]);
-        WPs.push_back(EndP);
-        AM_traj(WPs,UAV_lp);
-        Vec7 UGV_pred_lp = ugv_pred_land_pose(AM_traj_duration);
-        WPs.clear();
-        StartP = Vector3d(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
-        WPs.push_back(StartP);
-        MidP = Vector3d((UAV_lp[0]-UGV_pred_lp[0])/2,(UAV_lp[1]-UGV_pred_lp[1])/2,(UAV_lp[2]-UGV_pred_lp[2])/2);
-        WPs.push_back(MidP);
-        EndP = Vector3d(UGV_pred_lp[0],UGV_pred_lp[1],UGV_pred_lp[2]);
-        WPs.push_back(EndP);
-        AM_traj(WPs,UAV_lp);
+        if(!FSM_init){
+            FSM_init = true;
+            pub_trajpose = true;  pub_pidtwist = false;
+            vector<Vector3d> WPs;
+            WPs.clear();
+            Vector3d StartP(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
+            WPs.push_back(StartP);
+            Vector3d MidP((UAV_lp[0]-UGV_lp[0])/2,(UAV_lp[1]-UGV_lp[1])/2,(UAV_lp[2]-UGV_lp[2])/2);
+            WPs.push_back(MidP);
+            Vector3d EndP(UGV_lp[0],UGV_lp[1],UGV_lp[2]);
+            WPs.push_back(EndP);
+            AM_traj(WPs,UAV_lp);
+            Vec7 UGV_pred_lp = ugv_pred_land_pose(AM_traj_duration);
+            WPs.clear();
+            StartP = Vector3d(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
+            WPs.push_back(StartP);
+            MidP = Vector3d((UAV_lp[0]-UGV_pred_lp[0])/2,(UAV_lp[1]-UGV_pred_lp[1])/2,(UAV_lp[2]-UGV_pred_lp[2])/2);
+            WPs.push_back(MidP);
+            EndP = Vector3d(UGV_pred_lp[0],UGV_pred_lp[1],UGV_pred_lp[2]);
+            WPs.push_back(EndP);
+            AM_traj(WPs,UAV_lp);
+            FSM_init_time = ros::Time::now().toSec();
+        }
+        // if(ros::Time::now().toSec() - FSM_init_time > AM_traj_duration/2){
+
+        // }
     }
     if(FSM_state==5){ //Back up
     }
@@ -505,9 +512,7 @@ int main(int argc, char **argv)
         }
         /* FSM *****************************************************************/
         Finite_stage_mission();
-        if(Failsafe_System_enable){
-            failsafe();
-        }
+        failsafe(Failsafe_trigger);
         Finite_state_machine();
         uav_pub(pub_trajpose,pub_pidtwist);
         if(Shut_down){ // UAV shut down
@@ -546,7 +551,7 @@ int main(int argc, char **argv)
             cout << "CAr____pos_x: " << UGV_pose_sub.pose.position.x << " y: " << UGV_pose_sub.pose.position.y << endl;
             cout << "Dist_UAVtoUGV_horizontal: " << sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) << endl;
             cout << "Dist_UAVtoUGV___vertical: " << sqrt(pow((UAV_lp[2]-UGV_lp[2]),2)) << endl;
-            cout << "Failsafe_System_enable: " << Failsafe_System_enable <<  " Failsafe_state: " << FailsafeFlag << endl;
+            cout << "Failsafe_Syste: " << Failsafe_trigger << endl;
             cout << "---------------------------------------------------" << endl;
             coutcounter = 0;
         }else{coutcounter++;}
