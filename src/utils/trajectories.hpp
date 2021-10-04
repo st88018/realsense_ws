@@ -54,14 +54,13 @@ void constantVtraj( Vec7 StartPose, Vec7 EndPose, double velocity, double angula
   }
 }
 
-void AM_traj(Vec7 StartPose, vector<Vector3d> WPs){
-    Quaterniond localq(StartPose[3],StartPose[4],StartPose[5],StartPose[6]);
+void AM_traj(vector<Vector3d> WPs){
     //(weightT,weightAcc,weightJerk,maxVelRate,maxAccRate,iterations,epsilon);
-    AmTraj amTrajOpt(1024,16,0.4,0.8,1,23,0.02); 
+    AmTraj amTrajOpt(1024,16,0.4,0.8,1,100,0.02);
     Trajectory am_traj;
     Vector3d zero3(0.0, 0.0, 0.0);
     am_traj = amTrajOpt.genOptimalTrajDTC(WPs, zero3, zero3, zero3, zero3);
-    cout<< "BLUE: Constrained Spatial Optimal Trajectory with Trapezoidal Time Allocation" << endl
+    cout<< "      Constrained Spatial Optimal Trajectory with Trapezoidal Time Allocation" << endl
         << "      Lap Time: " << am_traj.getTotalDuration() << " s" << std::endl
         << "      Cost: " << amTrajOpt.evaluateObjective(am_traj) << std::endl
         << "      Maximum Velocity Rate: " << am_traj.getMaxVelRate() << " m/s" << std::endl
@@ -74,7 +73,7 @@ void AM_traj(Vec7 StartPose, vector<Vector3d> WPs){
     for  (double dt = 0; dt < am_traj.getTotalDuration(); dt += T){
         Vector3d xyz = am_traj.getPos(dt);
         Vec8 traj1;
-        traj1 << dt+traj1_init_time, xyz[0], xyz[1], xyz[2], localq.w(), localq.x(), localq.y(), localq.z();
+        traj1 << dt+traj1_init_time, xyz[0], xyz[1], xyz[2], 0, 0, 0, 0;
         trajectory1.push_back(traj1);
     }
 }
