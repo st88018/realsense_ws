@@ -44,8 +44,8 @@ Vec7 TargetPos;
 int    FSM_state = 0;
 bool   FSM_1_init = false;
 Vec7   FSM_1_pose;
-double FSM_2_finish_time;
-bool   FSM_2_finished= false;
+double FSM_finish_time;
+bool   FSM_finished= false;
 int    Mission_state = 0;
 int    Mission_stage = 0;
 int    Current_Mission_stage = 0;
@@ -367,16 +367,17 @@ void Finite_state_machine(){
         FSM_2_pose << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6];
         uav_pose_pub(FSM_2_pose);
         pub_trajpose = false; pub_pidtwist = false;
-        if(sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) < horizontal_dist+0.3 && !FSM_2_finished){
+        if(sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) < horizontal_dist+0.3 && !FSM_finished){
             cout << "start count down" << endl;
-            FSM_2_finish_time = ros::Time::now().toSec();
-            FSM_2_finished = true;
+            FSM_finish_time = ros::Time::now().toSec();
+            FSM_finished = true;
         }
         if(sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3){
-            FSM_2_finished = false;
+            FSM_finished = false;
         }
-        if(FSM_2_finish_time - ros::Time::now().toSec() < -5 && FSM_2_finished){
+        if(FSM_finish_time - ros::Time::now().toSec() < -5 && FSM_finished){
             FSM_state++;
+            FSM_finished = false;
         }
     }
     if(FSM_state==3){ //Follow 2 (using PID)
@@ -386,16 +387,28 @@ void Finite_state_machine(){
         double horizontal_dist = 0.5;
         double vertical_dist = 0.5;
         Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM3rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM3rpy[2]));
-
         pub_trajpose = false; pub_pidtwist = true;
         Quaterniond UGVq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
         Vec3 UGVrpy = Q2rpy(UGVq);
-        Vec7 UGV_pred_lp = ugv_pred_land_pose(UGV_lp,UGV_twist,0);
         Pos_setpoint << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGVrpy[2];
         PID_duration = 0; 
+        if(sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) < horizontal_dist+0.3 && !FSM_finished){
+            cout << "start count down" << endl;
+            FSM_finish_time = ros::Time::now().toSec();
+            FSM_finished = true;
+        }
+        if(sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3){
+            FSM_finished = false;
+        }
+        if(FSM_finish_time - ros::Time::now().toSec() < -5 && FSM_finished){
+            FSM_state++;
+            FSM_finished = false;
+        }
     }
     if(FSM_state==4){ //Land trajectory
-
+        
+    }
+    if(FSM_state==5){ //Back up
     }
 }
 int main(int argc, char **argv)
