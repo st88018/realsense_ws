@@ -35,8 +35,6 @@ static double PID_InitTime;
 static double Last_time = 0;
 static Vec4 last_error,integral;
 /* Fail safe (not ready)*/
-static double safe_dist = 0.5;
-bool   Failsafe_System_enable  = false;
 bool   Failsafe_trigger  = false;
 /* FSM */
 Vec7 UAV_desP,UAV_takeoffP;
