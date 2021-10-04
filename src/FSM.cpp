@@ -44,6 +44,8 @@ Vec7 TargetPos;
 int    FSM_state = 0;
 bool   FSM_1_init = false;
 Vec7   FSM_1_pose;
+double FSM_2_finish_time;
+bool   FSM_2_finished= false;
 int    Mission_state = 0;
 int    Mission_stage = 0;
 int    Current_Mission_stage = 0;
@@ -304,6 +306,7 @@ void Finite_stage_mission(){  // Main FSM
             PID_InitTime = ros::Time::now().toSec();
         }
         if (Mission_state == 9){ //state = 9; Switch into Finite state machine
+            pub_trajpose = false; pub_pidtwist = false;
             FSM_state = 2;
         }
         if (Mission_state < 6){
@@ -315,6 +318,7 @@ void Finite_stage_mission(){  // Main FSM
                     trajectory1.push_back(traj1);
                 }
             }
+            
             /*For CPP deque safety. Default generate 10 second of hover*/
             int hovertime = 10;
             if(trajectory1.size()>0){
@@ -357,27 +361,30 @@ void Finite_state_machine(){
         Vec7 FSM_2_pose;
         Quaterniond FSM2q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
         Vec3 FSM2rpy = Q2rpy(FSM2q);
-        double horizontal_dist = 0.5;
-        double vertical_dist = 0.5;
+        double horizontal_dist = 0.7;
+        double vertical_dist = 0.8;
         Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM2rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM2rpy[2]));
         FSM_2_pose << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6];
         uav_pose_pub(FSM_2_pose);
         pub_trajpose = false; pub_pidtwist = false;
-        static double FSM_2_finish_time;
-        static bool FSM_2_finished;
-        if(sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) < 0.5 && !FSM_2_finished){
+        if(sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) < horizontal_dist+0.3 && !FSM_2_finished){
+            cout << "start count down" << endl;
             FSM_2_finish_time = ros::Time::now().toSec();
             FSM_2_finished = true;
-        }else{
+        }
+        if(sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3){
             FSM_2_finished = false;
         }
-        if(ros::Time::now().toSec() - FSM_2_finish_time > 10){
+        if(FSM_2_finish_time - ros::Time::now().toSec() < -5 && FSM_2_finished){
             FSM_state++;
         }
     }
     if(FSM_state==3){ //Follow 2 (using PID)
         pub_trajpose = false; pub_pidtwist = true;
-        trajectory1.clear();
+        Quaterniond UGVq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
+        Vec3 UGVrpy = Q2rpy(UGVq);
+        Vec7 UGV_pred_lp = ugv_pred_land_pose(UGV_lp,UGV_twist,0);
+        Pos_setpoint << UGV_pred_lp[0],UGV_pred_lp[1],UGV_pred_lp[2]+0.2,UGVrpy[2];
         PID_duration = 0; 
     }
     if(FSM_state==4){ //Land trajectory
@@ -474,6 +481,7 @@ int main(int argc, char **argv)
         }
         if(pub_pidtwist){uav_vel_pub.publish(UAV_twist_pub);}
         if(pub_trajpose){uav_pos_pub.publish(UAV_pose_pub);}
+        if(FSM_state == 2){uav_pos_pub.publish(UAV_pose_pub);}
         /*Mission information cout**********************************************/
         if(coutcounter > 25 && FSMinit && !Shut_down){ //reduce cout rate
             if (FSM_state == 0){
