@@ -361,8 +361,8 @@ void Finite_state_machine(){
         Vec7 FSM_2_pose;
         Quaterniond FSM2q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
         Vec3 FSM2rpy = Q2rpy(FSM2q);
-        double horizontal_dist = 0.7;
-        double vertical_dist = 0.8;
+        double horizontal_dist = 1;
+        double vertical_dist = 1;
         Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM2rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM2rpy[2]));
         FSM_2_pose << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6];
         uav_pose_pub(FSM_2_pose);
@@ -380,11 +380,18 @@ void Finite_state_machine(){
         }
     }
     if(FSM_state==3){ //Follow 2 (using PID)
+        Vec7 FSM_3_pose;
+        Quaterniond FSM3q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
+        Vec3 FSM3rpy = Q2rpy(FSM3q);
+        double horizontal_dist = 0.5;
+        double vertical_dist = 0.5;
+        Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM3rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM3rpy[2]));
+
         pub_trajpose = false; pub_pidtwist = true;
         Quaterniond UGVq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
         Vec3 UGVrpy = Q2rpy(UGVq);
         Vec7 UGV_pred_lp = ugv_pred_land_pose(UGV_lp,UGV_twist,0);
-        Pos_setpoint << UGV_pred_lp[0],UGV_pred_lp[1],UGV_pred_lp[2]+0.2,UGVrpy[2];
+        Pos_setpoint << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGVrpy[2];
         PID_duration = 0; 
     }
     if(FSM_state==4){ //Land trajectory
