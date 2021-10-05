@@ -19,7 +19,7 @@ static mavros_msgs::AttitudeTarget  UAV_AttitudeTarget;
 static geometry_msgs::PoseStamped   UAV_pose_sub,UGV_pose_sub,UAV_pose_pub,UGV_pose_pub;
 static geometry_msgs::TwistStamped  UGV_twist_sub;
 static geometry_msgs::Twist         UAV_twist_pub;
-static Vec7 UAV_lp,UGV_lp;
+static Vec7 UAV_lp,UGV_lp,UGV_tgt;
 
 /* System */
 bool System_init = false;
@@ -86,6 +86,11 @@ void ugv_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UGV_pose_sub.pose.orientation.z = pose->pose.orientation.z;
     UGV_lp << UGV_pose_sub.pose.position.x,UGV_pose_sub.pose.position.y,UGV_pose_sub.pose.position.z,
               UGV_pose_sub.pose.orientation.w,UGV_pose_sub.pose.orientation.x,UGV_pose_sub.pose.orientation.y,UGV_pose_sub.pose.orientation.z;
+    Quaterniond UGVq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
+    Vec3 UGVrpy = Q2rpy(UGVq);
+    double des_dist = 0.05;
+    UGV_tgt << UGV_lp[0]+des_dist*cos(UGVrpy[2]),UGV_lp[1]+des_dist*sin(UGVrpy[2]),UGV_pose_sub.pose.position.z,
+               UGV_pose_sub.pose.orientation.w,UGV_pose_sub.pose.orientation.x,UGV_pose_sub.pose.orientation.y,UGV_pose_sub.pose.orientation.z;
 }
 void ugv_twist_sub(const geometry_msgs::TwistStamped::ConstPtr& twist){
     UGV_twist_sub.twist.linear.x = twist->twist.linear.x;
@@ -359,8 +364,8 @@ void Finite_state_machine(){
         Vec7 FSM_2_pose;
         Quaterniond FSM2q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
         Vec3 FSM2rpy = Q2rpy(FSM2q);
-        double horizontal_dist = 1.5;
-        double vertical_dist = 0.8;
+        double horizontal_dist = 1;
+        double vertical_dist = 0.5;
         Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM2rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM2rpy[2]));
         FSM_2_pose << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6];
         uav_pose_pub(FSM_2_pose);
@@ -407,22 +412,26 @@ void Finite_state_machine(){
         if(!FSM_init){
             FSM_init = true;
             pub_trajpose = true;  pub_pidtwist = false;
+            Quaterniond FSM4q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
+            Vec3 FSM4rpy = Q2rpy(FSM4q);
+            double Des_dist = 0.1;
+            Vec2 desxy = Vec2(UGV_lp[0]-Des_dist*cos(FSM4rpy[2]),UGV_lp[1]-Des_dist*sin(FSM4rpy[2]));
             vector<Vector3d> WPs;
             WPs.clear();
             Vector3d StartP(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
             WPs.push_back(StartP);
-            Vector3d MidP((UAV_lp[0]+UGV_lp[0])/2,(UAV_lp[1]+UGV_lp[1])/2,UGV_lp[2]+0.25);
+            Vector3d MidP((UAV_lp[0]+UGV_lp[0])/2,(UAV_lp[1]+UGV_lp[1])/2,UGV_lp[2]+0.2);
             WPs.push_back(MidP);
-            Vector3d EndP(UGV_lp[0],UGV_lp[1],UGV_lp[2]-0.05);
+            Vector3d EndP(desxy[0],desxy[1],UGV_lp[2]+0.05);
             WPs.push_back(EndP);
             AM_traj(WPs,UAV_lp);
             // Vec7 UGV_pred_lp = ugv_pred_land_pose(AM_traj_duration);
             // WPs.clear();
             // StartP = Vector3d(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
             // WPs.push_back(StartP);
-            // MidP = Vector3d((UAV_lp[0]+UGV_pred_lp[0])/2,(UAV_lp[1]+UGV_pred_lp[1])/2,UGV_pred_lp[2]+0.1);
+            // MidP = Vector3d((UAV_lp[0]+UGV_pred_lp[0])/2,(UAV_lp[1]+UGV_pred_lp[1])/2,UGV_pred_lp[2]+0.3);
             // WPs.push_back(MidP);
-            // EndP = Vector3d(UGV_pred_lp[0],UGV_pred_lp[1],UGV_pred_lp[2]);
+            // EndP = Vector3d(UGV_pred_lp[0],UGV_pred_lp[1],UGV_pred_lp[2]+0.05);
             // WPs.push_back(EndP);
             // AM_traj(WPs,UAV_lp);
             // FSM_init_time = ros::Time::now().toSec();
@@ -437,10 +446,15 @@ void Finite_state_machine(){
                 traj1_information = Vec2(ros::Time::now().toSec(), traj1[0]-hovertime);
             }
         }
-        if(traj1_information[1] - ros::Time::now().toSec()< 0.5 && 
-           sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2))<0.1 &&
-           sqrt(pow((UAV_lp[2]-UGV_lp[2]),2))<0.1 ){
+        if(traj1_information[1] - ros::Time::now().toSec() <  0 && 
+           sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) < 0.08 &&
+           sqrt(pow((UAV_lp[2]-UGV_lp[2]),2))<0.12 ){
                Shut_down = true;
+        }
+        if(traj1_information[1] - ros::Time::now().toSec() < -3 && 
+           sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) > 0.08){
+               FSM_state = 3;
+               FSM_init = false;
         }
         // if(ros::Time::now().toSec() - FSM_init_time > AM_traj_duration/2){
 
@@ -470,7 +484,7 @@ int main(int argc, char **argv)
     nh.getParam("/FSM_node/Force_start", Force_start);
     Zero4 << 0,0,0,0;
     Zero7 << 0,0,0,0,0,0,0;
-    ros::Rate loop_rate(50); /* ROS system Hz */
+    ros::Rate loop_rate(100); /* ROS system Hz */
 
     while(ros::ok()){
         /* System initailize ***************************************************/
@@ -539,7 +553,7 @@ int main(int argc, char **argv)
         if(pub_trajpose){uav_pos_pub.publish(UAV_pose_pub);}
         if(FSM_state == 2){uav_pos_pub.publish(UAV_pose_pub);}
         /*Mission information cout**********************************************/
-        if(coutcounter > 25 && FSMinit && !Shut_down){ //reduce cout rate
+        if(coutcounter > 10 && FSMinit && !Shut_down){ //reduce cout rate
             if (FSM_state == 0){
                 cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
                 cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
@@ -561,7 +575,7 @@ int main(int argc, char **argv)
                 }
             }
             
-            cout << "CAr____pos_x: " << UGV_pose_sub.pose.position.x << " y: " << UGV_pose_sub.pose.position.y << endl;
+            cout << "CAr____pos_x: " << UGV_pose_sub.pose.position.x << " y: " << UGV_pose_sub.pose.position.y << " z: " << UGV_pose_sub.pose.position.z << endl;
             cout << "Dist_UAVtoUGV_horizontal: " << sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) << endl;
             cout << "Dist_UAVtoUGV___vertical: " << sqrt(pow((UAV_lp[2]-UGV_lp[2]),2)) << endl;
             cout << "Failsafe_Syste: " << Failsafe_trigger << endl;

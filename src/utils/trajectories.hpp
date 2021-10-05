@@ -63,7 +63,7 @@ void AM_traj(vector<Vector3d> WPs,Vec7 UAV_lp){
     Trajectory am_traj;
     desq = rpy2Q(desrpy);
     //(weightT,weightAcc,weightJerk,maxVelRate,maxAccRate,iterations,epsilon);
-    AmTraj amTrajOpt(1024,16,0.4,0.8,2,100,0.02);
+    AmTraj amTrajOpt(256,16,0.4,0.5,1,100,0.02);
     Vector3d zero3(0.0, 0.0, 0.0);
     am_traj = amTrajOpt.genOptimalTrajDTC(WPs, zero3, zero3, zero3, zero3);
     cout<< "      WPs.size: " << WPs.size() << endl
