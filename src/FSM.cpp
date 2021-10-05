@@ -170,7 +170,7 @@ void uav_pub(bool pub_trajpose, bool pub_pidtwist){
         uavposepub << traj1_deque_front[1],traj1_deque_front[2],traj1_deque_front[3],
                         traj1_deque_front[4],traj1_deque_front[5],traj1_deque_front[6],traj1_deque_front[7];
         uav_pose_pub(uavposepub);
-        if (traj1_deque_front[0] > traj1_information[1]){
+        if (traj1_deque_front[0] > traj1_information[1] && FSM_state == 0){
             Mission_stage++;
             trajectory1.clear();
             uav_pose_pub(Zero7);
@@ -359,8 +359,8 @@ void Finite_state_machine(){
         Vec7 FSM_2_pose;
         Quaterniond FSM2q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
         Vec3 FSM2rpy = Q2rpy(FSM2q);
-        double horizontal_dist = 1;
-        double vertical_dist = 1;
+        double horizontal_dist = 1.5;
+        double vertical_dist = 0.8;
         Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM2rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM2rpy[2]));
         FSM_2_pose << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6];
         uav_pose_pub(FSM_2_pose);
@@ -382,7 +382,7 @@ void Finite_state_machine(){
         Vec7 FSM_3_pose;
         Quaterniond FSM3q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
         Vec3 FSM3rpy = Q2rpy(FSM3q);
-        double horizontal_dist = 0.5;
+        double horizontal_dist = 1;
         double vertical_dist = 0.5;
         Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM3rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM3rpy[2]));
         pub_trajpose = false; pub_pidtwist = true;
@@ -411,21 +411,36 @@ void Finite_state_machine(){
             WPs.clear();
             Vector3d StartP(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
             WPs.push_back(StartP);
-            Vector3d MidP((UAV_lp[0]-UGV_lp[0])/2,(UAV_lp[1]-UGV_lp[1])/2,(UAV_lp[2]-UGV_lp[2])/2);
+            Vector3d MidP((UAV_lp[0]+UGV_lp[0])/2,(UAV_lp[1]+UGV_lp[1])/2,UGV_lp[2]+0.25);
             WPs.push_back(MidP);
-            Vector3d EndP(UGV_lp[0],UGV_lp[1],UGV_lp[2]);
+            Vector3d EndP(UGV_lp[0],UGV_lp[1],UGV_lp[2]-0.05);
             WPs.push_back(EndP);
             AM_traj(WPs,UAV_lp);
-            Vec7 UGV_pred_lp = ugv_pred_land_pose(AM_traj_duration);
-            WPs.clear();
-            StartP = Vector3d(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
-            WPs.push_back(StartP);
-            MidP = Vector3d((UAV_lp[0]-UGV_pred_lp[0])/2,(UAV_lp[1]-UGV_pred_lp[1])/2,(UAV_lp[2]-UGV_pred_lp[2])/2);
-            WPs.push_back(MidP);
-            EndP = Vector3d(UGV_pred_lp[0],UGV_pred_lp[1],UGV_pred_lp[2]);
-            WPs.push_back(EndP);
-            AM_traj(WPs,UAV_lp);
-            FSM_init_time = ros::Time::now().toSec();
+            // Vec7 UGV_pred_lp = ugv_pred_land_pose(AM_traj_duration);
+            // WPs.clear();
+            // StartP = Vector3d(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
+            // WPs.push_back(StartP);
+            // MidP = Vector3d((UAV_lp[0]+UGV_pred_lp[0])/2,(UAV_lp[1]+UGV_pred_lp[1])/2,UGV_pred_lp[2]+0.1);
+            // WPs.push_back(MidP);
+            // EndP = Vector3d(UGV_pred_lp[0],UGV_pred_lp[1],UGV_pred_lp[2]);
+            // WPs.push_back(EndP);
+            // AM_traj(WPs,UAV_lp);
+            // FSM_init_time = ros::Time::now().toSec();
+            /*For CPP deque safety. Default generate 10 second of hover*/
+            int hovertime = 10;
+            if(trajectory1.size()>0){
+                Vec8 traj1 = trajectory1.back();
+                for (int i=0; i<(hovertime/Trajectory_timestep); i++){
+                    traj1[0] += Trajectory_timestep;
+                    trajectory1.push_back(traj1);
+                }
+                traj1_information = Vec2(ros::Time::now().toSec(), traj1[0]-hovertime);
+            }
+        }
+        if(traj1_information[1] - ros::Time::now().toSec()< 0.5 && 
+           sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2))<0.1 &&
+           sqrt(pow((UAV_lp[2]-UGV_lp[2]),2))<0.1 ){
+               Shut_down = true;
         }
         // if(ros::Time::now().toSec() - FSM_init_time > AM_traj_duration/2){
 

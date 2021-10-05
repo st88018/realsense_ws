@@ -83,5 +83,11 @@ void AM_traj(vector<Vector3d> WPs,Vec7 UAV_lp){
         traj1 << dt+traj1_init_time, xyz[0], xyz[1], xyz[2], desq.w(), desq.x(), desq.y(), desq.z();
         trajectory1.push_back(traj1);
     }
+    // if(trajectory1.size()>0){
+    //     for (unsigned int i = 0; i < trajectory1.size(); i++){
+    //     Vec8 current_traj = trajectory1.at(i);
+    //     cout << "dt: " << current_traj[0] << " x: " << current_traj[1] << " y: " << current_traj[2] << " z: " << current_traj[3] << endl;
+    //     }
+    // }
 }
 #endif
