@@ -3,11 +3,13 @@
 #include "common.h"
 #include "../am_traj/am_traj.hpp"
 
-deque<Vec8> trajectory1;
-double AM_traj_duration;
-Vec2 traj1_information;
+deque<Vec8> trajectory_pos;
+deque<Vec8> trajectory_vel;
+double AM_traj_pos_duration;
+double AM_traj_vel_duration;
+Vec2 traj_pos_information;
+Vec2 traj_vel_information;
 double Trajectory_timestep = 0.02;
-Vec2 Twisttraj_information;
 
 void constantVtraj( Vec7 StartPose, Vec7 EndPose, double velocity, double angular_velocity){
   Quaterniond localq(StartPose[3],StartPose[4],StartPose[5],StartPose[6]);
@@ -30,8 +32,8 @@ void constantVtraj( Vec7 StartPose, Vec7 EndPose, double velocity, double angula
   double yaw_duration = sqrt(pow(d_yaw/angular_velocity,2));
   if(yaw_duration>=dist_duration){duration = yaw_duration;}else{duration = dist_duration;}
   //initialize trajectory
-  trajectory1.clear();
-  double traj1_init_time = ros::Time::now().toSec();
+  trajectory_pos.clear();
+  double traj_pos_init_time = ros::Time::now().toSec();
   int wpc = duration/Trajectory_timestep;
   for(int i=0; i<wpc; i++){
       double dt = Trajectory_timestep*i;
@@ -49,13 +51,13 @@ void constantVtraj( Vec7 StartPose, Vec7 EndPose, double velocity, double angula
       }else{
           xyz << EndPose[0],EndPose[1],EndPose[2];
       }
-      Vec8 traj1;
-      traj1 << dt+traj1_init_time, xyz[0], xyz[1], xyz[2], q.w(), q.x(), q.y(), q.z();
-      trajectory1.push_back(traj1);
+      Vec8 traj_pos;
+      traj_pos << dt+traj_pos_init_time, xyz[0], xyz[1], xyz[2], q.w(), q.x(), q.y(), q.z();
+      trajectory_pos.push_back(traj_pos);
   }
 }
 
-void AM_traj(vector<Vector3d> WPs,Vec7 UAV_lp){
+void AM_traj_pos(vector<Vector3d> WPs,Vec7 UAV_lp, Vec4 UAV_twist){
     Quaterniond localq(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]);
     Vec3 localrpy = Q2rpy(localq);
     Vec3 desrpy(0,0,localrpy[2]);
@@ -64,28 +66,66 @@ void AM_traj(vector<Vector3d> WPs,Vec7 UAV_lp){
     desq = rpy2Q(desrpy);
     //(weightT,weightAcc,weightJerk,maxVelRate,maxAccRate,iterations,epsilon);
     AmTraj amTrajOpt(256,16,0.4,0.5,1,100,0.02);
+    Vector3d twistxyz(UAV_twist[0],UAV_twist[1],UAV_twist[2]);
     Vector3d zero3(0.0, 0.0, 0.0);
-    am_traj = amTrajOpt.genOptimalTrajDTC(WPs, zero3, zero3, zero3, zero3);
+    am_traj = amTrajOpt.genOptimalTrajDTC(WPs, twistxyz, zero3, zero3, zero3);
     cout<< "      WPs.size: " << WPs.size() << endl
         << "      Constrained Spatial Optimal Trajectory with Trapezoidal Time Allocation" << endl
         << "      Lap Time: " << am_traj.getTotalDuration() << " s" << std::endl
         << "      Cost: " << amTrajOpt.evaluateObjective(am_traj) << std::endl
         << "      Maximum Velocity Rate: " << am_traj.getMaxVelRate() << " m/s" << std::endl
         << "      Maximum Acceleration Rate: " << am_traj.getMaxAccRate() << " m/s^2" << std::endl;
-    AM_traj_duration = am_traj.getTotalDuration();
+    AM_traj_pos_duration = am_traj.getTotalDuration();
     //initialize trajectory
-    trajectory1.clear();
-    double traj1_init_time = ros::Time::now().toSec();
+    trajectory_pos.clear();
+    double traj_pos_init_time = ros::Time::now().toSec();
     double T = 0.01;
     for  (double dt = 0; dt < am_traj.getTotalDuration(); dt += T){
         Vector3d xyz = am_traj.getPos(dt);
-        Vec8 traj1;
-        traj1 << dt+traj1_init_time, xyz[0], xyz[1], xyz[2], desq.w(), desq.x(), desq.y(), desq.z();
-        trajectory1.push_back(traj1);
+        Vec8 traj_pos;
+        traj_pos << dt+traj_pos_init_time, xyz[0], xyz[1], xyz[2], desq.w(), desq.x(), desq.y(), desq.z();
+        trajectory_pos.push_back(traj_pos);
     }
-    // if(trajectory1.size()>0){
-    //     for (unsigned int i = 0; i < trajectory1.size(); i++){
-    //     Vec8 current_traj = trajectory1.at(i);
+    // if(trajectory_pos.size()>0){
+    //     for (unsigned int i = 0; i < trajectory_pos.size(); i++){
+    //     Vec8 current_traj = trajectory_pos.at(i);
+    //     cout << "dt: " << current_traj[0] << " x: " << current_traj[1] << " y: " << current_traj[2] << " z: " << current_traj[3] << endl;
+    //     }
+    // }
+}
+
+void AM_traj_vel(vector<Vector3d> WPs,Vec7 UAV_lp, Vec4 UAV_twist){
+    Quaterniond localq(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]);
+    Vec3 localrpy = Q2rpy(localq);
+    Vec3 desrpy(0,0,localrpy[2]);
+    Quaterniond desq;
+    Trajectory am_traj;
+    desq = rpy2Q(desrpy);
+    //(weightT,weightAcc,weightJerk,maxVelRate,maxAccRate,iterations,epsilon);
+    AmTraj amTrajOpt(256,16,0.5,1,1,100,0.02);
+    Vector3d twistxyz(UAV_twist[0],UAV_twist[1],UAV_twist[2]);
+    Vector3d zero3(0.0, 0.0, 0.0);
+    am_traj = amTrajOpt.genOptimalTrajDTC(WPs, twistxyz, zero3, zero3, zero3);
+    cout<< "      WPs.size: " << WPs.size() << endl
+        << "      Constrained Spatial Optimal Trajectory with Trapezoidal Time Allocation" << endl
+        << "      Lap Time: " << am_traj.getTotalDuration() << " s" << std::endl
+        << "      Cost: " << amTrajOpt.evaluateObjective(am_traj) << std::endl
+        << "      Maximum Velocity Rate: " << am_traj.getMaxVelRate() << " m/s" << std::endl
+        << "      Maximum Acceleration Rate: " << am_traj.getMaxAccRate() << " m/s^2" << std::endl;
+    AM_traj_vel_duration = am_traj.getTotalDuration();
+    //initialize trajectory
+    trajectory_vel.clear();
+    double traj_vel_init_time = ros::Time::now().toSec();
+    double T = 0.01;
+    for  (double dt = 0; dt < am_traj.getTotalDuration(); dt += T){
+        Vector3d vxyz = am_traj.getVel(dt);
+        Vec8 traj_vel;
+        traj_vel << dt+traj_vel_init_time, vxyz[0], vxyz[1], vxyz[2], desq.w(), desq.x(), desq.y(), desq.z();
+        trajectory_vel.push_back(traj_vel);
+    }
+    // if(trajectory_pos.size()>0){
+    //     for (unsigned int i = 0; i < trajectory_pos.size(); i++){
+    //     Vec8 current_traj = trajectory_pos.at(i);
     //     cout << "dt: " << current_traj[0] << " x: " << current_traj[1] << " y: " << current_traj[2] << " z: " << current_traj[3] << endl;
     //     }
     // }
