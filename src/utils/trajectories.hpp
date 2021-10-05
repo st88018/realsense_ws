@@ -123,6 +123,12 @@ void AM_traj_vel(vector<Vector3d> WPs,Vec7 UAV_lp, Vec4 UAV_twist){
         traj_vel << dt+traj_vel_init_time, vxyz[0], vxyz[1], vxyz[2], desq.w(), desq.x(), desq.y(), desq.z();
         trajectory_vel.push_back(traj_vel);
     }
+    Vec8 traj_vel = trajectory_vel.back();
+    for (int i=0; i<(5/T); i++){
+        traj_vel[0] += T;
+        trajectory_pos.push_back(traj_vel);
+    }
+    traj_vel_information = Vec2(ros::Time::now().toSec(), traj_vel[0]-5);
     // if(trajectory_pos.size()>0){
     //     for (unsigned int i = 0; i < trajectory_pos.size(); i++){
     //     Vec8 current_traj = trajectory_pos.at(i);

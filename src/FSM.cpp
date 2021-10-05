@@ -54,6 +54,7 @@ bool   Mission8init  = false;
 double M8start_alt;
 bool   pub_trajpose  = false;
 bool   pub_pidtwist  = false;
+bool   pub_trajtwist  = false;
 bool   Force_start   = false;
 bool   Shut_down     = false;
 
@@ -176,16 +177,16 @@ void uav_twist_pub(Vec4 vxyzaz){
 }
 void uav_pub(bool pub_trajpose, bool pub_pidtwist){
     if(pub_trajpose){
-        Vec8 traj1_deque_front = trajectory_pos.front();
-        while (ros::Time::now().toSec() - traj1_deque_front[0] > 0){
+        Vec8 traj_pos_deque_front = trajectory_pos.front();
+        while (ros::Time::now().toSec() - traj_pos_deque_front[0] > 0){
             trajectory_pos.pop_front();
-            traj1_deque_front = trajectory_pos.front();
+            traj_pos_deque_front = trajectory_pos.front();
         }
         Vec7 uavposepub;
-        uavposepub << traj1_deque_front[1],traj1_deque_front[2],traj1_deque_front[3],
-                        traj1_deque_front[4],traj1_deque_front[5],traj1_deque_front[6],traj1_deque_front[7];
+        uavposepub << traj_pos_deque_front[1],traj_pos_deque_front[2],traj_pos_deque_front[3],
+                        traj_pos_deque_front[4],traj_pos_deque_front[5],traj_pos_deque_front[6],traj_pos_deque_front[7];
         uav_pose_pub(uavposepub);
-        if (traj1_deque_front[0] > traj_pos_information[1] && FSM_state == 0){
+        if (traj_pos_deque_front[0] > traj_pos_information[1] && FSM_state == 0){
             Mission_stage++;
             trajectory_pos.clear();
             uav_pose_pub(Zero7);
@@ -220,6 +221,22 @@ void uav_pub(bool pub_trajpose, bool pub_pidtwist){
             uav_twist_pub(Zero4);
         }
         uav_twist_pub(uav_poistion_controller_PID(xyzyaw,Pos_setpoint));
+    }
+    if(pub_trajtwist){ //yaw use PID else use traj
+        Quaterniond localq(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]);
+        Vec3 localrpy = Q2rpy(localq);
+        Vec4 xyzyaw;
+        xyzyaw << UAV_lp[0],UAV_lp[1],UAV_lp[2],localrpy[2];
+        Vec4 PID_output = uav_poistion_controller_PID(xyzyaw,Pos_setpoint);
+
+        Vec8 traj_vel_deque_front = trajectory_vel.front();
+        while (ros::Time::now().toSec() - traj_vel_deque_front[0] > 0){
+            trajectory_vel.pop_front();
+            traj_vel_deque_front = trajectory_vel.front();
+        }
+        Vec4 uavvelpub;
+        uavvelpub << traj_vel_deque_front[1],traj_vel_deque_front[2],traj_vel_deque_front[3],PID_output[3];
+        uav_twist_pub(uavvelpub);
     }
 }
 string armstatus(){
@@ -263,7 +280,7 @@ void Finite_stage_mission(){  // Main FSM
         Mission_state = Current_stage_mission[0];
         if (Mission_state == 1){ //state = 1 take off with no heading change
             pub_trajpose = true;  pub_pidtwist = false;
-            TargetPos << UAV_lp[0],UAV_lp[1],Current_stage_mission[3],Targetq.w(),Targetq.x(),Targetq.y(),Targetq.z();
+            TargetPos << UAV_lp[0],UAV_lp[1],Current_stage_mission[3],UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6];
             constantVtraj(UAV_lp, TargetPos, 0.3, Current_stage_mission[6]);
         }
         if (Mission_state == 2){ //state = 2; constant velocity trajectory with desired heading.
@@ -287,7 +304,7 @@ void Finite_stage_mission(){  // Main FSM
                 WP = Vector3d(Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3]);
                 WPs.push_back(WP);
             }
-            AM_traj_pos(WPs,UAV_lp, UAV_twist);
+            AM_traj_pos(WPs,UAV_lp,UAV_twist);
         }
         if (Mission_state == 4){ //state = 4; constant velocity RTL but with altitude
             pub_trajpose = true;  pub_pidtwist = false;
@@ -388,7 +405,7 @@ void Finite_state_machine(){
         if(sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3){
             FSM_finished = false;
         }
-        if(FSM_finish_time - ros::Time::now().toSec() < -5 && FSM_finished){
+        if(FSM_finish_time - ros::Time::now().toSec() < -3 && FSM_finished){
             FSM_state++;
             FSM_finished = false;
         }
@@ -404,7 +421,7 @@ void Finite_state_machine(){
         Quaterniond UGVq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
         Vec3 UGVrpy = Q2rpy(UGVq);
         Pos_setpoint << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGVrpy[2];
-        PID_duration = 0; 
+        PID_duration = 0;
         if(sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) < horizontal_dist+0.3 && !FSM_finished){
             cout << "start count down" << endl;
             FSM_finish_time = ros::Time::now().toSec();
@@ -413,12 +430,32 @@ void Finite_state_machine(){
         if(sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3){
             FSM_finished = false;
         }
-        if(FSM_finish_time - ros::Time::now().toSec() < -5 && FSM_finished){
+        if(FSM_finish_time - ros::Time::now().toSec() < -3 && FSM_finished){
             FSM_state++;
             FSM_finished = false;
         }
     }
-    if(FSM_state==4){ //Land trajectory
+    if(FSM_state==4){ //continuous vel_traj
+        Vec7 FSM_4_pose;
+        Quaterniond FSM4q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
+        Vec3 FSM4rpy = Q2rpy(FSM4q);
+        double horizontal_dist = 1;
+        double vertical_dist = 0.5;
+        Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM4rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM4rpy[2]));
+        pub_trajpose = false; pub_pidtwist = false; pub_trajtwist = true;
+        Quaterniond UGVq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
+        Vec3 UGVrpy = Q2rpy(UGVq);
+        Pos_setpoint << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGVrpy[2];
+        PID_duration = 0;
+        
+        vector<Vector3d> WPs;
+        WPs.clear();
+        Vector3d StartP(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
+        WPs.push_back(StartP);
+        Vector3d EndP(Pos_setpoint[0],Pos_setpoint[1],Pos_setpoint[2]);
+        AM_traj_vel(WPs,UAV_lp, UAV_twist);
+    }
+    if(FSM_state==5){ //Land trajectory
         if(!FSM_init){
             FSM_init = true;
             pub_trajpose = true;  pub_pidtwist = false;
@@ -470,7 +507,7 @@ void Finite_state_machine(){
 
         // }
     }
-    if(FSM_state==5){ //Back up
+    if(FSM_state==6){ //Back up
     }
 }
 int main(int argc, char **argv)
