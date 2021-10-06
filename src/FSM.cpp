@@ -19,7 +19,8 @@ static mavros_msgs::AttitudeTarget  UAV_AttitudeTarget;
 static geometry_msgs::PoseStamped   UAV_pose_sub,UGV_pose_sub,UAV_pose_pub,UGV_pose_pub;
 static geometry_msgs::TwistStamped  UGV_twist_sub,UAV_twist_sub;
 static geometry_msgs::Twist         UAV_twist_pub;
-static Vec7 UAV_lp,UGV_lp,UGV_tgt;
+static Vec7 UAV_lp,UGV_lp;
+static Vec3 UGVrpy;
 
 /* System */
 bool System_init = false;
@@ -63,15 +64,28 @@ void failsafe(bool Failsafe_trigger){
 
     }
 }
+Vec6 uav2ugv(){
+    Quaterniond UGVq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
+    Matrix3d UGV_Rotation_world_mat  = UGVq.toRotationMatrix();
+    Vec3 UGV_Translation_world(UGV_lp[0],UGV_lp[1],UGV_lp[2]);
+    Vec3 tvecs(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
+    Quaterniond UAVq(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]);
+    Vec3 rvecs = Q2rpy(UAVq);
+    Vec3 Tvecs_ugvframe = UGV_Rotation_world_mat.inverse()*(tvecs-UGV_Translation_world);
+    Vec3 Rvecs_ugvframe = UGV_Rotation_world_mat.inverse()*rvecs;
+    Vec6 TvecsRvecs_ugvframe;
+    TvecsRvecs_ugvframe << Tvecs_ugvframe[0],Tvecs_ugvframe[1],Tvecs_ugvframe[2],
+                           Rvecs_ugvframe[0],Rvecs_ugvframe[1],Rvecs_ugvframe[2];
+    return(TvecsRvecs_ugvframe);
+}
 Vec7 ugv_pred_land_pose(double est_duration){
     Vec7 EstimatedPose;
-    Quaterniond ugvq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
-    Vec3 ugvrpy = Q2rpy(ugvq);
-    Vec4 ugv_XYZyaw = Vec4(UGV_lp[0],UGV_lp[1],UGV_lp[2],ugvrpy[2]);
+    Vec4 ugv_XYZyaw = Vec4(UGV_lp[0],UGV_lp[1],UGV_lp[2],UGVrpy[2]);
     Vec4 ugv_pred_XYZyaw;
     for(int i=0; i<4; i++){
         ugv_pred_XYZyaw[i] = ugv_XYZyaw[i]+UGV_twist[i]*est_duration;
     }
+    Quaterniond ugvq;
     ugvq = rpy2Q(Vec3(0,0,ugv_pred_XYZyaw[3]));
     EstimatedPose << ugv_pred_XYZyaw[0],ugv_pred_XYZyaw[1],ugv_pred_XYZyaw[2],
                      ugvq.w(),ugvq.x(),ugvq.y(),ugvq.z();
@@ -88,10 +102,7 @@ void ugv_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UGV_lp << UGV_pose_sub.pose.position.x,UGV_pose_sub.pose.position.y,UGV_pose_sub.pose.position.z,
               UGV_pose_sub.pose.orientation.w,UGV_pose_sub.pose.orientation.x,UGV_pose_sub.pose.orientation.y,UGV_pose_sub.pose.orientation.z;
     Quaterniond UGVq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
-    Vec3 UGVrpy = Q2rpy(UGVq);
-    double des_dist = 0.05;
-    UGV_tgt << UGV_lp[0]+des_dist*cos(UGVrpy[2]),UGV_lp[1]+des_dist*sin(UGVrpy[2]),UGV_pose_sub.pose.position.z,
-               UGV_pose_sub.pose.orientation.w,UGV_pose_sub.pose.orientation.x,UGV_pose_sub.pose.orientation.y,UGV_pose_sub.pose.orientation.z;
+    UGVrpy = Q2rpy(UGVq);
 }
 void ugv_twist_sub(const geometry_msgs::TwistStamped::ConstPtr& twist){
     UGV_twist_sub.twist.linear.x = twist->twist.linear.x;
@@ -198,8 +209,6 @@ void uav_pub(bool pub_trajpose, bool pub_pidtwist){
         Vec4 xyzyaw;
         xyzyaw << UAV_pose_sub.pose.position.x,UAV_pose_sub.pose.position.y,UAV_pose_sub.pose.position.z,localrpy[2];
         if(Mission_state == 7){  //Follow the UGV
-            Quaterniond UGVq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
-            Vec3 UGVrpy = Q2rpy(UGVq);
             Vec7 UGV_pred_lp = ugv_pred_land_pose(1);
             Pos_setpoint << UGV_pred_lp[0],UGV_pred_lp[1],Current_stage_mission[3],UGVrpy[2];
         }
@@ -208,8 +217,6 @@ void uav_pub(bool pub_trajpose, bool pub_pidtwist){
                 Mission8init = true;
                 M8start_alt = xyzyaw[2];
             }
-            Quaterniond UGVq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
-            Vec3 UGVrpy = Q2rpy(UGVq);
             Vec7 UGV_pred_lp = ugv_pred_land_pose(0.5);
             Pos_setpoint << UGV_pred_lp[0],UGV_pred_lp[1],M8start_alt-=0.001,UGVrpy[2];
             if( sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) < 0.15 && sqrt(pow((UAV_lp[2]-UGV_lp[2]),2)) < 0.1 ){
@@ -398,7 +405,7 @@ void Finite_state_machine(){
         uav_pose_pub(FSM_2_pose);
         pub_trajpose = false; pub_pidtwist = false;
         if(sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) < horizontal_dist+0.3 && !FSM_finished){
-            cout << "start count down" << endl;
+            // cout << "start count down" << endl;
             FSM_finish_time = ros::Time::now().toSec();
             FSM_finished = true;
         }
@@ -418,12 +425,10 @@ void Finite_state_machine(){
         double vertical_dist = 0.5;
         Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM3rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM3rpy[2]));
         pub_trajpose = false; pub_pidtwist = true;
-        Quaterniond UGVq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
-        Vec3 UGVrpy = Q2rpy(UGVq);
         Pos_setpoint << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGVrpy[2];
         PID_duration = 0;
         if(sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) < horizontal_dist+0.3 && !FSM_finished){
-            cout << "start count down" << endl;
+            // cout << "start count down" << endl;
             FSM_finish_time = ros::Time::now().toSec();
             FSM_finished = true;
         }
@@ -458,8 +463,6 @@ void Finite_state_machine(){
     if(FSM_state==4){ //Land trajectory
         Vec2 desxy;
         double Des_dist = 0.05;
-        Quaterniond UGVq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
-        Vec3 UGVrpy = Q2rpy(UGVq);
         desxy = Vec2(UGV_lp[0]+Des_dist*cos(UGVrpy[2]),UGV_lp[1]+Des_dist*sin(UGVrpy[2]));
 
         if(!FSM_init){
@@ -499,26 +502,28 @@ void Finite_state_machine(){
                 traj_pos_information = Vec2(ros::Time::now().toSec(), traj_pos[0]-hovertime);
             }
         }
-        if(traj_pos_information[1] - ros::Time::now().toSec() <  1 && 
-           sqrt(pow((UAV_lp[0]-desxy[0]),2)+pow((UAV_lp[1]-desxy[1]),2)) < 0.05 &&
-           (UAV_lp[2]-UGV_lp[2]) < 0.15 ){
-            Shut_down = true;
-        }
-        if(traj_pos_information[1] - ros::Time::now().toSec() < -0.5 && 
+        double Traj_leftT = traj_pos_information[1] - ros::Time::now().toSec();
+        if(Traj_leftT < -0.5 && 
            sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) > 0.08){
             FSM_state--;
             FSM_init = false;
         }
-        if((UAV_lp[2]-UGV_lp[2]) < 0.08){
+        if((UAV_lp[2]-UGV_lp[2]) < 0.05){
             cout << "warning altitude to low" << endl;
             FSM_state--;
             FSM_init = false;
+        }
+        if(Traj_leftT <  1 && 
+           sqrt(pow((UAV_lp[0]-desxy[0]),2)+pow((UAV_lp[1]-desxy[1]),2)) < 0.05 &&
+           (UAV_lp[2]-UGV_lp[2]) < 0.15 ){
+            Shut_down = true;
         }
         // if(ros::Time::now().toSec() - FSM_init_time > AM_traj_pos_duration/2){
 
         // }
     }
     if(FSM_state==6){ //Back up
+
     }
 }
 int main(int argc, char **argv)
@@ -612,7 +617,7 @@ int main(int argc, char **argv)
         if(pub_trajpose){uav_pos_pub.publish(UAV_pose_pub);}
         if(FSM_state == 2){uav_pos_pub.publish(UAV_pose_pub);}
         /*Mission information cout**********************************************/
-        if(coutcounter > 10 && FSMinit && !Shut_down){ //reduce cout rate
+        if(coutcounter > 30 && FSMinit && !Shut_down){ //reduce cout rate
             if (FSM_state == 0){
                 cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
                 cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
@@ -637,6 +642,7 @@ int main(int argc, char **argv)
             cout << "CAr____pos_x: " << UGV_pose_sub.pose.position.x << " y: " << UGV_pose_sub.pose.position.y << " z: " << UGV_pose_sub.pose.position.z << endl;
             cout << "Dist_UAVtoUGV_horizontal: " << sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) <<
                     " vertical: " << UAV_lp[2]-UGV_lp[2] << endl;
+            cout << "UAV_in_UGVframe_x: " << uav2ugv()[0] << " y: " << uav2ugv()[1] << " z: "<< uav2ugv()[2] << endl;
             cout << "Failsafe_Syste: " << Failsafe_trigger << endl;
             cout << "---------------------------------------------------" << endl;
             coutcounter = 0;

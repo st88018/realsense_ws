@@ -69,12 +69,12 @@ void AM_traj_pos(vector<Vector3d> WPs,Vec7 UAV_lp, Vec4 UAV_twist){
     Vector3d twistxyz(UAV_twist[0],UAV_twist[1],UAV_twist[2]);
     Vector3d zero3(0.0, 0.0, 0.0);
     am_traj = amTrajOpt.genOptimalTrajDTC(WPs, twistxyz, zero3, zero3, zero3);
-    cout<< "      WPs.size: " << WPs.size() << endl
-        << "      Constrained Spatial Optimal Trajectory with Trapezoidal Time Allocation" << endl
-        << "      Lap Time: " << am_traj.getTotalDuration() << " s" << std::endl
-        << "      Cost: " << amTrajOpt.evaluateObjective(am_traj) << std::endl
-        << "      Maximum Velocity Rate: " << am_traj.getMaxVelRate() << " m/s" << std::endl
-        << "      Maximum Acceleration Rate: " << am_traj.getMaxAccRate() << " m/s^2" << std::endl;
+    // cout<< "      WPs.size: " << WPs.size() << endl
+    //     << "      Constrained Spatial Optimal Trajectory with Trapezoidal Time Allocation" << endl
+    //     << "      Lap Time: " << am_traj.getTotalDuration() << " s" << std::endl
+    //     << "      Cost: " << amTrajOpt.evaluateObjective(am_traj) << std::endl
+    //     << "      Maximum Velocity Rate: " << am_traj.getMaxVelRate() << " m/s" << std::endl
+    //     << "      Maximum Acceleration Rate: " << am_traj.getMaxAccRate() << " m/s^2" << std::endl;
     AM_traj_pos_duration = am_traj.getTotalDuration();
     //initialize trajectory
     trajectory_pos.clear();
