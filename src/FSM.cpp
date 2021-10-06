@@ -21,7 +21,7 @@ static geometry_msgs::TwistStamped  UGV_twist_sub,UAV_twist_sub;
 static geometry_msgs::Twist         UAV_twist_pub;
 static Vec7 UAV_lp,UGV_lp;
 static Vec6 UAVinUGV;
-static Vec3 UGVrpy;
+static Vec3 UGVrpy,Traj_init_UGVrpy;
 
 /* System */
 bool System_init = false;
@@ -469,6 +469,7 @@ void Finite_state_machine(){
         if(!FSM_init){
             FSM_init = true;
             pub_trajpose = true;  pub_pidtwist = false;
+            Traj_init_UGVrpy = UGVrpy;
             // double mid_dist = 1.5;
             // Vec2 midxy = Vec2(UGV_lp[0]-mid_dist*cos(UGVrpy[2]),UGV_lp[1]-mid_dist*sin(UGVrpy[2]));
             vector<Vector3d> WPs;
@@ -505,7 +506,14 @@ void Finite_state_machine(){
         }
         double Traj_leftT = traj_pos_information[1] - ros::Time::now().toSec();
         double Dist_horizontal = sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2));
-        if(Traj_leftT < -0.5){
+        if(abs(Traj_init_UGVrpy[2]-UGVrpy[2])>0.2){
+            cout << "---------------------------------------------------" << endl
+                 << "------------------UGV not stable-------------------" << endl
+                 << "---------------------------------------------------" << endl;
+            FSM_state--;
+            FSM_init = false;
+        }
+        if(Traj_leftT < -1.5){
             cout << "---------------------------------------------------" << endl
                  << "---------------Landing Traj Timeout----------------" << endl
                  << "---------------------------------------------------" << endl;
@@ -529,10 +537,8 @@ void Finite_state_machine(){
         if(Traj_leftT <  1 && UAVinUGV[1] > -0.1 && abs(UAVinUGV[1]) > 0.1 && UAVinUGV[2] < 0.15 ){ 
             ShutDown = false;
             soft_ShutDown = true;
+            FSM_state++;
         }
-        // if(ros::Time::now().toSec() - FSM_init_time > AM_traj_pos_duration/2){
-
-        // }
     }
     if(FSM_state==6){ //Back up
 
