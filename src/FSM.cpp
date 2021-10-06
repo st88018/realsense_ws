@@ -20,6 +20,7 @@ static geometry_msgs::PoseStamped   UAV_pose_sub,UGV_pose_sub,UAV_pose_pub,UGV_p
 static geometry_msgs::TwistStamped  UGV_twist_sub,UAV_twist_sub;
 static geometry_msgs::Twist         UAV_twist_pub;
 static Vec7 UAV_lp,UGV_lp;
+static Vec6 UAVinUGV;
 static Vec3 UGVrpy;
 
 /* System */
@@ -55,9 +56,10 @@ bool   Mission8init  = false;
 double M8start_alt;
 bool   pub_trajpose  = false;
 bool   pub_pidtwist  = false;
-bool   pub_trajtwist  = false;
+bool   pub_trajtwist = false;
 bool   Force_start   = false;
-bool   Shut_down     = false;
+bool   ShutDown      = false;
+bool   soft_ShutDown = false;
 
 void failsafe(bool Failsafe_trigger){
     if(Failsafe_trigger){
@@ -169,6 +171,7 @@ void uav_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UAV_pose_sub.pose.orientation.z = pose->pose.orientation.z;
     UAV_lp << UAV_pose_sub.pose.position.x,UAV_pose_sub.pose.position.y,UAV_pose_sub.pose.position.z,
               UAV_pose_sub.pose.orientation.w,UAV_pose_sub.pose.orientation.x,UAV_pose_sub.pose.orientation.y,UAV_pose_sub.pose.orientation.z;
+    UAVinUGV = uav2ugv();
 }
 void uav_pose_pub(Vec7 posepub){
     UAV_pose_pub.header.frame_id = "world";
@@ -220,7 +223,7 @@ void uav_pub(bool pub_trajpose, bool pub_pidtwist){
             Vec7 UGV_pred_lp = ugv_pred_land_pose(0.5);
             Pos_setpoint << UGV_pred_lp[0],UGV_pred_lp[1],M8start_alt-=0.001,UGVrpy[2];
             if( sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) < 0.15 && sqrt(pow((UAV_lp[2]-UGV_lp[2]),2)) < 0.1 ){
-                Shut_down = true;
+                ShutDown = true;
             }
         }
         if (PID_InitTime+PID_duration < ros::Time::now().toSec() && PID_duration != 0){ // EndMission
@@ -452,7 +455,6 @@ void Finite_state_machine(){
     //     Vec3 UGVrpy = Q2rpy(UGVq);
     //     Pos_setpoint << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGVrpy[2];
     //     PID_duration = 0;
-        
     //     vector<Vector3d> WPs;
     //     WPs.clear();
     //     Vector3d StartP(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
@@ -464,7 +466,6 @@ void Finite_state_machine(){
         Vec2 desxy;
         double Des_dist = 0.05;
         desxy = Vec2(UGV_lp[0]+Des_dist*cos(UGVrpy[2]),UGV_lp[1]+Des_dist*sin(UGVrpy[2]));
-
         if(!FSM_init){
             FSM_init = true;
             pub_trajpose = true;  pub_pidtwist = false;
@@ -503,20 +504,31 @@ void Finite_state_machine(){
             }
         }
         double Traj_leftT = traj_pos_information[1] - ros::Time::now().toSec();
-        if(Traj_leftT < -0.5 && 
-           sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) > 0.08){
+        double Dist_horizontal = sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2));
+        if(Traj_leftT < -0.5){
+            cout << "---------------------------------------------------" << endl
+                 << "---------------Landing Traj Timeout----------------" << endl
+                 << "---------------------------------------------------" << endl;
             FSM_state--;
             FSM_init = false;
         }
-        if((UAV_lp[2]-UGV_lp[2]) < 0.05){
-            cout << "warning altitude to low" << endl;
+        if(UAVinUGV[2] < 0.05 && Dist_horizontal < 0.5){
+            cout << "---------------------------------------------------" << endl
+                 << "-----Vertical distance not enough to approach------" << endl
+                 << "---------------------------------------------------" << endl;
             FSM_state--;
             FSM_init = false;
         }
-        if(Traj_leftT <  1 && 
-           sqrt(pow((UAV_lp[0]-desxy[0]),2)+pow((UAV_lp[1]-desxy[1]),2)) < 0.05 &&
-           (UAV_lp[2]-UGV_lp[2]) < 0.15 ){
-            Shut_down = true;
+        if(UAVinUGV[1] > 0.15 ){
+            cout << "---------------------------------------------------" << endl
+                 << "--------------UAV overshoots UGV-------------------" << endl
+                 << "---------------------------------------------------" << endl;
+            FSM_state--;
+            FSM_init = false;
+        }
+        if(Traj_leftT <  1 && UAVinUGV[1] > -0.1 && abs(UAVinUGV[1]) > 0.1 && UAVinUGV[2] < 0.15 ){ 
+            ShutDown = false;
+            soft_ShutDown = true;
         }
         // if(ros::Time::now().toSec() - FSM_init_time > AM_traj_pos_duration/2){
 
@@ -548,6 +560,7 @@ int main(int argc, char **argv)
     nh.getParam("/FSM_node/Force_start", Force_start);
     Zero4 << 0,0,0,0;
     Zero7 << 0,0,0,0,0,0,0;
+    UAV_AttitudeTarget.thrust = 0.3;
     ros::Rate loop_rate(100); /* ROS system Hz */
 
     while(ros::ok()){
@@ -606,18 +619,25 @@ int main(int argc, char **argv)
         failsafe(Failsafe_trigger);
         Finite_state_machine();
         uav_pub(pub_trajpose,pub_pidtwist);
-        if(Shut_down){ // UAV shut down
+        if(ShutDown){ // UAV shut down
             cout << "Warning Vehicle Shut Down" << endl;
             pub_pidtwist = false;
             pub_trajpose = false;
-            UAV_AttitudeTarget.thrust = 0; 
+            UAV_AttitudeTarget.thrust = 0;
+            uav_AttitudeTarget.publish(UAV_AttitudeTarget);
+        }
+        if(soft_ShutDown){
+            cout << "Vehicle Soft Shut Down" << endl;
+            pub_pidtwist = false;
+            pub_trajpose = false;
+            UAV_AttitudeTarget.thrust -= 0.001;
             uav_AttitudeTarget.publish(UAV_AttitudeTarget);
         }
         if(pub_pidtwist){uav_vel_pub.publish(UAV_twist_pub);}
         if(pub_trajpose){uav_pos_pub.publish(UAV_pose_pub);}
         if(FSM_state == 2){uav_pos_pub.publish(UAV_pose_pub);}
         /*Mission information cout**********************************************/
-        if(coutcounter > 30 && FSMinit && !Shut_down){ //reduce cout rate
+        if(coutcounter > 30 && FSMinit && !ShutDown && !soft_ShutDown){ //reduce cout rate
             if (FSM_state == 0){
                 cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
                 cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
@@ -638,11 +658,8 @@ int main(int argc, char **argv)
                     cout << "PID  countdown: " << PID_InitTime+PID_duration - ros::Time::now().toSec() << endl;
                 }
             }
-            
             cout << "CAr____pos_x: " << UGV_pose_sub.pose.position.x << " y: " << UGV_pose_sub.pose.position.y << " z: " << UGV_pose_sub.pose.position.z << endl;
-            cout << "Dist_UAVtoUGV_horizontal: " << sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) <<
-                    " vertical: " << UAV_lp[2]-UGV_lp[2] << endl;
-            cout << "UAV_in_UGVframe_x: " << uav2ugv()[0] << " y: " << uav2ugv()[1] << " z: "<< uav2ugv()[2] << endl;
+            cout << "UAV_in_UGVframe_x: " << UAVinUGV[0] << " y: " << UAVinUGV[1] << " z: "<< UAVinUGV[2] << endl;
             cout << "Failsafe_Syste: " << Failsafe_trigger << endl;
             cout << "---------------------------------------------------" << endl;
             coutcounter = 0;
