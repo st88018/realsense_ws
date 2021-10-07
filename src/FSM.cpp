@@ -476,9 +476,9 @@ void Finite_state_machine(){
             WPs.clear();
             Vector3d StartP(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
             WPs.push_back(StartP);
-            Vector3d MidP(UAV_lp[0],UAV_lp[1],UAV_lp[2]-0.05);
+            Vector3d MidP(UAV_lp[0],UAV_lp[1],UAV_lp[2]-0.1);
             WPs.push_back(MidP);
-            Vector3d EndP(desxy[0],desxy[1],UGV_lp[2]+0.05);
+            Vector3d EndP(desxy[0],desxy[1],UGV_lp[2]+0.1);
             WPs.push_back(EndP);
             AM_traj_pos(WPs,UAV_lp,UAV_twist);
 
@@ -487,7 +487,7 @@ void Finite_state_machine(){
             WPs.push_back(StartP);
             WPs.push_back(MidP);
             desxy = Vec2(UGV_pred_lp[0]+Des_dist*cos(UGVrpy[2]),UGV_pred_lp[1]+Des_dist*sin(UGVrpy[2]));
-            EndP = Vector3d(desxy[0],desxy[1],UGV_lp[2]+0.05);
+            EndP = Vector3d(desxy[0],desxy[1],UGV_lp[2]+0.1);
             WPs.push_back(EndP);
             AM_traj_pos(WPs,UAV_lp,UAV_twist);
 
@@ -513,7 +513,7 @@ void Finite_state_machine(){
             FSM_state--;
             FSM_init = false;
         }
-        if(Traj_leftT < -1.5){
+        if(Traj_leftT < -2){
             cout << "---------------------------------------------------" << endl
                  << "---------------Landing Traj Timeout----------------" << endl
                  << "---------------------------------------------------" << endl;
@@ -527,14 +527,14 @@ void Finite_state_machine(){
             FSM_state--;
             FSM_init = false;
         }
-        if(UAVinUGV[1] > 0.15 ){
+        if(UAVinUGV[0] > 0.15 ){
             cout << "---------------------------------------------------" << endl
                  << "--------------UAV overshoots UGV-------------------" << endl
                  << "---------------------------------------------------" << endl;
             FSM_state--;
             FSM_init = false;
         }
-        if(Traj_leftT <  1 && UAVinUGV[1] > -0.1 && abs(UAVinUGV[1]) > 0.1 && UAVinUGV[2] < 0.15 ){ 
+        if(Traj_leftT <  1 && UAVinUGV[0] > -0.05 && abs(UAVinUGV[1]) < 0.1 && UAVinUGV[2] < 0.15 ){ 
             ShutDown = false;
             soft_ShutDown = true;
             FSM_state++;
@@ -636,7 +636,8 @@ int main(int argc, char **argv)
             cout << "Vehicle Soft Shut Down" << endl;
             pub_pidtwist = false;
             pub_trajpose = false;
-            UAV_AttitudeTarget.thrust -= 0.001;
+            UAV_AttitudeTarget.thrust -= 0.005;
+            cout << "thrust: " << UAV_AttitudeTarget.thrust << endl;
             uav_AttitudeTarget.publish(UAV_AttitudeTarget);
         }
         if(pub_pidtwist){uav_vel_pub.publish(UAV_twist_pub);}
