@@ -223,7 +223,8 @@ void uav_pub(bool pub_trajpose, bool pub_pidtwist){
             Vec7 UGV_pred_lp = ugv_pred_land_pose(0.5);
             Pos_setpoint << UGV_pred_lp[0],UGV_pred_lp[1],M8start_alt-=0.001,UGVrpy[2];
             if( sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) < 0.15 && sqrt(pow((UAV_lp[2]-UGV_lp[2]),2)) < 0.1 ){
-                ShutDown = true;
+                ShutDown = false;
+                soft_ShutDown = true;
             }
         }
         if (PID_InitTime+PID_duration < ros::Time::now().toSec() && PID_duration != 0){ // EndMission
