@@ -50,8 +50,8 @@ void camera_pose_cb(const geometry_msgs::PoseStamped::ConstPtr& pose){
     Camera_pose_vicon.pose.orientation.w = pose->pose.orientation.w;
 }
 void Aruco_PosePub(Vec6 rpyxyz){
-    // Quaterniond Q = rpy2Q(Vec3(rpyxyz(0),rpyxyz(1),rpyxyz(2)));
-    Quaterniond Q = rpy2Q(Vec3(0,0,3.14));
+    Quaterniond Q = rpy2Q(Vec3(rpyxyz(0),rpyxyz(1),rpyxyz(2)));
+    // Quaterniond Q = rpy2Q(Vec3(0,0,3.14));
     Aruco_pose_realsense.header.stamp = ros::Time::now();
     Aruco_pose_realsense.header.frame_id = "world";
     Aruco_pose_realsense.pose.position.x = rpyxyz(3);
@@ -234,8 +234,8 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     //     }
     // }
     /* LED PNP */
-    Vec6 LEDtvecrvec = LEDTvecRvec(image_rgb);  
-    LED_PosePub(Camera2World(Vec3(LEDtvecrvec[3],LEDtvecrvec[4],LEDtvecrvec[5]),Vec3(LEDtvecrvec[0],LEDtvecrvec[1],LEDtvecrvec[2])));
+    // Vec6 LEDtvecrvec = LEDTvecRvec(image_rgb);  
+    // LED_PosePub(Camera2World(Vec3(LEDtvecrvec[3],LEDtvecrvec[4],LEDtvecrvec[5]),Vec3(LEDtvecrvec[0],LEDtvecrvec[1],LEDtvecrvec[2])));
     // cout << "Aruco Tvec: " << tvec*1000 << endl;
 
     /* image plot */
