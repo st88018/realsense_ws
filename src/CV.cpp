@@ -180,6 +180,9 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     /* image plot */
     // cv::imshow("dep_out", image_dep); 
 }
+void Kalman_Filter(){
+
+}
 int main(int argc, char **argv){
     ros::init(argc, argv, "camera");
     ros::NodeHandle nh;
@@ -195,8 +198,13 @@ int main(int argc, char **argv){
     sync.registerCallback(boost::bind(&callback, _1, _2));
     PNP3Dpoints();
     ros::Rate loop_rate(50); /* ROS system Hz */
+    int stateSize = 6; // (x,y,z,△x,△y,△z)
+    int measSize = 6;  // (x,y,z,△x,△y,△z)
+    int contrSize = 0;
+    cv::KalmanFilter kf(stateSize, measSize, contrSize);
 
     while(ros::ok()){
+        Kalman_Filter();
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
         LEDPose_pub.publish(LED_pose_realsense);
