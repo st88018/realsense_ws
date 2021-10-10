@@ -645,7 +645,7 @@ int main(int argc, char **argv)
         if(pub_trajpose){uav_pos_pub.publish(UAV_pose_pub);}
         if(FSM_state == 2){uav_pos_pub.publish(UAV_pose_pub);}
         /*Mission information cout**********************************************/
-        if(coutcounter > 30 && FSMinit && !ShutDown && !soft_ShutDown){ //reduce cout rate
+        if(coutcounter > 50 && FSMinit && !ShutDown && !soft_ShutDown){ //reduce cout rate
             if (FSM_state == 0){
                 cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
                 cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
@@ -653,9 +653,7 @@ int main(int argc, char **argv)
             }else{
                 cout << "FSM State: "<< FSM_state << endl;
             }
-
             cout << "vicon__pos_x: " << UAV_lp[0] << " y: " << UAV_lp[1] << " z: "<< UAV_lp[2] << endl;
-            
             if(pub_trajpose){
                 cout << "desiredpos___x: " << UAV_pose_pub.pose.position.x << " y: " << UAV_pose_pub.pose.position.y << " z: "<< UAV_pose_pub.pose.position.z << endl;
                 cout << "Traj countdown: " << traj_pos_information[1] - ros::Time::now().toSec() << endl;
@@ -672,6 +670,10 @@ int main(int argc, char **argv)
             cout << "---------------------------------------------------" << endl;
             coutcounter = 0;
         }else{coutcounter++;}
+        /* ROS timer */
+        // auto currentT = ros::Time::now().toSec();
+        // cout << "System_Hz: " << 1/(currentT-LastT) << endl;
+        // LastT = currentT;
         ros::spinOnce();
         loop_rate.sleep();
     }

@@ -19,6 +19,7 @@
 #include <message_filters/sync_policies/exact_time.h>
 #include <message_filters/sync_policies/approximate_time.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/TwistStamped.h>
 #include <numeric>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -31,70 +32,106 @@ using namespace sensor_msgs;
 using namespace message_filters;
 
 /*uav local parameter*/
-static geometry_msgs::PoseStamped Aruco_pose_realsense;
-static geometry_msgs::PoseStamped Depth_pose_realsense;
-static geometry_msgs::PoseStamped LED_pose_realsense;
-static geometry_msgs::PoseStamped Camera_pose_vicon;
+static geometry_msgs::PoseStamped Aruco_pose_realsense,Depth_pose_realsense,LED_pose_realsense,KF_pose,Camera_pose_sub,UAV_pose_sub;
+static geometry_msgs::TwistStamped  UGV_twist_sub,UAV_twist_sub;
+static Vec6 UAV_twist;
+static Vec7 UAV_lp;
+Quaterniond UAVq;
 /* System */
 int coutcounter = 0;
 static Vec7 Zero7;
 static Vec4 Zero4;
 
+void uav_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
+    UAV_pose_sub.pose.position.x = pose->pose.position.x;
+    UAV_pose_sub.pose.position.y = pose->pose.position.y;
+    UAV_pose_sub.pose.position.z = pose->pose.position.z;
+    UAV_pose_sub.pose.orientation.w = pose->pose.orientation.w;
+    UAV_pose_sub.pose.orientation.x = pose->pose.orientation.x;
+    UAV_pose_sub.pose.orientation.y = pose->pose.orientation.y;
+    UAV_pose_sub.pose.orientation.z = pose->pose.orientation.z;
+    UAV_lp << UAV_pose_sub.pose.position.x,UAV_pose_sub.pose.position.y,UAV_pose_sub.pose.position.z,
+              UAV_pose_sub.pose.orientation.w,UAV_pose_sub.pose.orientation.x,UAV_pose_sub.pose.orientation.y,UAV_pose_sub.pose.orientation.z;
+    UAVq = Quaterniond(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]);
+}
+void uav_twist_sub(const geometry_msgs::TwistStamped::ConstPtr& twist){
+    UAV_twist_sub.twist.linear.x = twist->twist.linear.x;
+    UAV_twist_sub.twist.linear.y = twist->twist.linear.y;
+    UAV_twist_sub.twist.linear.z = twist->twist.linear.z;
+    UAV_twist_sub.twist.angular.x = twist->twist.angular.x;
+    UAV_twist_sub.twist.angular.y = twist->twist.angular.y;
+    UAV_twist_sub.twist.angular.z = twist->twist.angular.z;
+    UAV_twist << UAV_twist_sub.twist.linear.x,UAV_twist_sub.twist.linear.y,UAV_twist_sub.twist.linear.z,
+                 UAV_twist_sub.twist.angular.x,UAV_twist_sub.twist.angular.y,UAV_twist_sub.twist.angular.z;
+}
 void camera_pose_cb(const geometry_msgs::PoseStamped::ConstPtr& pose){
-    Camera_pose_vicon.pose.position.x = pose->pose.position.x;
-    Camera_pose_vicon.pose.position.y = pose->pose.position.y;
-    Camera_pose_vicon.pose.position.z = pose->pose.position.z;
-    Camera_pose_vicon.pose.orientation.x = pose->pose.orientation.x;
-    Camera_pose_vicon.pose.orientation.y = pose->pose.orientation.y;
-    Camera_pose_vicon.pose.orientation.z = pose->pose.orientation.z;
-    Camera_pose_vicon.pose.orientation.w = pose->pose.orientation.w;
+    Camera_pose_sub.pose.position.x = pose->pose.position.x;
+    Camera_pose_sub.pose.position.y = pose->pose.position.y;
+    Camera_pose_sub.pose.position.z = pose->pose.position.z;
+    Camera_pose_sub.pose.orientation.x = pose->pose.orientation.x;
+    Camera_pose_sub.pose.orientation.y = pose->pose.orientation.y;
+    Camera_pose_sub.pose.orientation.z = pose->pose.orientation.z;
+    Camera_pose_sub.pose.orientation.w = pose->pose.orientation.w;
+}
+void KF_PosePub(Vec6 rpyxyz){
+    // Quaterniond Q = rpy2Q(Vec3(rpyxyz(0),rpyxyz(1),rpyxyz(2)));
+    // Quaterniond Q = rpy2Q(Vec3(0,0,3.14));
+    KF_pose.header.stamp = ros::Time::now();
+    KF_pose.header.frame_id = "world";
+    KF_pose.pose.position.x = rpyxyz(3);
+    KF_pose.pose.position.y = rpyxyz(4);
+    KF_pose.pose.position.z = rpyxyz(5);
+    KF_pose.pose.orientation.w = UAVq.w();
+    KF_pose.pose.orientation.x = UAVq.x();
+    KF_pose.pose.orientation.y = UAVq.y();
+    KF_pose.pose.orientation.z = UAVq.z();
 }
 void Aruco_PosePub(Vec6 rpyxyz){
-    Quaterniond Q = rpy2Q(Vec3(rpyxyz(0),rpyxyz(1),rpyxyz(2)));
+    // Quaterniond Q = rpy2Q(Vec3(rpyxyz(0),rpyxyz(1),rpyxyz(2)));
     // Quaterniond Q = rpy2Q(Vec3(0,0,3.14));
     Aruco_pose_realsense.header.stamp = ros::Time::now();
     Aruco_pose_realsense.header.frame_id = "world";
     Aruco_pose_realsense.pose.position.x = rpyxyz(3);
     Aruco_pose_realsense.pose.position.y = rpyxyz(4);
     Aruco_pose_realsense.pose.position.z = rpyxyz(5);
-    Aruco_pose_realsense.pose.orientation.w = Q.w();
-    Aruco_pose_realsense.pose.orientation.x = Q.x();
-    Aruco_pose_realsense.pose.orientation.y = Q.y();
-    Aruco_pose_realsense.pose.orientation.z = Q.z();
+    Aruco_pose_realsense.pose.orientation.w = UAVq.w();
+    Aruco_pose_realsense.pose.orientation.x = UAVq.x();
+    Aruco_pose_realsense.pose.orientation.y = UAVq.y();
+    Aruco_pose_realsense.pose.orientation.z = UAVq.z();
 }
 void Depth_PosePub(Vec6 rpyxyz){
-    Quaterniond Q = rpy2Q(Vec3(rpyxyz(0),rpyxyz(1),rpyxyz(2)));
+    // Quaterniond Q = rpy2Q(Vec3(rpyxyz(0),rpyxyz(1),rpyxyz(2)));
     Depth_pose_realsense.header.stamp = ros::Time::now();
     Depth_pose_realsense.header.frame_id = "world";
     Depth_pose_realsense.pose.position.x = rpyxyz(3);
     Depth_pose_realsense.pose.position.y = rpyxyz(4);
     Depth_pose_realsense.pose.position.z = rpyxyz(5);
-    Depth_pose_realsense.pose.orientation.w = Q.w();
-    Depth_pose_realsense.pose.orientation.x = Q.x();
-    Depth_pose_realsense.pose.orientation.y = Q.y();
-    Depth_pose_realsense.pose.orientation.z = Q.z();
+    Depth_pose_realsense.pose.orientation.w = UAVq.w();
+    Depth_pose_realsense.pose.orientation.x = UAVq.x();
+    Depth_pose_realsense.pose.orientation.y = UAVq.y();
+    Depth_pose_realsense.pose.orientation.z = UAVq.z();
 }
 void LED_PosePub(Vec6 rpyxyz){
-    Quaterniond Q = rpy2Q(Vec3(rpyxyz(0),rpyxyz(1),rpyxyz(2)));
+    // Quaterniond Q = rpy2Q(Vec3(rpyxyz(0),rpyxyz(1),rpyxyz(2)));
     LED_pose_realsense.header.stamp = ros::Time::now();
     LED_pose_realsense.header.frame_id = "world";
     LED_pose_realsense.pose.position.x = rpyxyz(3);
     LED_pose_realsense.pose.position.y = rpyxyz(4);
     LED_pose_realsense.pose.position.z = rpyxyz(5);
-    LED_pose_realsense.pose.orientation.w = Q.w();
-    LED_pose_realsense.pose.orientation.x = Q.x();
-    LED_pose_realsense.pose.orientation.y = Q.y();
-    LED_pose_realsense.pose.orientation.z = Q.z();
+    LED_pose_realsense.pose.orientation.w = UAVq.w();
+    LED_pose_realsense.pose.orientation.x = UAVq.x();
+    LED_pose_realsense.pose.orientation.y = UAVq.y();
+    LED_pose_realsense.pose.orientation.z = UAVq.z();
 }
 Vec6 Camera2World(const Vec3 rvecs, const Vec3 tvecs){ // camera coordinate to world coordinate
     Eigen::Quaterniond q;
-    q.w() = Camera_pose_vicon.pose.orientation.w;
-    q.x() = Camera_pose_vicon.pose.orientation.x;
-    q.y() = Camera_pose_vicon.pose.orientation.y;
-    q.z() = Camera_pose_vicon.pose.orientation.z;
+    q.w() = Camera_pose_sub.pose.orientation.w;
+    q.x() = Camera_pose_sub.pose.orientation.x;
+    q.y() = Camera_pose_sub.pose.orientation.y;
+    q.z() = Camera_pose_sub.pose.orientation.z;
     Eigen::Matrix3d Camera_Rotation_world = Eigen::Matrix3d::Identity();
     Camera_Rotation_world = q.matrix();
-    Vec3 Cam_Translation_world(Camera_pose_vicon.pose.position.x, Camera_pose_vicon.pose.position.y, Camera_pose_vicon.pose.position.z);
+    Vec3 Cam_Translation_world(Camera_pose_sub.pose.position.x, Camera_pose_sub.pose.position.y, Camera_pose_sub.pose.position.z);
     Vec3 translation_world = Camera_Rotation_world * tvecs + Cam_Translation_world;
     Vec3 rpy_world = Camera_Rotation_world*rvecs;
     Vec6 output;
@@ -182,14 +219,12 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     /* image plot */
     // cv::imshow("dep_out", image_dep); 
 }
-void Kalman_Filter(){
-
-}
 int main(int argc, char **argv){
     ros::init(argc, argv, "camera");
     ros::NodeHandle nh;
     ros::Subscriber camera_info_sub = nh.subscribe("/camera/aligned_depth_to_color/camera_info",1,camera_info_cb);
     ros::Subscriber camerapose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_d455/pose", 1, camera_pose_cb);
+    ros::Subscriber uavtwist_sub = nh.subscribe<geometry_msgs::TwistStamped>("mavros/local_position/velocity_body", 5, uav_twist_sub);
     ros::Publisher ArucoPose_pub = nh.advertise<geometry_msgs::PoseStamped>("ArucoPose",1);
     ros::Publisher DepthPose_pub = nh.advertise<geometry_msgs::PoseStamped>("DepthPose",1);
     ros::Publisher LEDPose_pub = nh.advertise<geometry_msgs::PoseStamped>("LEDPose",1);
@@ -200,13 +235,41 @@ int main(int argc, char **argv){
     sync.registerCallback(boost::bind(&callback, _1, _2));
     PNP3Dpoints();
     ros::Rate loop_rate(50); /* ROS system Hz */
-    int stateSize = 6; // (x,y,z,△x,△y,△z)
-    int measSize = 6;  // (x,y,z,△x,△y,△z)
+    /* Kalman Filter */
+    int stateSize = 6; // (x,y,z,vx,vy,vz)
+    int measSize = 6;  // (x,y,z,vx,vy,vz)
     int contrSize = 0;
-    cv::KalmanFilter kf(stateSize, measSize, contrSize);
+    cv::KalmanFilter KF(stateSize, measSize, contrSize);
+    KF.transitionMatrix = (Mat_<float>(6, 6) << 1,0,0,1,0,0,
+                                                0,1,0,0,1,0,
+                                                0,0,1,0,0,1,
+                                                0,0,0,1,0,0,
+                                                0,0,0,0,1,0,
+                                                0,0,0,0,0,1);
+    setIdentity(KF.measurementMatrix);
+    setIdentity(KF.processNoiseCov, Scalar::all(1e-5)); 
+    setIdentity(KF.measurementNoiseCov, Scalar::all(1e-1));
+    setIdentity(KF.errorCovPost, Scalar::all(1));
+    randn(KF.statePost, Scalar::all(0), Scalar::all(0.1));
+    Mat measurement = Mat::zeros(measSize, 1, CV_32F);
 
     while(ros::ok()){
-        Kalman_Filter();
+        /* Kalman Filter */
+        //2.kalman prediction
+		Mat prediction = KF.predict();
+		// Point predict_pt = Point(prediction.at<float>(0),prediction.at<float>(1) );
+ 
+		//3.update measurement
+		measurement.at<float>(0) = Aruco_pose_realsense.pose.position.x;
+		measurement.at<float>(1) = Aruco_pose_realsense.pose.position.y;
+        measurement.at<float>(2) = Aruco_pose_realsense.pose.position.z;
+		measurement.at<float>(3) = UAV_twist[0];
+        measurement.at<float>(4) = UAV_twist[1];
+		measurement.at<float>(5) = UAV_twist[2];		
+ 
+		//4.update
+		KF.correct(measurement);
+
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
         LEDPose_pub.publish(LED_pose_realsense);
