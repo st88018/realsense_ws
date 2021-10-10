@@ -50,8 +50,8 @@ void camera_pose_cb(const geometry_msgs::PoseStamped::ConstPtr& pose){
     Camera_pose_vicon.pose.orientation.w = pose->pose.orientation.w;
 }
 void Aruco_PosePub(Vec6 rpyxyz){
-    // Quaterniond Q = rpy2Q(Vec3(rpyxyz(0),rpyxyz(1),rpyxyz(2)));
-    Quaterniond Q = rpy2Q(Vec3(0,0,3.14));
+    Quaterniond Q = rpy2Q(Vec3(rpyxyz(0),rpyxyz(1),rpyxyz(2)));
+    // Quaterniond Q = rpy2Q(Vec3(0,0,3.14));
     Aruco_pose_realsense.header.stamp = ros::Time::now();
     Aruco_pose_realsense.header.frame_id = "world";
     Aruco_pose_realsense.pose.position.x = rpyxyz(3);
@@ -86,7 +86,7 @@ void LED_PosePub(Vec6 rpyxyz){
     LED_pose_realsense.pose.orientation.y = Q.y();
     LED_pose_realsense.pose.orientation.z = Q.z();
 }
-Vec6 Pose_calc(const Vec3 rvecs, const Vec3 tvecs){ // camera coordinate to world coordinate
+Vec6 Camera2World(const Vec3 rvecs, const Vec3 tvecs){ // camera coordinate to world coordinate
     Eigen::Quaterniond q;
     q.w() = Camera_pose_vicon.pose.orientation.w;
     q.x() = Camera_pose_vicon.pose.orientation.x;
@@ -102,6 +102,66 @@ Vec6 Pose_calc(const Vec3 rvecs, const Vec3 tvecs){ // camera coordinate to worl
               translation_world[0],translation_world[1],translation_world[2];
     return(output);
 }
+void Aruco_process(Mat image_rgb, const sensor_msgs::ImageConstPtr &depth){
+    cv::Mat ArucoOutput = image_rgb.clone();
+    std::vector<int> markerIds;
+    std::vector<Vec8I> markerConerABCDs;
+    Vec2I markerCenter,last_markerCenter;
+    Vec8I markerConerABCD;
+    Vec8I last_markerConerABCD;
+    std::vector<std::vector<cv::Point2f>> markerCorners, rejectedCandidates;
+    std::vector<cv::Point2f> markerCorner;
+    std::vector<cv::Vec3d> rvecs, tvecs;
+    cv::Vec3d rvec, tvec;
+    rvecs.clear();tvecs.clear();
+    cv::Ptr<cv::aruco::DetectorParameters> parameters = cv::aruco::DetectorParameters::create();
+    cv::Ptr<cv::aruco::Dictionary> dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_250);
+    cv::aruco::detectMarkers(image_rgb, dictionary, markerCorners, markerIds, parameters, rejectedCandidates);
+    if (markerIds.size() > 0){
+        markerConerABCDs.clear();
+        Aruco_init = true;
+        Aruco_found = true;
+        cv::aruco::drawDetectedMarkers(ArucoOutput, markerCorners, markerIds);
+        cv::aruco::estimatePoseSingleMarkers(markerCorners, 0.06, cameraMatrix, distCoeffs, rvecs, tvecs);
+        for(unsigned int i=0; i<markerIds.size(); i++){
+            cv::aruco::drawAxis(ArucoOutput, cameraMatrix, distCoeffs, rvecs[i], tvecs[i], 0.1);
+            markerCorner = markerCorners[i];
+            for (unsigned int j=0; j<markerCorner.size();j++){
+                cv::Point2f MC = markerCorner[j];
+                markerConerABCD[j*2] = MC.x;
+                markerConerABCD[j*2+1] = MC.y;
+            }
+            markerConerABCDs.push_back(markerConerABCD);
+        }
+        // if (markerIds.size() > 1 ){cout << "Aruco Warning" << endl;}
+    }else{Aruco_found = false; ArucoLostcounter++;}
+    if (Aruco_init == false){
+        CVE_Corners.clear();
+        Vec8I CVE_Corner;
+        CVE_Corner << 0,0,0,0,0,0,0,0;
+        for(int i=0; i<5; i++){CVE_Corners.push_back(CVE_Corner);}
+    }
+    if (Aruco_init){
+        cv_bridge::CvImagePtr depth_ptr  = cv_bridge::toCvCopy(depth, depth->encoding);
+        cv::Mat image_dep = depth_ptr->image;
+        Vec3 Depthrvecs;
+        if(Aruco_found){
+            rvec = rvecs.front();
+            tvec = tvecs.front();
+            Vec3 Aruco_translation_camera(tvec(0),tvec(1),tvec(2));
+            Vec3 Aruco_rpy_camera(rvec(0),rvec(1),rvec(2));
+            Aruco_PosePub(Camera2World(Aruco_rpy_camera,Aruco_translation_camera));
+            Depthrvecs = Aruco_rpy_camera;
+            double ArucoDepth = find_depth_avg(image_dep,markerConerABCDs.back());
+            last_markerConerABCD = markerConerABCDs.back();
+            Depth_PosePub(Camera2World(Depthrvecs,camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters)));
+            ArucoLostcounter = 0;
+        }else{ //Aruco not found do constant-velocity predict
+            double ArucoDepth = find_depth_avg(image_dep,last_markerConerABCD);
+            Depth_PosePub(Camera2World(Depthrvecs,camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters)));
+        }
+    }
+}
 void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs::ImageConstPtr &depth){
     // cout<<"hello callback "<<endl;
     cv::Mat image_rgb;
@@ -113,6 +173,7 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
         return;
     }
     /* Aruco */
+    Aruco_process(image_rgb,depth);
     // cv::Mat ArucoOutput = image_rgb.clone();
     // std::vector<int> markerIds;
     // std::vector<Vec8I> markerConerABCDs;
@@ -151,7 +212,7 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     //     CVE_Corner << 0,0,0,0,0,0,0,0;
     //     for(int i=0; i<5; i++){CVE_Corners.push_back(CVE_Corner);}
     // }
-    // /* Pose in World Calc */
+    /* Pose in World Calc */
     // if (Aruco_init){
     //     cv_bridge::CvImagePtr depth_ptr  = cv_bridge::toCvCopy(depth, depth->encoding);
     //     cv::Mat image_dep = depth_ptr->image;
@@ -161,20 +222,20 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     //         tvec = tvecs.front();
     //         Vec3 Aruco_translation_camera(tvec(0),tvec(1),tvec(2));
     //         Vec3 Aruco_rpy_camera(rvec(0),rvec(1),rvec(2));
-    //         Aruco_PosePub(Pose_calc(Aruco_rpy_camera,Aruco_translation_camera));
+    //         Aruco_PosePub(Camera2World(Aruco_rpy_camera,Aruco_translation_camera));
     //         Depthrvecs = Aruco_rpy_camera;
     //         double ArucoDepth = find_depth_avg(image_dep,markerConerABCDs.back());
     //         last_markerConerABCD = markerConerABCDs.back();
-    //         Depth_PosePub(Pose_calc(Depthrvecs,camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters)));
+    //         Depth_PosePub(Camera2World(Depthrvecs,camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters)));
     //         ArucoLostcounter = 0;
     //     }else{ //Aruco not found do constant-velocity predict
     //         double ArucoDepth = find_depth_avg(image_dep,last_markerConerABCD);
-    //         Depth_PosePub(Pose_calc(Depthrvecs,camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters)));
+    //         Depth_PosePub(Camera2World(Depthrvecs,camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters)));
     //     }
     // }
     /* LED PNP */
-    Vec6 LEDtvecrvec = LEDTvecRvec(image_rgb);  
-    LED_PosePub(Pose_calc(Vec3(LEDtvecrvec[3],LEDtvecrvec[4],LEDtvecrvec[5]),Vec3(LEDtvecrvec[0],LEDtvecrvec[1],LEDtvecrvec[2])));
+    // Vec6 LEDtvecrvec = LEDTvecRvec(image_rgb);  
+    // LED_PosePub(Camera2World(Vec3(LEDtvecrvec[3],LEDtvecrvec[4],LEDtvecrvec[5]),Vec3(LEDtvecrvec[0],LEDtvecrvec[1],LEDtvecrvec[2])));
     // cout << "Aruco Tvec: " << tvec*1000 << endl;
 
     /* image plot */
@@ -187,7 +248,7 @@ int main(int argc, char **argv){
     ros::init(argc, argv, "camera");
     ros::NodeHandle nh;
     ros::Subscriber camera_info_sub = nh.subscribe("/camera/aligned_depth_to_color/camera_info",1,camera_info_cb);
-    ros::Subscriber camerapose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_l515/pose", 1, camera_pose_cb);
+    ros::Subscriber camerapose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_d455/pose", 1, camera_pose_cb);
     ros::Publisher ArucoPose_pub = nh.advertise<geometry_msgs::PoseStamped>("ArucoPose",1);
     ros::Publisher DepthPose_pub = nh.advertise<geometry_msgs::PoseStamped>("DepthPose",1);
     ros::Publisher LEDPose_pub = nh.advertise<geometry_msgs::PoseStamped>("LEDPose",1);
