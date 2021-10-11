@@ -41,6 +41,8 @@ Quaterniond UAVq;
 int coutcounter = 0;
 static Vec7 Zero7;
 static Vec4 Zero4;
+/* Kalman Filter */
+double StartT,LastT,dT;
 
 void uav_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UAV_pose_sub.pose.position.x = pose->pose.position.x;
@@ -234,18 +236,19 @@ int main(int argc, char **argv){
     Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), rgb_sub, dep_sub);
     sync.registerCallback(boost::bind(&callback, _1, _2));
     PNP3Dpoints();
-    ros::Rate loop_rate(50); /* ROS system Hz */
+
     /* Kalman Filter */
     int stateSize = 6; // (x,y,z,vx,vy,vz)
     int measSize = 6;  // (x,y,z,vx,vy,vz)
     int contrSize = 0;
     cv::KalmanFilter KF(stateSize, measSize, contrSize);
-    KF.transitionMatrix = (Mat_<float>(6, 6) << 1,0,0,1,0,0,
-                                                0,1,0,0,1,0,
-                                                0,0,1,0,0,1,
-                                                0,0,0,1,0,0,
-                                                0,0,0,0,1,0,
-                                                0,0,0,0,0,1);
+    setIdentity(KF.transitionMatrix);
+    //  A << 1,0,0,dt,0,0,
+    //       0,1,0,0,dt,0, 
+    //       0,0,1,0,0,dt,
+    //       0,0,0,1,0,0,
+    //       0,0,0,0,1,0,
+    //       0,0,0,0,0,1);
     setIdentity(KF.measurementMatrix);
     setIdentity(KF.processNoiseCov, Scalar::all(1e-5)); 
     setIdentity(KF.measurementNoiseCov, Scalar::all(1e-1));
@@ -255,19 +258,23 @@ int main(int argc, char **argv){
 
     while(ros::ok()){
         /* Kalman Filter */
-        //2.kalman prediction
+        LastT = StartT;
+        StartT = ros::Time::now().toSec();
+        dT = StartT-LastT;
+        KF.transitionMatrix.at<float>(3)  = dT; //update Mat A
+        KF.transitionMatrix.at<float>(10) = dT; 
+        KF.transitionMatrix.at<float>(17) = dT;
+        /* KF prediction */
 		Mat prediction = KF.predict();
 		// Point predict_pt = Point(prediction.at<float>(0),prediction.at<float>(1) );
- 
-		//3.update measurement
+		/* update KF measurement */
 		measurement.at<float>(0) = Aruco_pose_realsense.pose.position.x;
 		measurement.at<float>(1) = Aruco_pose_realsense.pose.position.y;
         measurement.at<float>(2) = Aruco_pose_realsense.pose.position.z;
 		measurement.at<float>(3) = UAV_twist[0];
         measurement.at<float>(4) = UAV_twist[1];
 		measurement.at<float>(5) = UAV_twist[2];		
- 
-		//4.update
+		/* update */
 		KF.correct(measurement);
 
         ArucoPose_pub.publish(Aruco_pose_realsense);
@@ -278,7 +285,6 @@ int main(int argc, char **argv){
         // cout << "System_Hz: " << 1/(currentT-LastT) << endl;
         // LastT = currentT;
         ros::spinOnce();
-        loop_rate.sleep();
     }
     return 0;
 }
