@@ -65,7 +65,7 @@ double find_depth_avg(cv::Mat image_dep, Vec8I markerConerABCD){
         for(int j = 0; j < max(CornerLength1,CornerLength2); j++){
             double MidDepthij = 0.001 * image_dep.at<ushort>(markerCenterXY[1]-max(CornerLength1,CornerLength2)+i,
                                                      markerCenterXY[0]-max(CornerLength1,CornerLength2)+j);
-            if (MidDepthij > 0 ){
+            if (MidDepthij > 0 && MidDepthij < 3 ){
                 MidDepthTotal += MidDepthij;
                 valid_count++;
             }
