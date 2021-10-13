@@ -19,6 +19,7 @@ static double fx, fy, cx, cy; //focal length and principal point
 static Vec4 CamParameters;
 int ArucoLostcounter;
 bool Aruco_found = false;
+bool Use_KFDepth = false;
 bool Aruco_init = false;
 /* Constant velocity estimator */
 std::deque<Vec8I> CVE_Corners;
@@ -119,14 +120,9 @@ Vec3I HSVaverage(cv::Mat BGRmat){
 // }
 void PNP3Dpoints(){  //Determine the LED pos in real world
     PNPPoints3D.push_back(cv::Point3f(159, 121, 0)); //green
-    PNPPoints3D.push_back(cv::Point3f( 80,  42, 0)); //blue
+    PNPPoints3D.push_back(cv::Point3f( 80,  42, 0)); //green
     PNPPoints3D.push_back(cv::Point3f( 80, -42, 0)); //red  
     PNPPoints3D.push_back(cv::Point3f(159,-121, 0)); //red   gh034_small
-
-    // PNPPoints3D.push_back(cv::Point3f( 0,69, 0)); //red   Square TestRig
-    // PNPPoints3D.push_back(cv::Point3f(97, 0, 0)); //orange
-    // PNPPoints3D.push_back(cv::Point3f( 0, 0, 0)); //green
-    // PNPPoints3D.push_back(cv::Point3f(97,69, 0)); //blue
 }
 Vec6 LEDTvecRvec(Mat image_rgb){
     // Mat image_jpg = imread("./test.jpg");
@@ -209,4 +205,21 @@ Vec6 LEDTvecRvec(Mat image_rgb){
     // }
     return(output);
 }
+Vec6 Camera2World(const Vec3 rvecs, const Vec3 tvecs,Vec7 Camera_lp){ // camera coordinate to world coordinate
+    Eigen::Quaterniond q;
+    q.w() = Camera_lp[3];
+    q.x() = Camera_lp[4];
+    q.y() = Camera_lp[5];
+    q.z() = Camera_lp[6];
+    Eigen::Matrix3d Camera_Rotation_world = Eigen::Matrix3d::Identity();
+    Camera_Rotation_world = q.matrix();
+    Vec3 Cam_Translation_world(Camera_lp[0], Camera_lp[1], Camera_lp[2]);
+    Vec3 translation_world = Camera_Rotation_world * tvecs + Cam_Translation_world;
+    Vec3 rpy_world = Camera_Rotation_world*rvecs;
+    Vec6 output;
+    output << rpy_world[0],rpy_world[1],rpy_world[2],
+              translation_world[0],translation_world[1],translation_world[2];
+    return(output);
+}
+
 #endif 

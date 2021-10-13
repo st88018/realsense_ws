@@ -35,15 +35,18 @@ using namespace message_filters;
 static geometry_msgs::PoseStamped Aruco_pose_realsense,Depth_pose_realsense,LED_pose_realsense,KF_pose,Camera_pose_sub,UAV_pose_sub;
 static geometry_msgs::TwistStamped  UGV_twist_sub,UAV_twist_sub;
 static Vec6 UAV_twist;
-static Vec7 UAV_lp;
+static Vec7 UAV_lp,Camera_lp;
 Quaterniond UAVq;
 /* System */
 int coutcounter = 0;
 static Vec7 Zero7;
 static Vec4 Zero4;
+double TimerLastT;
+int logger_counter = 0;
 /* Kalman Filter */
 double KFStartT,KFLastT,dT;
-Vec6 KFrpyxyz;
+Vec7 KF_pub;
+bool KF_init = false;
 
 void uav_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UAV_pose_sub.pose.position.x = pose->pose.position.x;
@@ -67,7 +70,7 @@ void uav_twist_sub(const geometry_msgs::TwistStamped::ConstPtr& twist){
     UAV_twist << UAV_twist_sub.twist.linear.x,UAV_twist_sub.twist.linear.y,UAV_twist_sub.twist.linear.z,
                  UAV_twist_sub.twist.angular.x,UAV_twist_sub.twist.angular.y,UAV_twist_sub.twist.angular.z;
 }
-void camera_pose_cb(const geometry_msgs::PoseStamped::ConstPtr& pose){
+void camera_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     Camera_pose_sub.pose.position.x = pose->pose.position.x;
     Camera_pose_sub.pose.position.y = pose->pose.position.y;
     Camera_pose_sub.pose.position.z = pose->pose.position.z;
@@ -76,18 +79,16 @@ void camera_pose_cb(const geometry_msgs::PoseStamped::ConstPtr& pose){
     Camera_pose_sub.pose.orientation.z = pose->pose.orientation.z;
     Camera_pose_sub.pose.orientation.w = pose->pose.orientation.w;
 }
-void KF_PosePub(Vec6 rpyxyz){
-    // Quaterniond Q = rpy2Q(Vec3(rpyxyz(0),rpyxyz(1),rpyxyz(2)));
-    // Quaterniond Q = rpy2Q(Vec3(0,0,3.14));
+void KF_PosePub(Vec7 KF_pub){
     KF_pose.header.stamp = ros::Time::now();
     KF_pose.header.frame_id = "world";
-    KF_pose.pose.position.x = rpyxyz(3);
-    KF_pose.pose.position.y = rpyxyz(4);
-    KF_pose.pose.position.z = rpyxyz(5);
-    KF_pose.pose.orientation.w = UAVq.w();
-    KF_pose.pose.orientation.x = UAVq.x();
-    KF_pose.pose.orientation.y = UAVq.y();
-    KF_pose.pose.orientation.z = UAVq.z();
+    KF_pose.pose.position.x = KF_pub(0);
+    KF_pose.pose.position.y = KF_pub(1);
+    KF_pose.pose.position.z = KF_pub(2);
+    KF_pose.pose.orientation.w = KF_pub(3);
+    KF_pose.pose.orientation.x = KF_pub(4);
+    KF_pose.pose.orientation.y = KF_pub(5);
+    KF_pose.pose.orientation.z = KF_pub(6);
 }
 void Aruco_PosePub(Vec6 rpyxyz){
     // Quaterniond Q = rpy2Q(Vec3(rpyxyz(0),rpyxyz(1),rpyxyz(2)));
@@ -126,23 +127,7 @@ void LED_PosePub(Vec6 rpyxyz){
     LED_pose_realsense.pose.orientation.y = UAVq.y();
     LED_pose_realsense.pose.orientation.z = UAVq.z();
 }
-Vec6 Camera2World(const Vec3 rvecs, const Vec3 tvecs){ // camera coordinate to world coordinate
-    Eigen::Quaterniond q;
-    q.w() = Camera_pose_sub.pose.orientation.w;
-    q.x() = Camera_pose_sub.pose.orientation.x;
-    q.y() = Camera_pose_sub.pose.orientation.y;
-    q.z() = Camera_pose_sub.pose.orientation.z;
-    Eigen::Matrix3d Camera_Rotation_world = Eigen::Matrix3d::Identity();
-    Camera_Rotation_world = q.matrix();
-    Vec3 Cam_Translation_world(Camera_pose_sub.pose.position.x, Camera_pose_sub.pose.position.y, Camera_pose_sub.pose.position.z);
-    Vec3 translation_world = Camera_Rotation_world * tvecs + Cam_Translation_world;
-    Vec3 rpy_world = Camera_Rotation_world*rvecs;
-    Vec6 output;
-    output << rpy_world[0],rpy_world[1],rpy_world[2],
-              translation_world[0],translation_world[1],translation_world[2];
-    return(output);
-}
-void Aruco_process(Mat image_rgb, const sensor_msgs::ImageConstPtr &depth){
+void Aruco_process(Mat image_rgb, Mat image_dep){
     cv::Mat ArucoOutput = image_rgb.clone();
     std::vector<int> markerIds;
     std::vector<Vec8I> markerConerABCDs;
@@ -182,8 +167,6 @@ void Aruco_process(Mat image_rgb, const sensor_msgs::ImageConstPtr &depth){
         for(int i=0; i<5; i++){CVE_Corners.push_back(CVE_Corner);}
     }
     if (Aruco_init){
-        cv_bridge::CvImagePtr depth_ptr  = cv_bridge::toCvCopy(depth, depth->encoding);
-        cv::Mat image_dep = depth_ptr->image;
         Vec3 Depthrvecs;
         Vec3 Depthtvecs;
         if(Aruco_found){
@@ -191,46 +174,54 @@ void Aruco_process(Mat image_rgb, const sensor_msgs::ImageConstPtr &depth){
             tvec = tvecs.front();
             Vec3 Aruco_translation_camera(tvec(0),tvec(1),tvec(2));
             Vec3 Aruco_rpy_camera(rvec(0),rvec(1),rvec(2));
-            Aruco_PosePub(Camera2World(Aruco_rpy_camera,Aruco_translation_camera));
+            Aruco_PosePub(Camera2World(Aruco_rpy_camera,Aruco_translation_camera,Camera_lp));
             Depthrvecs = Aruco_rpy_camera;
             double ArucoDepth = find_depth_avg(image_dep,markerConerABCDs.back());
             last_markerConerABCD = markerConerABCDs.back();
             Depthtvecs = camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters);
-            Depth_PosePub(Camera2World(Depthrvecs,Depthtvecs));
+            Depth_PosePub(Camera2World(Depthrvecs,Depthtvecs,Camera_lp));
             ArucoLostcounter = 0;
-            cout << "Aruco: " << endl << Aruco_translation_camera << endl << "Depth: " << endl << Depthtvecs << endl;
+            // cout << "Aruco: " << endl << Aruco_translation_camera << endl << "Depth: " << endl << Depthtvecs << endl;
         }else{ //Aruco not found do constant-velocity predict
             double ArucoDepth = find_depth_avg(image_dep,last_markerConerABCD);
             Depthtvecs = camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters);
-            Depth_PosePub(Camera2World(Depthrvecs,Depthtvecs));
+            Depth_PosePub(Camera2World(Depthrvecs,Depthtvecs,Camera_lp));
         }
     }
 }
 void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs::ImageConstPtr &depth){
-    // cout<<"hello callback "<<endl;
-    cv::Mat image_rgb;
+    /* Image initialize */
+    cv::Mat image_rgb,image_dep;
     try{
         image_rgb = cv::imdecode(cv::Mat(rgb->data),1);
+        cv_bridge::CvImagePtr depth_ptr  = cv_bridge::toCvCopy(depth, depth->encoding);
+        image_dep = depth_ptr->image;
     }
     catch(cv_bridge::Exception& e){
         ROS_ERROR("cv_bridge exception: %s", e.what());
         return;
     }
     /* Aruco */
-    Aruco_process(image_rgb,depth);
+    Aruco_process(image_rgb,image_dep);
     /* LED PNP */
     // Vec6 LEDtvecrvec = LEDTvecRvec(image_rgb);  
     // LED_PosePub(Camera2World(Vec3(LEDtvecrvec[3],LEDtvecrvec[4],LEDtvecrvec[5]),Vec3(LEDtvecrvec[0],LEDtvecrvec[1],LEDtvecrvec[2])));
     // cout << "Aruco Tvec: " << tvec*1000 << endl;
 
     /* image plot */
-    // cv::imshow("dep_out", image_dep); 
+    // cv::imshow("dep_out", image_dep);
+}
+void datalogger(){
+    ofstream save("/home/jeremy/realsense_ws/log.csv", ios::app);
+    save<<logger_counter<<","<<KF_pub(0)<<","<<KF_pub(1)<<","<<KF_pub(2)<<endl;
+    save.close();
+    logger_counter++;
 }
 int main(int argc, char **argv){
     ros::init(argc, argv, "camera");
     ros::NodeHandle nh;
     ros::Subscriber camera_info_sub = nh.subscribe("/camera/aligned_depth_to_color/camera_info",1,camera_info_cb);
-    ros::Subscriber camerapose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_d455/pose", 1, camera_pose_cb);
+    ros::Subscriber camerapose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_d455/pose", 1, camera_pose_sub);
     ros::Subscriber uavtwist_sub = nh.subscribe<geometry_msgs::TwistStamped>("/vrpn_client_node/gh034_small/twist", 5, uav_twist_sub);
     ros::Publisher ArucoPose_pub = nh.advertise<geometry_msgs::PoseStamped>("ArucoPose",1);
     ros::Publisher DepthPose_pub = nh.advertise<geometry_msgs::PoseStamped>("DepthPose",1);
@@ -256,8 +247,8 @@ int main(int argc, char **argv){
     //       0,0,0,0,1,0,
     //       0,0,0,0,0,1);
     setIdentity(KF.measurementMatrix);
-    setIdentity(KF.processNoiseCov, Scalar::all(1e-5)); 
-    setIdentity(KF.measurementNoiseCov, Scalar::all(1e-1));
+    setIdentity(KF.processNoiseCov, Scalar::all(1e-3)); 
+    setIdentity(KF.measurementNoiseCov, Scalar::all(2e-1));
     setIdentity(KF.errorCovPost, Scalar::all(1));
     randn(KF.statePost, Scalar::all(0), Scalar::all(0.1));
     Mat measurement = Mat::zeros(measSize, 1, CV_32F);
@@ -273,17 +264,27 @@ int main(int argc, char **argv){
         KF.transitionMatrix.at<float>(17) = dT;
         /* KF prediction */
 		Mat prediction = KF.predict();
-        KFrpyxyz << 0,0,0,prediction.at<float>(0),prediction.at<float>(1),prediction.at<float>(2);
-        KF_PosePub(KFrpyxyz);
-		// Point predict_pt = Point(prediction.at<float>(0),prediction.at<float>(1) );
+        KF_pub << prediction.at<float>(0),prediction.at<float>(1),prediction.at<float>(2),UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6];
+        KF_PosePub(KF_pub);
 		/* update KF measurement */
-        if(Aruco_found){
+        if(Aruco_found && !Use_KFDepth){
             measurement.at<float>(0) = Aruco_pose_realsense.pose.position.x;
             measurement.at<float>(1) = Aruco_pose_realsense.pose.position.y;
             measurement.at<float>(2) = Aruco_pose_realsense.pose.position.z;
             measurement.at<float>(3) = UAV_twist[0];
             measurement.at<float>(4) = UAV_twist[1];
             measurement.at<float>(5) = UAV_twist[2];
+            // cout << "Use Aruco Measurement" << endl;
+            Use_KFDepth = !Use_KFDepth;
+        }else if(Aruco_found && Use_KFDepth){
+            measurement.at<float>(0) = Depth_pose_realsense.pose.position.x;
+            measurement.at<float>(1) = Depth_pose_realsense.pose.position.y;
+            measurement.at<float>(2) = Depth_pose_realsense.pose.position.z;
+            measurement.at<float>(3) = UAV_twist[0];
+            measurement.at<float>(4) = UAV_twist[1];
+            measurement.at<float>(5) = UAV_twist[2];
+            // cout << "Use Depth Measurement" << endl;
+            Use_KFDepth = !Use_KFDepth;
         }else{
             measurement.at<float>(0) = prediction.at<float>(0);
             measurement.at<float>(1) = prediction.at<float>(1);
@@ -291,18 +292,18 @@ int main(int argc, char **argv){
             measurement.at<float>(3) = UAV_twist[0];
             measurement.at<float>(4) = UAV_twist[1];
             measurement.at<float>(5) = UAV_twist[2];
-        }		
+        }
 		/* update */
 		KF.correct(measurement);
-
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
         LEDPose_pub.publish(LED_pose_realsense);
         KFPose_pub.publish(KF_pose);
+        // datalogger();
         /* ROS timer */
-        // auto currentT = ros::Time::now().toSec();
-        // cout << "System_Hz: " << 1/(currentT-KFLastT) << endl;
-        // KFLastT = currentT;
+        auto TimerT = ros::Time::now().toSec();
+        cout << "System_Hz: " << 1/(TimerT-TimerLastT) << endl;
+        TimerLastT = TimerT;
     }
     return 0;
 }
