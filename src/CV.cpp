@@ -41,7 +41,7 @@ Quaterniond UAVq;
 int coutcounter = 0;
 static Vec7 Zero7;
 static Vec4 Zero4;
-double TimerLastT;
+double TimerLastT,logger_time,logger_time_last;
 int logger_counter = 0;
 /* Kalman Filter */
 double KFStartT,KFLastT,dT;
@@ -78,6 +78,8 @@ void camera_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     Camera_pose_sub.pose.orientation.y = pose->pose.orientation.y;
     Camera_pose_sub.pose.orientation.z = pose->pose.orientation.z;
     Camera_pose_sub.pose.orientation.w = pose->pose.orientation.w;
+    Camera_lp << Camera_pose_sub.pose.position.x,Camera_pose_sub.pose.position.y,Camera_pose_sub.pose.position.z,
+                 Camera_pose_sub.pose.orientation.w,Camera_pose_sub.pose.orientation.x,Camera_pose_sub.pose.orientation.y,Camera_pose_sub.pose.orientation.z;
 }
 void KF_PosePub(Vec7 KF_pub){
     KF_pose.header.stamp = ros::Time::now();
@@ -211,18 +213,22 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     /* image plot */
     // cv::imshow("dep_out", image_dep);
 }
-void datalogger(){
-    ofstream save("/home/jeremy/realsense_ws/log.csv", ios::app);
-    save<<logger_counter<<","<<KF_pub(0)<<","<<KF_pub(1)<<","<<KF_pub(2)<<endl;
-    save.close();
-    logger_counter++;
+void datalogger(){ 
+    logger_time = ros::Time::now().toSec();
+    if(logger_time-logger_time_last > 0.02){
+        ofstream save("/home/jeremy/realsense_ws/src/log.csv", ios::app);
+        save<<logger_time<<","<<KF_pub(0)<<","<<KF_pub(1)<<","<<KF_pub(2)<<endl;
+        save.close();
+        logger_time_last = logger_time;
+    }
 }
 int main(int argc, char **argv){
     ros::init(argc, argv, "camera");
     ros::NodeHandle nh;
     ros::Subscriber camera_info_sub = nh.subscribe("/camera/aligned_depth_to_color/camera_info",1,camera_info_cb);
     ros::Subscriber camerapose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_d455/pose", 1, camera_pose_sub);
-    ros::Subscriber uavtwist_sub = nh.subscribe<geometry_msgs::TwistStamped>("/vrpn_client_node/gh034_small/twist", 5, uav_twist_sub);
+    ros::Subscriber uavtwist_sub = nh.subscribe<geometry_msgs::TwistStamped>("/vrpn_client_node/gh034_small/twist", 1, uav_twist_sub);
+    ros::Subscriber uavpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_small/pose", 1, uav_pose_sub);
     ros::Publisher ArucoPose_pub = nh.advertise<geometry_msgs::PoseStamped>("ArucoPose",1);
     ros::Publisher DepthPose_pub = nh.advertise<geometry_msgs::PoseStamped>("DepthPose",1);
     ros::Publisher LEDPose_pub = nh.advertise<geometry_msgs::PoseStamped>("LEDPose",1);
@@ -233,6 +239,7 @@ int main(int argc, char **argv){
     Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), rgb_sub, dep_sub);
     sync.registerCallback(boost::bind(&callback, _1, _2));
     PNP3Dpoints();
+    remove("/home/jeremy/realsense_ws/src/log.csv");
 
     /* Kalman Filter */
     int stateSize = 6; // (x,y,z,vx,vy,vz)
@@ -299,11 +306,11 @@ int main(int argc, char **argv){
         DepthPose_pub.publish(Depth_pose_realsense);
         LEDPose_pub.publish(LED_pose_realsense);
         KFPose_pub.publish(KF_pose);
-        // datalogger();
+        datalogger();
         /* ROS timer */
-        auto TimerT = ros::Time::now().toSec();
-        cout << "System_Hz: " << 1/(TimerT-TimerLastT) << endl;
-        TimerLastT = TimerT;
+        // auto TimerT = ros::Time::now().toSec();
+        // cout << "System_Hz: " << 1/(TimerT-TimerLastT) << endl;
+        // TimerLastT = TimerT;
     }
     return 0;
 }

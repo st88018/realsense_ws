@@ -6,7 +6,7 @@
     <node name="FSM_node" pkg="real" type="CV" output="screen">
     </node>
 
-    <node pkg="rosbag" type="play" name="rosbag" args="-l $(find real)/bag/D455withCar_small3.bag">
+    <node pkg="rosbag" type="play" name="rosbag" args="-l $(find real)/bag/Car_D455_small_2.bag">
     </node>
 
 </launch>   
