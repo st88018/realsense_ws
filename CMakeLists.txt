@@ -64,3 +64,10 @@ add_executable(camera
 target_link_libraries(camera
    ${OpenCV_LIBRARIES}
    ${catkin_LIBRARIES})
+
+   add_executable(CV_yolo
+    src/CV_yolo.cpp
+    src/utils/run_yolo.cpp)
+target_link_libraries(CV_yolo
+   ${OpenCV_LIBRARIES}
+   ${catkin_LIBRARIES})

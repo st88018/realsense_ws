@@ -45,8 +45,6 @@ void callback(const sensor_msgs::CompressedImageConstPtr & rgbimage, const senso
     try
     {
         frame = cv::imdecode(cv::Mat(rgbimage->data),1);
-        res   = cv::imdecode(cv::Mat(rgbimage->data),1);
-        gt    = cv::imdecode(cv::Mat(rgbimage->data),1);
     }
     catch (cv_bridge::Exception& e)
     {
