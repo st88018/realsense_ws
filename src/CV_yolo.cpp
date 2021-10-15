@@ -327,21 +327,21 @@ int main(int argc, char **argv){
             measurement.at<float>(0) = YOLO_pose_realsense.pose.position.x;
             measurement.at<float>(1) = YOLO_pose_realsense.pose.position.y;
             measurement.at<float>(2) = YOLO_pose_realsense.pose.position.z;
-            measurement.at<float>(3) = 0;
-            measurement.at<float>(4) = 0;
-            measurement.at<float>(5) = 0;
-            KF.measurementMatrix = MeasureP;
+            measurement.at<float>(3) = UAV_twist[0];
+            measurement.at<float>(4) = UAV_twist[1];
+            measurement.at<float>(5) = UAV_twist[2];
+            // KF.measurementMatrix = MeasureP;
             /* update */
 		    KF.correct(measurement);
             YOLO_found = false;
         }else{
-            measurement.at<float>(0) = 0;
-            measurement.at<float>(1) = 0;
-            measurement.at<float>(2) = 0;
+            measurement.at<float>(0) = prediction.at<float>(0);
+            measurement.at<float>(1) = prediction.at<float>(1);
+            measurement.at<float>(2) = prediction.at<float>(2);
             measurement.at<float>(3) = UAV_twist[0];
             measurement.at<float>(4) = UAV_twist[1];
             measurement.at<float>(5) = UAV_twist[2];
-            KF.measurementMatrix = MeasureV;
+            // KF.measurementMatrix = MeasureV;
             /* update */
 		    KF.correct(measurement);
         }
