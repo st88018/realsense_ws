@@ -9,17 +9,18 @@
 #include "geometry_msgs/PointStamped.h"
 #include <std_msgs/Int32.h>
 
-
-#include "include/run_yolo.h"
+#include "utils/run_yolo.h"
 #include <string>
-#include "offb/obj.h"
 
 using namespace std;
+
+double TimerLastT,TimerT;
+
 static cv::Mat frame, res, gt;
 
-static cv::String weightpath ="/home/patty/pat_ws/src/AUTO/offb/src/include/yolo/uav.weights";
-static cv::String cfgpath ="/home/patty/pat_ws/src/AUTO/offb/src/include/yolo/uav.cfg";
-static cv::String classnamepath = "/home/patty/pat_ws/src/AUTO/offb/src/include/yolo/uav.names";
+static cv::String weightpath ="/home/jeremy/lly_ws/src/offb/src/include/yolo/uav.weights";
+static cv::String cfgpath ="/home/jeremy/lly_ws/src/offb/src/include/yolo/uav.cfg";
+static cv::String classnamepath = "/home/jeremy/lly_ws/src/offb/src/include/yolo/uav.names";
 
 static run_yolo Yolonet(cfgpath, weightpath, classnamepath, float(0.1));
 
@@ -51,7 +52,7 @@ void callback(const sensor_msgs::CompressedImageConstPtr & rgbimage, const senso
     {
         ROS_ERROR("cv_bridge exception: %s", e.what());
     }
-//    cout<<frame.size<<endl;
+   // cout<<"test"<<frame.size<<endl;
 }
 
 
@@ -105,7 +106,7 @@ int main(int argc, char** argv)
                 else if (temp.classnameofdetection == "F450")
                     classname.data = 2;
 
-                cout<<temp.classnameofdetection<<endl<<endl;;
+                // cout<<temp.classnameofdetection<<endl<<endl;;
                 geometry_msgs::Point tempp;
                 tempp.x = temp.boundingbox.x + temp.boundingbox.width / 2;
                 tempp.y = temp.boundingbox.y + temp.boundingbox.height / 2;
@@ -121,10 +122,14 @@ int main(int argc, char** argv)
                 pub_yolo_boo.publish(got);
             }
             cv::imshow("uav", frame);
-            cv::waitKey(20);
+            cv::waitKey(1);
         }
 
         ros::spinOnce();
+        /* ROS timer */
+        auto TimerT = ros::Time::now().toSec();
+        cout << "System_Hz: " << 1/(TimerT-TimerLastT) << endl;
+        TimerLastT = TimerT;
     }
     ros::spin();
     return 0;

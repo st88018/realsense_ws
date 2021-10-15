@@ -1,2 +1,5 @@
 
 *.bag
+src/utils/yolo/uav.cfg
+src/utils/yolo/uav.names
+src/utils/yolo/uav.weights

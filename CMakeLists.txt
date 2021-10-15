@@ -58,3 +58,9 @@ target_link_libraries(Failsafe
 ${catkin_LIBRARIES}
 )
 
+add_executable(camera
+    src/camera.cpp
+    src/utils/run_yolo.cpp)
+target_link_libraries(camera
+   ${OpenCV_LIBRARIES}
+   ${catkin_LIBRARIES})
