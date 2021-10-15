@@ -50,7 +50,7 @@ static Vec4 Zero4;
 double TimerLastT,logger_time,logger_time_last;
 int logger_counter = 0;
 /* Kalman Filter */
-double KFStartT,KFLastT,dT;
+double KFdT;
 Vec7 KF_pub;
 bool KF_init = false;
 /* YOLO */
@@ -59,7 +59,6 @@ static cv::String cfgpath ="/home/jeremy/lly_ws/src/offb/src/include/yolo/uav.cf
 static cv::String classnamepath = "/home/jeremy/lly_ws/src/offb/src/include/yolo/uav.names";
 static run_yolo Yolonet(cfgpath, weightpath, classnamepath, float(0.7));
 bool YOLO_found = false;
-bool YOLO_Initialized = false;
 
 void uav_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UAV_pose_sub.pose.position.x = pose->pose.position.x;
@@ -205,7 +204,7 @@ void Yolo_process(Mat image_rgb){
         if(Yolonet.obj_vector.size()!=0){
             got.data = true;
             YOLO_found = true;
-            YOLO_Initialized = true;
+            KF_init = true;
         }
         if(got.data){
             std_msgs::Int32 classname;
@@ -314,16 +313,11 @@ int main(int argc, char **argv){
     randn(KF.statePost, Scalar::all(0), Scalar::all(0.1));
 
     while(ros::ok()){
-        ros::spinOnce();
-        if(YOLO_Initialized){
+        if(KF_init){
             /* Kalman Filter */
-            KFLastT = KFStartT;
-            KFStartT = ros::Time::now().toSec();
-            dT = KFStartT-KFLastT;
-            dT = 0.02;
-            KF.transitionMatrix.at<float>(3)  = dT; //update Mat A
-            KF.transitionMatrix.at<float>(10) = dT; 
-            KF.transitionMatrix.at<float>(17) = dT;
+            KF.transitionMatrix.at<float>(3)  = KFdT; //update Mat A
+            KF.transitionMatrix.at<float>(10) = KFdT; 
+            KF.transitionMatrix.at<float>(17) = KFdT;
             /* KF prediction */
             Mat prediction = KF.predict();
             KF_pub << prediction.at<float>(0),prediction.at<float>(1),prediction.at<float>(2),UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6];
@@ -360,9 +354,11 @@ int main(int argc, char **argv){
         datalogger();
         Yolonet.obj_vector.clear();
         /* ROS timer */
-        // auto TimerT = ros::Time::now().toSec();
-        // cout << "System_Hz: " << 1/(TimerT-TimerLastT) << endl;
-        // TimerLastT = TimerT;
+        auto TimerT = ros::Time::now().toSec();
+        KFdT = TimerT-TimerLastT;
+        cout << "System_Hz: " << 1/(TimerT-TimerLastT) << " dt: " << KFdT << endl;
+        TimerLastT = TimerT;
+        ros::spinOnce();
         loop_rate.sleep();
     }
     return 0;
