@@ -243,7 +243,7 @@ int main(int argc, char **argv){
 
     /* Kalman Filter */
     int stateSize = 6; // (x,y,z,vx,vy,vz)
-    int measSize = 6;  // (x,y,z,vx,vy,vz)
+    int measSize  = 9; //  (Ax,Ay,Az,Dx,Dy,Dz,vx,vy,vz)
     int contrSize = 0;
     cv::KalmanFilter KF(stateSize, measSize, contrSize);
     setIdentity(KF.transitionMatrix);
@@ -260,6 +260,7 @@ int main(int argc, char **argv){
     randn(KF.statePost, Scalar::all(0), Scalar::all(0.1));
     Mat measurement = Mat::zeros(measSize, 1, CV_32F);
 
+
     while(ros::ok()){
         ros::spinOnce();
         /* Kalman Filter */
@@ -274,31 +275,26 @@ int main(int argc, char **argv){
         KF_pub << prediction.at<float>(0),prediction.at<float>(1),prediction.at<float>(2),UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6];
         KF_PosePub(KF_pub);
 		/* update KF measurement */
-        if(Aruco_found && !Use_KFDepth){
+        if(Aruco_found){
             measurement.at<float>(0) = Aruco_pose_realsense.pose.position.x;
             measurement.at<float>(1) = Aruco_pose_realsense.pose.position.y;
             measurement.at<float>(2) = Aruco_pose_realsense.pose.position.z;
-            measurement.at<float>(3) = UAV_twist[0];
-            measurement.at<float>(4) = UAV_twist[1];
-            measurement.at<float>(5) = UAV_twist[2];
-            // cout << "Use Aruco Measurement" << endl;
-            Use_KFDepth = !Use_KFDepth;
-        }else if(Aruco_found && Use_KFDepth){
-            measurement.at<float>(0) = Depth_pose_realsense.pose.position.x;
-            measurement.at<float>(1) = Depth_pose_realsense.pose.position.y;
-            measurement.at<float>(2) = Depth_pose_realsense.pose.position.z;
-            measurement.at<float>(3) = UAV_twist[0];
-            measurement.at<float>(4) = UAV_twist[1];
-            measurement.at<float>(5) = UAV_twist[2];
-            // cout << "Use Depth Measurement" << endl;
-            Use_KFDepth = !Use_KFDepth;
+            measurement.at<float>(3) = Depth_pose_realsense.pose.position.x;
+            measurement.at<float>(4) = Depth_pose_realsense.pose.position.y;
+            measurement.at<float>(5) = Depth_pose_realsense.pose.position.z;
+            measurement.at<float>(6) = UAV_twist[0];
+            measurement.at<float>(7) = UAV_twist[1];
+            measurement.at<float>(8) = UAV_twist[2];
         }else{
             measurement.at<float>(0) = prediction.at<float>(0);
             measurement.at<float>(1) = prediction.at<float>(1);
             measurement.at<float>(2) = prediction.at<float>(2);
-            measurement.at<float>(3) = UAV_twist[0];
-            measurement.at<float>(4) = UAV_twist[1];
-            measurement.at<float>(5) = UAV_twist[2];
+            measurement.at<float>(3) = prediction.at<float>(0);
+            measurement.at<float>(4) = prediction.at<float>(1);
+            measurement.at<float>(5) = prediction.at<float>(2);
+            measurement.at<float>(6) = UAV_twist[0];
+            measurement.at<float>(7) = UAV_twist[1];
+            measurement.at<float>(8) = UAV_twist[2];
         }
 		/* update */
 		KF.correct(measurement);
@@ -311,6 +307,7 @@ int main(int argc, char **argv){
         // auto TimerT = ros::Time::now().toSec();
         // cout << "System_Hz: " << 1/(TimerT-TimerLastT) << endl;
         // TimerLastT = TimerT;
+        return 0;
     }
     return 0;
 }

@@ -58,6 +58,7 @@ static cv::String weightpath ="/home/jeremy/lly_ws/src/offb/src/include/yolo/uav
 static cv::String cfgpath ="/home/jeremy/lly_ws/src/offb/src/include/yolo/uav.cfg";
 static cv::String classnamepath = "/home/jeremy/lly_ws/src/offb/src/include/yolo/uav.names";
 static run_yolo Yolonet(cfgpath, weightpath, classnamepath, float(0.7));
+static bool YOLO_found = false;
 
 void uav_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UAV_pose_sub.pose.position.x = pose->pose.position.x;
@@ -153,7 +154,7 @@ void LED_PosePub(Vec6 rpyxyz){
     LED_pose_realsense.pose.orientation.y = UAVq.y();
     LED_pose_realsense.pose.orientation.z = UAVq.z();
 }
-void Aruco_process(Mat image_rgb, Mat image_dep){
+void Aruco_process(Mat image_rgb){
     cv::Mat ArucoOutput = image_rgb.clone();
     std::vector<int> markerIds;
     std::vector<Vec8I> markerConerABCDs;
@@ -186,32 +187,13 @@ void Aruco_process(Mat image_rgb, Mat image_dep){
         }
         // if (markerIds.size() > 1 ){cout << "Aruco Warning" << endl;}
     }else{Aruco_found = false; ArucoLostcounter++;}
-    if (Aruco_init == false){
-        CVE_Corners.clear();
-        Vec8I CVE_Corner;
-        CVE_Corner << 0,0,0,0,0,0,0,0;
-        for(int i=0; i<5; i++){CVE_Corners.push_back(CVE_Corner);}
-    }
     if (Aruco_init){
-        Vec3 Depthrvecs;
-        Vec3 Depthtvecs;
         if(Aruco_found){
             rvec = rvecs.front();
             tvec = tvecs.front();
             Vec3 Aruco_translation_camera(tvec(0),tvec(1),tvec(2));
             Vec3 Aruco_rpy_camera(rvec(0),rvec(1),rvec(2));
             Aruco_PosePub(Camera2World(Aruco_rpy_camera,Aruco_translation_camera,Camera_lp));
-            Depthrvecs = Aruco_rpy_camera;
-            double ArucoDepth = find_depth_avg(image_dep,markerConerABCDs.back());
-            last_markerConerABCD = markerConerABCDs.back();
-            Depthtvecs = camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters);
-            Depth_PosePub(Camera2World(Depthrvecs,Depthtvecs,Camera_lp));
-            ArucoLostcounter = 0;
-            // cout << "Aruco: " << endl << Aruco_translation_camera << endl << "Depth: " << endl << Depthtvecs << endl;
-        }else{ //Aruco not found do constant-velocity predict
-            double ArucoDepth = find_depth_avg(image_dep,last_markerConerABCD);
-            Depthtvecs = camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters);
-            Depth_PosePub(Camera2World(Depthrvecs,Depthtvecs,Camera_lp));
         }
     }
 }
@@ -221,6 +203,7 @@ void Yolo_process(Mat image_rgb){
         Yolonet.rundarknet(image_rgb);
         if(Yolonet.obj_vector.size()!=0){
             got.data = true;
+            YOLO_found = true;
         }
         if(got.data){
             std_msgs::Int32 classname;
@@ -241,18 +224,6 @@ void Yolo_process(Mat image_rgb){
         }
         Vec3 Yolotvecs = camerapixel2tvec(Vec2I(temp.boundingbox.x + temp.boundingbox.width / 2,temp.boundingbox.y + temp.boundingbox.height / 2),temp.depth,CamParameters);
         YOLO_PosePub(Camera2World(Vec3(0,0,0),Yolotvecs,Camera_lp));
-        
-        // geometry_msgs::Point tempp;
-        // tempp.x = temp.boundingbox.x + temp.boundingbox.width / 2;
-        // tempp.y = temp.boundingbox.y + temp.boundingbox.height / 2;
-        // tempp.z = temp.depth;
-        // ros::Publisher pub_yolo_boo = nh.advertise<std_msgs::Bool>("/object/yolo/torf", 1);
-        // ros::Publisher pub_yolo_pos = nh.advertise<geometry_msgs::Point>("/object/yolo/pos",1);
-        // ros::Publisher pub_yolo_cls = nh.advertise<std_msgs::Int32>("/object/yolo/class",1);
-
-        // pub_yolo_boo.publish(got);
-        // pub_yolo_pos.publish(tempp);
-        // pub_yolo_cls.publish(classname);
         cv::imshow("uav", image_rgb);
         cv::waitKey(1);
         }
@@ -270,16 +241,16 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
         return;
     }
     /* Aruco */
-        // Aruco_process(image_rgb,image_dep);
-        /* LED PNP */
-        // Vec6 LEDtvecrvec = LEDTvecRvec(image_rgb);  
-        // LED_PosePub(Camera2World(Vec3(LEDtvecrvec[3],LEDtvecrvec[4],LEDtvecrvec[5]),Vec3(LEDtvecrvec[0],LEDtvecrvec[1],LEDtvecrvec[2])));
-        // cout << "Aruco Tvec: " << tvec*1000 << endl;
-        /* YOLO */
-        Yolonet.getdepthdata(image_dep);
-        Yolo_process(image_rgb);
-        /* image plot */
-        // cv::imshow("dep_out", image_dep);
+    Aruco_process(image_rgb);
+    /* LED PNP */
+    // Vec6 LEDtvecrvec = LEDTvecRvec(image_rgb);  
+    // LED_PosePub(Camera2World(Vec3(LEDtvecrvec[3],LEDtvecrvec[4],LEDtvecrvec[5]),Vec3(LEDtvecrvec[0],LEDtvecrvec[1],LEDtvecrvec[2])));
+    // cout << "Aruco Tvec: " << tvec*1000 << endl;
+    /* YOLO */
+    Yolonet.getdepthdata(image_dep);
+    Yolo_process(image_rgb);
+    /* image plot */
+    // cv::imshow("dep_out", image_dep);
 }
 void datalogger(){ 
     logger_time = ros::Time::now().toSec();
@@ -309,6 +280,7 @@ int main(int argc, char **argv){
     sync.registerCallback(boost::bind(&callback, _1, _2));
     PNP3Dpoints();
     remove("/home/jeremy/realsense_ws/src/log.csv");
+    ros::Rate loop_rate(50); /* ROS system Hz */
 
     /* Kalman Filter */
     int stateSize = 6; // (x,y,z,vx,vy,vz)
@@ -323,11 +295,18 @@ int main(int argc, char **argv){
     //       0,0,0,0,1,0,
     //       0,0,0,0,0,1);
     setIdentity(KF.measurementMatrix);
+    Mat MeasureP = Mat::zeros(measSize, measSize, CV_32F);
+    MeasureP.at<float>(0) = 1;
+    MeasureP.at<float>(7) = 1;
+    MeasureP.at<float>(14) = 1;
+    Mat MeasureV = Mat::zeros(measSize, measSize, CV_32F);
+    MeasureV.at<float>(21) = 1;
+    MeasureV.at<float>(28) = 1;
+    MeasureV.at<float>(35) = 1;
     setIdentity(KF.processNoiseCov, Scalar::all(1e-3)); 
     setIdentity(KF.measurementNoiseCov, Scalar::all(2e-1));
     setIdentity(KF.errorCovPost, Scalar::all(1));
     randn(KF.statePost, Scalar::all(0), Scalar::all(0.1));
-    Mat measurement = Mat::zeros(measSize, 1, CV_32F);
 
     while(ros::ok()){
         ros::spinOnce();
@@ -343,33 +322,42 @@ int main(int argc, char **argv){
         KF_pub << prediction.at<float>(0),prediction.at<float>(1),prediction.at<float>(2),UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6];
         KF_PosePub(KF_pub);
 		/* update KF measurement */
-        if(Yolonet.obj_vector.size()!=0){
+        Mat measurement = Mat::zeros(measSize, 1, CV_32F);
+        if(YOLO_found){    
             measurement.at<float>(0) = YOLO_pose_realsense.pose.position.x;
             measurement.at<float>(1) = YOLO_pose_realsense.pose.position.y;
             measurement.at<float>(2) = YOLO_pose_realsense.pose.position.z;
-            measurement.at<float>(3) = UAV_twist[0];
-            measurement.at<float>(4) = UAV_twist[1];
-            measurement.at<float>(5) = UAV_twist[2];
+            measurement.at<float>(3) = 0;
+            measurement.at<float>(4) = 0;
+            measurement.at<float>(5) = 0;
+            KF.measurementMatrix = MeasureP;
+            /* update */
+		    KF.correct(measurement);
+            YOLO_found = false;
         }else{
-            measurement.at<float>(0) = prediction.at<float>(0);
-            measurement.at<float>(1) = prediction.at<float>(1);
-            measurement.at<float>(2) = prediction.at<float>(2);
+            measurement.at<float>(0) = 0;
+            measurement.at<float>(1) = 0;
+            measurement.at<float>(2) = 0;
             measurement.at<float>(3) = UAV_twist[0];
             measurement.at<float>(4) = UAV_twist[1];
             measurement.at<float>(5) = UAV_twist[2];
+            KF.measurementMatrix = MeasureV;
+            /* update */
+		    KF.correct(measurement);
         }
-		/* update */
-		KF.correct(measurement);
+		
         // ArucoPose_pub.publish(Aruco_pose_realsense);
         // DepthPose_pub.publish(Depth_pose_realsense);
         // LEDPose_pub.publish(LED_pose_realsense);
         YOLOPose_pub.publish(YOLO_pose_realsense);
         KFPose_pub.publish(KF_pose);
         datalogger();
+        Yolonet.obj_vector.clear();
         /* ROS timer */
-        auto TimerT = ros::Time::now().toSec();
-        cout << "System_Hz: " << 1/(TimerT-TimerLastT) << endl;
-        TimerLastT = TimerT;
+        // auto TimerT = ros::Time::now().toSec();
+        // cout << "System_Hz: " << 1/(TimerT-TimerLastT) << endl;
+        // TimerLastT = TimerT;
+        // loop_rate.sleep();
     }
     return 0;
 }
