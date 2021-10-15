@@ -44,7 +44,7 @@ static Vec4 Zero4;
 double TimerLastT,logger_time,logger_time_last;
 int logger_counter = 0;
 /* Kalman Filter */
-double KFStartT,KFLastT,dT;
+static double KFStartT,KFLastT,dT;
 Vec7 KF_pub;
 bool KF_init = false;
 
@@ -240,10 +240,11 @@ int main(int argc, char **argv){
     sync.registerCallback(boost::bind(&callback, _1, _2));
     PNP3Dpoints();
     remove("/home/jeremy/realsense_ws/src/log.csv");
+    ros::Rate loop_rate(50);
 
     /* Kalman Filter */
     int stateSize = 6; // (x,y,z,vx,vy,vz)
-    int measSize  = 9; //  (Ax,Ay,Az,Dx,Dy,Dz,vx,vy,vz)
+    int measSize  = 6; //  (x,y,z,vx,vy,vz)
     int contrSize = 0;
     cv::KalmanFilter KF(stateSize, measSize, contrSize);
     setIdentity(KF.transitionMatrix);
@@ -267,6 +268,7 @@ int main(int argc, char **argv){
         KFLastT = KFStartT;
         KFStartT = ros::Time::now().toSec();
         dT = KFStartT-KFLastT;
+        dT = 0.02;
         KF.transitionMatrix.at<float>(3)  = dT; //update Mat A
         KF.transitionMatrix.at<float>(10) = dT; 
         KF.transitionMatrix.at<float>(17) = dT;
@@ -279,22 +281,16 @@ int main(int argc, char **argv){
             measurement.at<float>(0) = Aruco_pose_realsense.pose.position.x;
             measurement.at<float>(1) = Aruco_pose_realsense.pose.position.y;
             measurement.at<float>(2) = Aruco_pose_realsense.pose.position.z;
-            measurement.at<float>(3) = Depth_pose_realsense.pose.position.x;
-            measurement.at<float>(4) = Depth_pose_realsense.pose.position.y;
-            measurement.at<float>(5) = Depth_pose_realsense.pose.position.z;
-            measurement.at<float>(6) = UAV_twist[0];
-            measurement.at<float>(7) = UAV_twist[1];
-            measurement.at<float>(8) = UAV_twist[2];
+            measurement.at<float>(3) = UAV_twist[0];
+            measurement.at<float>(4) = UAV_twist[1];
+            measurement.at<float>(5) = UAV_twist[2];
         }else{
             measurement.at<float>(0) = prediction.at<float>(0);
             measurement.at<float>(1) = prediction.at<float>(1);
             measurement.at<float>(2) = prediction.at<float>(2);
-            measurement.at<float>(3) = prediction.at<float>(0);
-            measurement.at<float>(4) = prediction.at<float>(1);
-            measurement.at<float>(5) = prediction.at<float>(2);
-            measurement.at<float>(6) = UAV_twist[0];
-            measurement.at<float>(7) = UAV_twist[1];
-            measurement.at<float>(8) = UAV_twist[2];
+            measurement.at<float>(3) = UAV_twist[0];
+            measurement.at<float>(4) = UAV_twist[1];
+            measurement.at<float>(5) = UAV_twist[2];
         }
 		/* update */
 		KF.correct(measurement);
@@ -303,11 +299,11 @@ int main(int argc, char **argv){
         LEDPose_pub.publish(LED_pose_realsense);
         KFPose_pub.publish(KF_pose);
         datalogger();
+        loop_rate.sleep();
         /* ROS timer */
-        // auto TimerT = ros::Time::now().toSec();
-        // cout << "System_Hz: " << 1/(TimerT-TimerLastT) << endl;
-        // TimerLastT = TimerT;
-        return 0;
+        auto TimerT = ros::Time::now().toSec();
+        cout << "System_Hz: " << 1/(TimerT-TimerLastT) << " dt: " << dT << endl;
+        TimerLastT = TimerT;
     }
     return 0;
 }
