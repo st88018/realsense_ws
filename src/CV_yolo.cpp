@@ -30,7 +30,7 @@
 #include <std_msgs/Int32.h>
 #include "utils/kinetic_math.hpp"
 #include "utils/cv.hpp"
-#include "utils/run_yolo.h"
+#include "utils/run_yolo.hpp"
 
 using namespace std;
 using namespace sensor_msgs;
@@ -54,9 +54,6 @@ double KFdT;
 Vec7 KF_pub;
 bool KF_init = false;
 /* YOLO */
-static cv::String weightpath ="/home/jeremy/realsense_ws/src/realsense_ws/src/utils/yolo/uav.weights";
-static cv::String cfgpath ="/home/jeremy/realsense_ws/src/realsense_ws/src/utils/yolo/uav.cfg";
-static cv::String classnamepath = "/home/jeremy/realsense_ws/src/realsense_ws/src/utils/yolo/uav.names";
 static run_yolo Yolonet(cfgpath, weightpath, classnamepath, float(0.7));
 bool YOLO_found = false;
 
@@ -281,7 +278,7 @@ int main(int argc, char **argv){
     sync.registerCallback(boost::bind(&callback, _1, _2));
     PNP3Dpoints();
     remove("/home/jeremy/realsense_ws/src/log.csv");
-    ros::Rate loop_rate(50); /* ROS system Hz */
+    ros::Rate loop_rate(100); /* ROS system Hz */
 
     /* Kalman Filter */
     int stateSize = 6; // (x,y,z,vx,vy,vz)

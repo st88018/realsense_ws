@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "run_yolo.h"
+#include "run_yolo.hpp"
 #include <math.h>
 #include <ros/ros.h>
 
