@@ -93,26 +93,23 @@ void KF_PosePub(Vec7 KF_pub){
     KF_pose.pose.orientation.y = KF_pub(5);
     KF_pose.pose.orientation.z = KF_pub(6);
 }
-void Aruco_PosePub(Vec6 rpyxyz){
-    // Quaterniond Q = rpy2Q(Vec3(rpyxyz(0),rpyxyz(1),rpyxyz(2)));
-    // Quaterniond Q = rpy2Q(Vec3(0,0,3.14));
+void Aruco_PosePub(Vec3 xyz){
     Aruco_pose_realsense.header.stamp = ros::Time::now();
     Aruco_pose_realsense.header.frame_id = "world";
-    Aruco_pose_realsense.pose.position.x = rpyxyz(3);
-    Aruco_pose_realsense.pose.position.y = rpyxyz(4);
-    Aruco_pose_realsense.pose.position.z = rpyxyz(5);
+    Aruco_pose_realsense.pose.position.x = xyz(0);
+    Aruco_pose_realsense.pose.position.y = xyz(1);
+    Aruco_pose_realsense.pose.position.z = xyz(2);
     Aruco_pose_realsense.pose.orientation.w = UAVq.w();
     Aruco_pose_realsense.pose.orientation.x = UAVq.x();
     Aruco_pose_realsense.pose.orientation.y = UAVq.y();
     Aruco_pose_realsense.pose.orientation.z = UAVq.z();
 }
-void Depth_PosePub(Vec6 rpyxyz){
-    // Quaterniond Q = rpy2Q(Vec3(rpyxyz(0),rpyxyz(1),rpyxyz(2)));
+void Depth_PosePub(Vec3 xyz){
     Depth_pose_realsense.header.stamp = ros::Time::now();
     Depth_pose_realsense.header.frame_id = "world";
-    Depth_pose_realsense.pose.position.x = rpyxyz(3);
-    Depth_pose_realsense.pose.position.y = rpyxyz(4);
-    Depth_pose_realsense.pose.position.z = rpyxyz(5);
+    Depth_pose_realsense.pose.position.x = xyz(0);
+    Depth_pose_realsense.pose.position.y = xyz(1);
+    Depth_pose_realsense.pose.position.z = xyz(2);
     Depth_pose_realsense.pose.orientation.w = UAVq.w();
     Depth_pose_realsense.pose.orientation.x = UAVq.x();
     Depth_pose_realsense.pose.orientation.y = UAVq.y();
@@ -151,7 +148,7 @@ void Aruco_process(Mat image_rgb, Mat image_dep){
         Aruco_found = true;
         KF_init = true;
         cv::aruco::drawDetectedMarkers(ArucoOutput, markerCorners, markerIds);
-        cv::aruco::estimatePoseSingleMarkers(markerCorners, 0.06, cameraMatrix, distCoeffs, rvecs, tvecs);
+        cv::aruco::estimatePoseSingleMarkers(markerCorners, 0.045, cameraMatrix, distCoeffs, rvecs, tvecs);
         for(unsigned int i=0; i<markerIds.size(); i++){
             cv::aruco::drawAxis(ArucoOutput, cameraMatrix, distCoeffs, rvecs[i], tvecs[i], 0.1);
             markerCorner = markerCorners[i];
@@ -162,36 +159,23 @@ void Aruco_process(Mat image_rgb, Mat image_dep){
             }
             markerConerABCDs.push_back(markerConerABCD);
         }
-        // if (markerIds.size() > 1 ){cout << "Aruco Warning" << endl;}
     }else{Aruco_found = false; ArucoLostcounter++;}
-    if (Aruco_init == false){
-        CVE_Corners.clear();
-        Vec8I CVE_Corner;
-        CVE_Corner << 0,0,0,0,0,0,0,0;
-        for(int i=0; i<5; i++){CVE_Corners.push_back(CVE_Corner);}
-    }
     if (Aruco_init){
-        Vec3 Depthrvecs;
         Vec3 Depthtvecs;
         if(Aruco_found){
             rvec = rvecs.front();
             tvec = tvecs.front();
             Vec3 Aruco_translation_camera(tvec(0),tvec(1),tvec(2));
             Vec3 Aruco_rpy_camera(rvec(0),rvec(1),rvec(2));
-            Aruco_PosePub(Camera2World(Aruco_rpy_camera,Aruco_translation_camera,Camera_lp));
-            Depthrvecs = Aruco_rpy_camera;
+            Aruco_PosePub(Camera2World(Aruco_translation_camera,Camera_lp));
             double ArucoDepth = find_depth_avg(image_dep,markerConerABCDs.back());
             last_markerConerABCD = markerConerABCDs.back();
-            Depthtvecs = camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters);
-            Depth_PosePub(Camera2World(Depthrvecs,Depthtvecs,Camera_lp));
-            ArucoLostcounter = 0;
-            // cout << "Aruco: " << endl << Aruco_translation_camera << endl << "Depth: " << endl << Depthtvecs << endl;
-        }else{ //Aruco not found do constant-velocity predict
-            double ArucoDepth = find_depth_avg(image_dep,last_markerConerABCD);
-            Depthtvecs = camerapixel2tvec(Constant_velocity_predictor(last_markerConerABCD,ArucoLostcounter),ArucoDepth,CamParameters);
-            Depth_PosePub(Camera2World(Depthrvecs,Depthtvecs,Camera_lp));
+            Depthtvecs = camerapixel2tvec(FindMarkerCenter(last_markerConerABCD),ArucoDepth,CamParameters);
+            Depth_PosePub(Camera2World(Depthtvecs,Camera_lp));
         }
     }
+    cv::imshow("uav", ArucoOutput);
+    cv::waitKey(1);
 }
 void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs::ImageConstPtr &depth){
     /* Image initialize */
@@ -229,8 +213,8 @@ int main(int argc, char **argv){
     ros::NodeHandle nh;
     ros::Subscriber camera_info_sub = nh.subscribe("/camera/aligned_depth_to_color/camera_info",1,camera_info_cb);
     ros::Subscriber camerapose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_d455/pose", 1, camera_pose_sub);
-    ros::Subscriber uavtwist_sub = nh.subscribe<geometry_msgs::TwistStamped>("/vrpn_client_node/gh034_small/twist", 1, uav_twist_sub);
-    ros::Subscriber uavpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_small/pose", 1, uav_pose_sub);
+    ros::Subscriber uavtwist_sub = nh.subscribe<geometry_msgs::TwistStamped>("mavros/local_position/velocity_body", 1, uav_twist_sub);
+    ros::Subscriber uavpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("mavros/local_position/pose", 1, uav_pose_sub);
     ros::Publisher ArucoPose_pub = nh.advertise<geometry_msgs::PoseStamped>("ArucoPose",1);
     ros::Publisher DepthPose_pub = nh.advertise<geometry_msgs::PoseStamped>("DepthPose",1);
     ros::Publisher LEDPose_pub = nh.advertise<geometry_msgs::PoseStamped>("LEDPose",1);

@@ -205,7 +205,7 @@ Vec6 LEDTvecRvec(Mat image_rgb){
     // }
     return(output);
 }
-Vec6 Camera2World(const Vec3 rvecs, const Vec3 tvecs,Vec7 Camera_lp){ // camera coordinate to world coordinate
+Vec3 Camera2World(const Vec3 tvecs,Vec7 Camera_lp){ // camera coordinate to world coordinate
     Eigen::Quaterniond q;
     q.w() = Camera_lp[3];
     q.x() = Camera_lp[4];
@@ -215,10 +215,8 @@ Vec6 Camera2World(const Vec3 rvecs, const Vec3 tvecs,Vec7 Camera_lp){ // camera 
     Camera_Rotation_world = q.matrix();
     Vec3 Cam_Translation_world(Camera_lp[0], Camera_lp[1], Camera_lp[2]);
     Vec3 translation_world = Camera_Rotation_world * tvecs + Cam_Translation_world;
-    Vec3 rpy_world = Camera_Rotation_world*rvecs;
-    Vec6 output;
-    output << rpy_world[0],rpy_world[1],rpy_world[2],
-              translation_world[0],translation_world[1],translation_world[2];
+    Vec3 output;
+    output << translation_world[0],translation_world[1],translation_world[2];
     return(output);
 }
 

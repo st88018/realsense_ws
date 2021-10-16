@@ -58,9 +58,9 @@ target_link_libraries(Failsafe
 ${catkin_LIBRARIES}
 )
 
-   add_executable(CV_yolo
-    src/CV_yolo.cpp
+   add_executable(CVyolo
+    src/CVyolo.cpp
     src/utils/run_yolo.cpp)
-target_link_libraries(CV_yolo
+target_link_libraries(CVyolo
    ${OpenCV_LIBRARIES}
    ${catkin_LIBRARIES})
