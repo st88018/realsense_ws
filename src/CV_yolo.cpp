@@ -222,8 +222,8 @@ void Yolo_process(Mat image_rgb){
         }
         Vec3 Yolotvecs = camerapixel2tvec(Vec2I(temp.boundingbox.x + temp.boundingbox.width / 2,temp.boundingbox.y + temp.boundingbox.height / 2),temp.depth,CamParameters);
         YOLO_PosePub(Camera2World(Vec3(0,0,0),Yolotvecs,Camera_lp));
-        cv::imshow("uav", image_rgb);
-        cv::waitKey(1);
+        // cv::imshow("uav", image_rgb);
+        // cv::waitKey(1);
         }
     }
 }
@@ -264,8 +264,8 @@ int main(int argc, char **argv){
     ros::NodeHandle nh;
     ros::Subscriber camera_info_sub = nh.subscribe("/camera/aligned_depth_to_color/camera_info",1,camera_info_cb);
     ros::Subscriber camerapose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_d455/pose", 1, camera_pose_sub);
-    ros::Subscriber uavtwist_sub = nh.subscribe<geometry_msgs::TwistStamped>("/vrpn_client_node/gh034_nano2/twist", 1, uav_twist_sub);
-    ros::Subscriber uavpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_nano2/pose", 1, uav_pose_sub);
+    ros::Subscriber uavtwist_sub = nh.subscribe<geometry_msgs::TwistStamped>("mavros/local_position/velocity_body", 1, uav_twist_sub);
+    ros::Subscriber uavpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("mavros/local_position/pose", 1, uav_pose_sub);
     ros::Publisher ArucoPose_pub = nh.advertise<geometry_msgs::PoseStamped>("ArucoPose",1);
     ros::Publisher DepthPose_pub = nh.advertise<geometry_msgs::PoseStamped>("DepthPose",1);
     ros::Publisher YOLOPose_pub = nh.advertise<geometry_msgs::PoseStamped>("YoloPose",1);
@@ -302,7 +302,7 @@ int main(int argc, char **argv){
     // MeasureV.at<float>(28) = 1;
     // MeasureV.at<float>(35) = 1;
     setIdentity(KF.processNoiseCov, Scalar::all(1e-3)); 
-    setIdentity(KF.measurementNoiseCov, Scalar::all(3e-1));
+    setIdentity(KF.measurementNoiseCov, Scalar::all(2e-1));
     KF.measurementNoiseCov.at<float>(21) = 1e-1;
     KF.measurementNoiseCov.at<float>(28) = 1e-1;
     KF.measurementNoiseCov.at<float>(35) = 1e-1;
@@ -354,6 +354,13 @@ int main(int argc, char **argv){
         auto TimerT = ros::Time::now().toSec();
         KFdT = TimerT-TimerLastT;
         cout << "System_Hz: " << 1/(TimerT-TimerLastT) << " dt: " << KFdT << endl;
+        cout << "     X: " <<KF_pose.pose.position.x << " Y: " <<KF_pose.pose.position.y << " Z: " <<KF_pose.pose.position.z << endl;
+        cout << "diff_X: " <<KF_pose.pose.position.x - UAV_pose_sub.pose.position.x <<
+                    " Y: " <<KF_pose.pose.position.y - UAV_pose_sub.pose.position.y << 
+                    " Z: " <<KF_pose.pose.position.z -UAV_pose_sub.pose.position.z << endl;
+        cout << "error: " << sqrt(pow((KF_pose.pose.position.x-UAV_pose_sub.pose.position.x),2)+
+                                  pow((KF_pose.pose.position.y-UAV_pose_sub.pose.position.y),2)+
+                                  pow((KF_pose.pose.position.z-UAV_pose_sub.pose.position.z),2)) << endl;
         TimerLastT = TimerT;
         ros::spinOnce();
         loop_rate.sleep();

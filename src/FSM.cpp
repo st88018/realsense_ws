@@ -435,7 +435,7 @@ void Finite_state_machine(){
             FSM_finish_time = ros::Time::now().toSec();
             FSM_finished = true;
         }
-        if(sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3){
+        if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3){
             FSM_finished = false;
         }
         if(FSM_finish_time - ros::Time::now().toSec() < -3 && FSM_finished){
@@ -453,15 +453,15 @@ void Finite_state_machine(){
         pub_trajpose = false; pub_pidtwist = true; UseKFpose = true;
         Pos_setpoint << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGVrpy[2];
         PID_duration = 0;
-        if(sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) < horizontal_dist+0.3 && !FSM_finished){
+        if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) < horizontal_dist+0.3 && !FSM_finished){
             // cout << "start count down" << endl;
             FSM_finish_time = ros::Time::now().toSec();
             FSM_finished = true;
         }
-        if(sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3){
+        if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3){
             FSM_finished = false;
         }
-        if(FSM_finish_time - ros::Time::now().toSec() < -5 && FSM_finished){
+        if(FSM_finish_time - ros::Time::now().toSec() < -6 && FSM_finished){
             FSM_state++;
             UseKFpose = false;
             FSM_finished = false;
@@ -684,6 +684,7 @@ int main(int argc, char **argv)
             }
             if(pub_pidtwist){
                 cout << "des__twist_x: " << UAV_twist_pub.linear.x << " y: " << UAV_twist_pub.linear.y << " z: "<< UAV_twist_pub.linear.z << " az: " << UAV_twist_pub.angular.z << endl;
+                cout << "UseKFpose: " << UseKFpose << endl;
                 if (FSM_state == 0){
                     cout << "PID  countdown: " << PID_InitTime+PID_duration - ros::Time::now().toSec() << endl;
                 }
