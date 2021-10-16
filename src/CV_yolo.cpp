@@ -54,9 +54,9 @@ double KFdT;
 Vec7 KF_pub;
 bool KF_init = false;
 /* YOLO */
-static cv::String weightpath ="/home/jeremy/lly_ws/src/offb/src/include/yolo/uav.weights";
-static cv::String cfgpath ="/home/jeremy/lly_ws/src/offb/src/include/yolo/uav.cfg";
-static cv::String classnamepath = "/home/jeremy/lly_ws/src/offb/src/include/yolo/uav.names";
+static cv::String weightpath ="/home/jeremy/realsense_ws/src/realsense_ws/src/utils/yolo/uav.weights";
+static cv::String cfgpath ="/home/jeremy/realsense_ws/src/realsense_ws/src/utils/yolo/uav.cfg";
+static cv::String classnamepath = "/home/jeremy/realsense_ws/src/realsense_ws/src/utils/yolo/uav.names";
 static run_yolo Yolonet(cfgpath, weightpath, classnamepath, float(0.7));
 bool YOLO_found = false;
 
