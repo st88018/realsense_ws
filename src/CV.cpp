@@ -47,6 +47,7 @@ int logger_counter = 0;
 double KFdT;
 Vec7 KF_pub;
 bool KF_init = false;
+bool KF_use_Depth = false;
 
 void uav_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UAV_pose_sub.pose.position.x = pose->pose.position.x;
@@ -241,7 +242,7 @@ int main(int argc, char **argv){
     sync.registerCallback(boost::bind(&callback, _1, _2));
     PNP3Dpoints();
     remove("/home/jeremy/realsense_ws/src/log.csv");
-    ros::Rate loop_rate(100);
+    ros::Rate loop_rate(50);
 
     /* Kalman Filter */
     int stateSize = 6; // (x,y,z,vx,vy,vz)
@@ -258,6 +259,9 @@ int main(int argc, char **argv){
     setIdentity(KF.measurementMatrix);
     setIdentity(KF.processNoiseCov, Scalar::all(1e-3)); 
     setIdentity(KF.measurementNoiseCov, Scalar::all(2e-1));
+    KF.measurementNoiseCov.at<float>(21) = 1e-1;
+    KF.measurementNoiseCov.at<float>(28) = 1e-1;
+    KF.measurementNoiseCov.at<float>(35) = 1e-1;
     setIdentity(KF.errorCovPost, Scalar::all(1));
     randn(KF.statePost, Scalar::all(0), Scalar::all(0.1));
     Mat measurement = Mat::zeros(measSize, 1, CV_32F);
@@ -274,7 +278,7 @@ int main(int argc, char **argv){
             KF_pub << prediction.at<float>(0),prediction.at<float>(1),prediction.at<float>(2),UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6];
             KF_PosePub(KF_pub);
             /* update KF measurement */
-            if(Aruco_found){
+            if(Aruco_found && !KF_use_Depth){
                 Aruco_found = false;
                 measurement.at<float>(0) = Aruco_pose_realsense.pose.position.x;
                 measurement.at<float>(1) = Aruco_pose_realsense.pose.position.y;
@@ -282,6 +286,16 @@ int main(int argc, char **argv){
                 measurement.at<float>(3) = UAV_twist[0];
                 measurement.at<float>(4) = UAV_twist[1];
                 measurement.at<float>(5) = UAV_twist[2];
+                KF_use_Depth = !KF_use_Depth;
+            }else if(Aruco_found && KF_use_Depth){
+                Aruco_found = false;
+                measurement.at<float>(0) = Depth_pose_realsense.pose.position.x;
+                measurement.at<float>(1) = Depth_pose_realsense.pose.position.y;
+                measurement.at<float>(2) = Depth_pose_realsense.pose.position.z;
+                measurement.at<float>(3) = UAV_twist[0];
+                measurement.at<float>(4) = UAV_twist[1];
+                measurement.at<float>(5) = UAV_twist[2];
+                KF_use_Depth = !KF_use_Depth;
             }else{
                 measurement.at<float>(0) = prediction.at<float>(0);
                 measurement.at<float>(1) = prediction.at<float>(1);

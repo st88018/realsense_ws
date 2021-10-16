@@ -60,6 +60,7 @@ bool   pub_trajtwist = false;
 bool   Force_start   = false;
 bool   ShutDown      = false;
 bool   soft_ShutDown = false;
+bool   UseKFpose     = false;
 
 void failsafe(bool Failsafe_trigger){
     if(Failsafe_trigger){
@@ -116,7 +117,7 @@ void ugv_twist_sub(const geometry_msgs::TwistStamped::ConstPtr& twist){
     UGV_twist << UGV_twist_sub.twist.linear.x,UGV_twist_sub.twist.linear.y,
                  UGV_twist_sub.twist.linear.z,UGV_twist_sub.twist.angular.z;
 }
-Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){
+Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){ //XYZyaw
     Vec4 error,u_p,u_i,u_d,output,derivative;
     double iteration_time = ros::Time::now().toSec() - Last_time;
     // cout << "iteration_time: " << iteration_time << endl;
@@ -221,7 +222,11 @@ void uav_pub(bool pub_trajpose, bool pub_pidtwist){
         Quaterniond localq(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]);
         Vec3 localrpy = Q2rpy(localq);
         Vec4 xyzyaw;
-        xyzyaw << UAV_pose_sub.pose.position.x,UAV_pose_sub.pose.position.y,UAV_pose_sub.pose.position.z,localrpy[2];
+        if(UseKFpose){
+            xyzyaw << UAV_kf_sub.pose.position.x,UAV_kf_sub.pose.position.y,UAV_kf_sub.pose.position.z,localrpy[2];
+        }else{
+            xyzyaw << UAV_pose_sub.pose.position.x,UAV_pose_sub.pose.position.y,UAV_pose_sub.pose.position.z,localrpy[2];
+        }
         if(Mission_state == 7){  //Follow the UGV
             Vec7 UGV_pred_lp = ugv_pred_land_pose(1);
             Pos_setpoint << UGV_pred_lp[0],UGV_pred_lp[1],Current_stage_mission[3],UGVrpy[2];
@@ -393,20 +398,26 @@ void Finite_stage_mission(){  // Main FSM
 }
 void Finite_state_machine(){
     if(FSM_state==1){ //Free Flying (position hold while triggered)
-        if(!FSM_init){
-            FSM_init_pose = UAV_lp;
-            FSM_init = true;
-        }
-        Vec7 position_hold_pose;
-        Quaterniond PHq(FSM_init_pose[3],FSM_init_pose[4],FSM_init_pose[5],FSM_init_pose[6]);
-        Vec3 PHrpy = Q2rpy(PHq);
-        PHq = rpy2Q(Vec3(0,0,PHrpy[2]));
-        position_hold_pose << UAV_lp[0],UAV_lp[1],UAV_lp[2],PHq.w(),PHq.x(),PHq.y(),PHq.z();
-        uav_pose_pub(position_hold_pose);
-        pub_trajpose = true; pub_pidtwist = false;
-        // if(){ //wait until have ugv estimated pose
-        //     FSM_init = false;
+        // Vec7 FSM_1_pose;
+        // Quaterniond FSM1q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
+        // Vec3 FSM1rpy = Q2rpy(FSM1q);
+        // double horizontal_dist = 1;
+        // double vertical_dist = 0.5;
+        // Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM1rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM1rpy[2]));
+        // FSM_1_pose << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6];
+        // uav_pose_pub(FSM_1_pose);
+        // pub_trajpose = false; pub_pidtwist = false;
+        // if(sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) < horizontal_dist+0.3 && !FSM_finished){
+        //     // cout << "start count down" << endl;
+        //     FSM_finish_time = ros::Time::now().toSec();
+        //     FSM_finished = true;
+        // }
+        // if(sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3){
+        //     FSM_finished = false;
+        // }
+        // if(FSM_finish_time - ros::Time::now().toSec() < -3 && FSM_finished){
         //     FSM_state++;
+        //     FSM_finished = false;
         // }
     }
     if(FSM_state==2){ //Follow 1 (using GPS or vicon) stay at horizontal_dist, vertical_dist
@@ -439,7 +450,7 @@ void Finite_state_machine(){
         double horizontal_dist = 1;
         double vertical_dist = 0.5;
         Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM3rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM3rpy[2]));
-        pub_trajpose = false; pub_pidtwist = true;
+        pub_trajpose = false; pub_pidtwist = true; UseKFpose = true;
         Pos_setpoint << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGVrpy[2];
         PID_duration = 0;
         if(sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) < horizontal_dist+0.3 && !FSM_finished){
@@ -452,6 +463,7 @@ void Finite_state_machine(){
         }
         if(FSM_finish_time - ros::Time::now().toSec() < -5 && FSM_finished){
             FSM_state++;
+            UseKFpose = false;
             FSM_finished = false;
         }
     }

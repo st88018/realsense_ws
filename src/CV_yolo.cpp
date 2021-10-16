@@ -293,14 +293,14 @@ int main(int argc, char **argv){
     //       0,0,0,0,1,0,
     //       0,0,0,0,0,1);
     setIdentity(KF.measurementMatrix);
-    Mat MeasureP = Mat::zeros(measSize, measSize, CV_32F);
-    MeasureP.at<float>(0) = 1;
-    MeasureP.at<float>(7) = 1;
-    MeasureP.at<float>(14) = 1;
-    Mat MeasureV = Mat::zeros(measSize, measSize, CV_32F);
-    MeasureV.at<float>(21) = 1;
-    MeasureV.at<float>(28) = 1;
-    MeasureV.at<float>(35) = 1;
+    // Mat MeasureP = Mat::zeros(measSize, measSize, CV_32F);
+    // MeasureP.at<float>(0) = 1;
+    // MeasureP.at<float>(7) = 1;
+    // MeasureP.at<float>(14) = 1;
+    // Mat MeasureV = Mat::zeros(measSize, measSize, CV_32F);
+    // MeasureV.at<float>(21) = 1;
+    // MeasureV.at<float>(28) = 1;
+    // MeasureV.at<float>(35) = 1;
     setIdentity(KF.processNoiseCov, Scalar::all(1e-3)); 
     setIdentity(KF.measurementNoiseCov, Scalar::all(3e-1));
     KF.measurementNoiseCov.at<float>(21) = 1e-1;

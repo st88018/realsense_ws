@@ -59,7 +59,7 @@ Visualization Manager:
       Axes Radius: 0.10000000149011612
       Class: rviz/Pose
       Color: 255; 25; 0
-      Enabled: true
+      Enabled: false
       Head Length: 0.30000001192092896
       Head Radius: 0.10000000149011612
       Name: Pose
@@ -68,7 +68,7 @@ Visualization Manager:
       Shape: Arrow
       Topic: /ArucoPose
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 1
       Axes Length: 0.5
       Axes Radius: 0.10000000149011612
@@ -89,7 +89,7 @@ Visualization Manager:
       Axes Radius: 0.10000000149011612
       Class: rviz/Pose
       Color: 0; 170; 0
-      Enabled: true
+      Enabled: false
       Head Length: 0.30000001192092896
       Head Radius: 0.10000000149011612
       Name: Pose
@@ -97,6 +97,21 @@ Visualization Manager:
       Shaft Radius: 0.05000000074505806
       Shape: Arrow
       Topic: /DepthPose
+      Unreliable: false
+      Value: false
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.10000000149011612
+      Class: rviz/Pose
+      Color: 255; 25; 0
+      Enabled: true
+      Head Length: 0.30000001192092896
+      Head Radius: 0.10000000149011612
+      Name: Pose
+      Shaft Length: 1
+      Shaft Radius: 0.05000000074505806
+      Shape: Arrow
+      Topic: /vrpn_client_node/gh034_small/pose
       Unreliable: false
       Value: true
   Enabled: true
@@ -142,10 +157,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.4553983807563782
+      Pitch: 0.13539864122867584
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 1.350398063659668
+      Yaw: 0.3053990602493286
     Saved: ~
 Window Geometry:
   Displays:
