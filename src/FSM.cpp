@@ -16,10 +16,10 @@
 
 static mavros_msgs::State           current_state;
 static mavros_msgs::AttitudeTarget  UAV_AttitudeTarget;
-static geometry_msgs::PoseStamped   UAV_pose_sub,UGV_pose_sub,UAV_pose_pub,UGV_pose_pub;
+static geometry_msgs::PoseStamped   UAV_pose_sub,UAV_kf_sub,UGV_pose_sub,UAV_pose_pub,UGV_pose_pub;
 static geometry_msgs::TwistStamped  UGV_twist_sub,UAV_twist_sub;
 static geometry_msgs::Twist         UAV_twist_pub;
-static Vec7 UAV_lp,UGV_lp;
+static Vec7 UAV_lp,UAV_kf_lp,UGV_lp;
 static Vec6 UAVinUGV;
 static Vec3 UGVrpy,Traj_init_UGVrpy;
 
@@ -172,6 +172,17 @@ void uav_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UAV_lp << UAV_pose_sub.pose.position.x,UAV_pose_sub.pose.position.y,UAV_pose_sub.pose.position.z,
               UAV_pose_sub.pose.orientation.w,UAV_pose_sub.pose.orientation.x,UAV_pose_sub.pose.orientation.y,UAV_pose_sub.pose.orientation.z;
     UAVinUGV = uav2ugv();
+}
+void uav_kf_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
+    UAV_kf_sub.pose.position.x = pose->pose.position.x;
+    UAV_kf_sub.pose.position.y = pose->pose.position.y;
+    UAV_kf_sub.pose.position.z = pose->pose.position.z;
+    UAV_kf_sub.pose.orientation.w = pose->pose.orientation.w;
+    UAV_kf_sub.pose.orientation.x = pose->pose.orientation.x;
+    UAV_kf_sub.pose.orientation.y = pose->pose.orientation.y;
+    UAV_kf_sub.pose.orientation.z = pose->pose.orientation.z;
+    UAV_kf_lp << UAV_kf_sub.pose.position.x,UAV_kf_sub.pose.position.y,UAV_kf_sub.pose.position.z,
+                 UAV_kf_sub.pose.orientation.w,UAV_kf_sub.pose.orientation.x,UAV_kf_sub.pose.orientation.y,UAV_kf_sub.pose.orientation.z;
 }
 void uav_pose_pub(Vec7 posepub){
     UAV_pose_pub.header.frame_id = "world";
@@ -439,7 +450,7 @@ void Finite_state_machine(){
         if(sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3){
             FSM_finished = false;
         }
-        if(FSM_finish_time - ros::Time::now().toSec() < -3 && FSM_finished){
+        if(FSM_finish_time - ros::Time::now().toSec() < -5 && FSM_finished){
             FSM_state++;
             FSM_finished = false;
         }
@@ -552,6 +563,7 @@ int main(int argc, char **argv)
     ros::Subscriber ugvpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_car/pose", 5, ugv_pose_sub);
     ros::Subscriber ugvtwist_sub = nh.subscribe<geometry_msgs::TwistStamped>("/vrpn_client_node/gh034_car/twist", 5, ugv_twist_sub);
     ros::Subscriber uavpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("mavros/local_position/pose", 1, uav_pose_sub);
+    ros::Subscriber uavKF_sub = nh.subscribe<geometry_msgs::PoseStamped>("KalmanFilterPose", 1, uav_kf_sub);
     ros::Subscriber uavtwist_sub = nh.subscribe<geometry_msgs::TwistStamped>("mavros/local_position/velocity_body", 5, uav_twist_sub);
     ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>("/mavros/state", 10, uav_state_sub);
     ros::ServiceClient arming_client = nh.serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");
@@ -645,7 +657,7 @@ int main(int argc, char **argv)
         if(pub_trajpose){uav_pos_pub.publish(UAV_pose_pub);}
         if(FSM_state == 2){uav_pos_pub.publish(UAV_pose_pub);}
         /*Mission information cout**********************************************/
-        if(coutcounter > 50 && FSMinit && !ShutDown && !soft_ShutDown){ //reduce cout rate
+        if(coutcounter > 75 && FSMinit && !ShutDown && !soft_ShutDown){ //reduce cout rate
             if (FSM_state == 0){
                 cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
                 cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;

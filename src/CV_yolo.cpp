@@ -302,10 +302,10 @@ int main(int argc, char **argv){
     MeasureV.at<float>(28) = 1;
     MeasureV.at<float>(35) = 1;
     setIdentity(KF.processNoiseCov, Scalar::all(1e-3)); 
-    setIdentity(KF.measurementNoiseCov, Scalar::all(2e-1));
-    // KF.measurementNoiseCov.at<float>(21) = 1e-1;
-    // KF.measurementNoiseCov.at<float>(28) = 1e-1;
-    // KF.measurementNoiseCov.at<float>(35) = 1e-1;
+    setIdentity(KF.measurementNoiseCov, Scalar::all(3e-1));
+    KF.measurementNoiseCov.at<float>(21) = 1e-1;
+    KF.measurementNoiseCov.at<float>(28) = 1e-1;
+    KF.measurementNoiseCov.at<float>(35) = 1e-1;
     setIdentity(KF.errorCovPost, Scalar::all(1));
     randn(KF.statePost, Scalar::all(0), Scalar::all(0.1));
 
