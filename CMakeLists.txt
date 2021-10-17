@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.0.2)
 project(real)
 
 #add_definitions(-std=c++11)
@@ -41,13 +41,6 @@ include_directories(include
   ${Sophus_INCLUDE_DIRS}
 )
 
-add_executable(CV src/CV.cpp)
-target_link_libraries(CV
-${OpenCV_LIBRARIES}
-${catkin_LIBRARIES}
-${Sophus_LIBRARIES}
-)
-
 add_executable(FSM src/FSM.cpp)
 target_link_libraries(FSM
 ${catkin_LIBRARIES}
@@ -58,9 +51,22 @@ target_link_libraries(Failsafe
 ${catkin_LIBRARIES}
 )
 
-   add_executable(CVyolo
-    src/CVyolo.cpp
-    src/utils/run_yolo.cpp)
-target_link_libraries(CVyolo
+add_executable(Aruco src/Aruco.cpp)
+target_link_libraries(Aruco
+${OpenCV_LIBRARIES}
+${catkin_LIBRARIES}
+${Sophus_LIBRARIES}
+)
+
+#add_executable(KalmanFilter src/KalmanFilter.cpp)
+#target_link_libraries(KalmanFilter
+#${OpenCV_LIBRARIES}
+#${catkin_LIBRARIES}
+#${Sophus_LIBRARIES}
+#)
+
+add_executable(Yolo src/Yolo.cpp
+                    src/utils/run_yolo.cpp)
+target_link_libraries(Yolo
    ${OpenCV_LIBRARIES}
    ${catkin_LIBRARIES})
