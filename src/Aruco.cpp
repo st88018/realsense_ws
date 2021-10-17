@@ -276,7 +276,7 @@ int main(int argc, char **argv){
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
         // LEDPose_pub.publish(LED_pose_realsense);
-        // datalogger();
+        datalogger();
     }
     return 0;
 }
