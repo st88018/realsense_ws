@@ -58,10 +58,11 @@ double CV_lost_timer;
 bool CV_lost = false;
 bool Do_Aruco,Do_Yolo;
 std_msgs::Bool KFok;
-/* YOLO */
-static run_yolo Yolonet(cfgpath, weightpath, classnamepath, float(0.7));
-bool YOLO_found = false;
 double Error_lp;
+/* YOLO */
+// static run_yolo Yolonet(cfgpath, weightpath, classnamepath, float(0.7));
+bool YOLO_found = false;
+
 
 Vec3 uav_real_pose(Vec3 xyz){ // Move the surface pose backward a bit
     double horizontal_dist = 0.02;
@@ -191,40 +192,40 @@ void Aruco_process(Mat image_rgb, Mat image_dep){
     // cv::imshow("uav", ArucoOutput);
     // cv::waitKey(1);
 }
-void Yolo_process(Mat image_rgb, Mat image_dep){
-    Yolonet.getdepthdata(image_dep);
-    cv::Mat YoloOutput = image_rgb.clone();
-    if(!YoloOutput.empty()){
-        std_msgs::Bool got;
-        Yolonet.rundarknet(YoloOutput);
-        if(Yolonet.obj_vector.size()!=0){
-            got.data = true;
-            YOLO_found = true;
-        }
-        if(got.data){
-            std_msgs::Int32 classname;
-            double temp_depth = 1000;
-            objectinfo temp;
-            for (auto what : Yolonet.obj_vector){
-                if(temp_depth > what.depth){
-                    temp = what;
-                    temp_depth = what.depth;
-                }
-            }
-            if(temp.classnameofdetection == "nano"){
-                classname.data = 0;
-            }else if (temp.classnameofdetection == "talon"){
-                classname.data = 1;
-            }else if (temp.classnameofdetection == "F450"){
-                classname.data = 2;
-            }
-        Vec3 Yolotvecs = camerapixel2tvec(Vec2I(temp.boundingbox.x + temp.boundingbox.width / 2,temp.boundingbox.y + temp.boundingbox.height / 2),temp.depth,CamParameters);
-        YOLO_PosePub(Camera2World(Yolotvecs,Camera_lp));
-        }
-    }
-    // cv::imshow("uav", YoloOutput);
-    // cv::waitKey(1);
-}
+// void Yolo_process(Mat image_rgb, Mat image_dep){
+//     Yolonet.getdepthdata(image_dep);
+//     cv::Mat YoloOutput = image_rgb.clone();
+//     if(!YoloOutput.empty()){
+//         std_msgs::Bool got;
+//         Yolonet.rundarknet(YoloOutput);
+//         if(Yolonet.obj_vector.size()!=0){
+//             got.data = true;
+//             YOLO_found = true;
+//         }
+//         if(got.data){
+//             std_msgs::Int32 classname;
+//             double temp_depth = 1000;
+//             objectinfo temp;
+//             for (auto what : Yolonet.obj_vector){
+//                 if(temp_depth > what.depth){
+//                     temp = what;
+//                     temp_depth = what.depth;
+//                 }
+//             }
+//             if(temp.classnameofdetection == "nano"){
+//                 classname.data = 0;
+//             }else if (temp.classnameofdetection == "talon"){
+//                 classname.data = 1;
+//             }else if (temp.classnameofdetection == "F450"){
+//                 classname.data = 2;
+//             }
+//         Vec3 Yolotvecs = camerapixel2tvec(Vec2I(temp.boundingbox.x + temp.boundingbox.width / 2,temp.boundingbox.y + temp.boundingbox.height / 2),temp.depth,CamParameters);
+//         YOLO_PosePub(Camera2World(Yolotvecs,Camera_lp));
+//         }
+//     }
+//     // cv::imshow("uav", YoloOutput);
+//     // cv::waitKey(1);
+// }
 void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs::ImageConstPtr &depth){
     /* Image initialize */
     try{
