@@ -3,10 +3,10 @@
            args="-d $(find real)/rviz/CV_sim.rviz"> 
     </node>
 
-    <node name="FSM_node" pkg="real" type="CV_yolo" output="screen">
+    <node name="CV_node" pkg="real" type="CVyolo" output="screen">
     </node>
 
-    <node pkg="rosbag" type="play" name="rosbag" args="-l $(find real)/bag/D455withCar_nano3.bag">
+    <node pkg="rosbag" type="play" name="rosbag" args="-l $(find real)/bag/Car_D455_nano_aruco_0.bag">
     </node>
 
 </launch>   
