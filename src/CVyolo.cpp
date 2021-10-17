@@ -258,12 +258,13 @@ void datalogger(){
         logger_time_last = logger_time;
     }
 }
-void KFok_indicator(){
+bool KFok_indicator(){
+    bool output;
     if(Aruco_found || YOLO_found){ //Visualize of UAV KF OK
         CV_lost = false;
-        KFok.data = true;
+        output = true;
     }else if(UAV_twist[0]==0 && UAV_twist[1]==0 && UAV_twist[2]==0){ //No twist input KF no OK
-        KFok.data = false;
+        output = false;
     }
 
     if(!Aruco_found && !YOLO_found && !CV_lost){
@@ -272,9 +273,10 @@ void KFok_indicator(){
     }
     if(CV_lost_timer - ros::Time::now().toSec() < -10 && CV_lost){ //Visualize of UAV lost for 10 seceonds KF no OK
         KF_init = false;
-        KFok.data = false;
+        output = false;
         KF_PosePub(Zero7);
     }
+    return(output);
 }
 int main(int argc, char **argv){
     ros::init(argc, argv, "camera");
@@ -382,7 +384,7 @@ int main(int argc, char **argv){
             KF.correct(measurement);
         }
 
-        KFok_indicator();
+        KFok.data = KFok_indicator();
         KFok_pub.publish(KFok);
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
