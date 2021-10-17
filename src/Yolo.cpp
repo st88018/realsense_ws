@@ -149,7 +149,7 @@ void datalogger(){
     logger_time = ros::Time::now().toSec();
     if(logger_time-logger_time_last > 0.01){
         ofstream save("/home/jeremy/realsense_ws/src/Yolo_raw.csv", ios::app);
-        save << logger_time <<","<< YOLO_pose_realsense.pose.position.x <<","<< YOLO_pose_realsense.pose.position.y <<","<< YOLO_pose_realsense.pose.position.z << endl;
+        save << std::setprecision(20) << logger_time <<","<< YOLO_pose_realsense.pose.position.x <<","<< YOLO_pose_realsense.pose.position.y <<","<< YOLO_pose_realsense.pose.position.z << endl;
         save.close();
         logger_time_last = logger_time;
     }
