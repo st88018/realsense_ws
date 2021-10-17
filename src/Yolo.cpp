@@ -124,8 +124,8 @@ void Yolo_process(Mat image_rgb, Mat image_dep){
         YOLO_PosePub(Camera2World(Yolotvecs,Camera_lp));
         }
     }
-    cv::imshow("uav", YoloOutput);
-    cv::waitKey(1);
+    // cv::imshow("uav", YoloOutput);
+    // cv::waitKey(1);
 }
 void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs::ImageConstPtr &depth){
     /* Image initialize */
@@ -142,7 +142,7 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     /* ROS timer */
     auto TimerT = ros::Time::now().toSec();
     cout << "---------------------------------------------------" << endl;
-    cout << "System_Hz: " << 1/(TimerT-TimerLastT) << endl;
+    cout << "Yolo_Hz: " << 1/(TimerT-TimerLastT) << endl;
     TimerLastT = TimerT;
 }
 void datalogger(){ 

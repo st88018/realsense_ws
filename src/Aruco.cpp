@@ -151,8 +151,8 @@ void Aruco_process(Mat image_rgb, Mat image_dep){
             Depth_PosePub(Camera2World(Depthtvecs,Camera_lp));
         }
     }
-    cv::imshow("uav", ArucoOutput);
-    cv::waitKey(1);
+    // cv::imshow("uav", ArucoOutput);
+    // cv::waitKey(1);
 }
 void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs::ImageConstPtr &depth){
     /* Image initialize */
@@ -174,7 +174,8 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     // cout << "Aruco Tvec: " << tvec*1000 << endl;
     /* ROS timer */
     auto TimerT = ros::Time::now().toSec();
-    cout << "System_Hz: " << 1/(TimerT-TimerLastT) << endl;
+    cout << "---------------------------------------------------" << endl;
+    cout << "Aruco_Hz: " << 1/(TimerT-TimerLastT) << endl;
     TimerLastT = TimerT;
 }
 void datalogger(){ 

@@ -3,6 +3,5 @@
 src/utils/yolo/uav.cfg
 src/utils/yolo/uav.names
 src/utils/yolo/uav.weights
-
 src/utils/run_yolo.hpp
 src/utils/run_yolo.cpp
