@@ -61,6 +61,12 @@ std_msgs::Bool KFok;
 static run_yolo Yolonet(cfgpath, weightpath, classnamepath, float(0.7));
 bool YOLO_found = false;
 
+Vec3 uav_real_pose(Vec3 xyz){ // Move the surface pose backward a bit
+    double horizontal_dist = 0.05;
+    Vec3 UAVrpy = Q2rpy(UAVq);
+    Vec2 uavxy = Vec2(UAV_lp[0]-horizontal_dist*cos(UAVrpy[2]),UAV_lp[1]-horizontal_dist*sin(UAVrpy[2]));
+    return(Vec3(uavxy[0],uavxy[1],xyz[2]));
+}
 void uav_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UAV_pose_sub.pose.position.x = pose->pose.position.x;
     UAV_pose_sub.pose.position.y = pose->pose.position.y;
@@ -106,6 +112,7 @@ void KF_PosePub(Vec7 KF_pub){
     KF_pose.pose.orientation.z = KF_pub(6);
 }
 void Aruco_PosePub(Vec3 xyz){
+    xyz = uav_real_pose(xyz);
     Aruco_pose_realsense.header.stamp = ros::Time::now();
     Aruco_pose_realsense.header.frame_id = "world";
     Aruco_pose_realsense.pose.position.x = xyz(0);
@@ -117,6 +124,7 @@ void Aruco_PosePub(Vec3 xyz){
     Aruco_pose_realsense.pose.orientation.z = UAVq.z();
 }
 void YOLO_PosePub(Vec3 xyz){
+    xyz = uav_real_pose(xyz);
     YOLO_pose_realsense.header.stamp = ros::Time::now();
     YOLO_pose_realsense.header.frame_id = "world";
     YOLO_pose_realsense.pose.position.x = xyz(0);
@@ -250,6 +258,24 @@ void datalogger(){
         logger_time_last = logger_time;
     }
 }
+void KFok_indicator(){
+    if(Aruco_found || YOLO_found){ //Visualize of UAV KF OK
+        CV_lost = false;
+        KFok.data = true;
+    }else if(UAV_twist[0]==0 && UAV_twist[1]==0 && UAV_twist[2]==0){ //No twist input KF no OK
+        KFok.data = false;
+    }
+
+    if(!Aruco_found && !YOLO_found && !CV_lost){
+        CV_lost_timer = ros::Time::now().toSec();
+        CV_lost = true;
+    }
+    if(CV_lost_timer - ros::Time::now().toSec() < -10 && CV_lost){ //Visualize of UAV lost for 10 seceonds KF no OK
+        KF_init = false;
+        KFok.data = false;
+        KF_PosePub(Zero7);
+    }
+}
 int main(int argc, char **argv){
     ros::init(argc, argv, "camera");
     ros::NodeHandle nh;
@@ -334,7 +360,6 @@ int main(int argc, char **argv){
                 measurement.at<float>(4) = UAV_twist[1];
                 measurement.at<float>(5) = UAV_twist[2];
                 KF_use_Depth = !KF_use_Depth;
-                CV_lost = false;
             }else if(Aruco_found && KF_use_Depth){
                 Aruco_found = false;
                 measurement.at<float>(0) = Depth_pose_realsense.pose.position.x;
@@ -344,7 +369,6 @@ int main(int argc, char **argv){
                 measurement.at<float>(4) = UAV_twist[1];
                 measurement.at<float>(5) = UAV_twist[2];
                 KF_use_Depth = !KF_use_Depth;
-                CV_lost = false;
             }else{
                 measurement.at<float>(0) = prediction.at<float>(0);
                 measurement.at<float>(1) = prediction.at<float>(1);
@@ -356,17 +380,9 @@ int main(int argc, char **argv){
             }
             /* update */
             KF.correct(measurement);
-            KFok.data = true;
-            if(!Aruco_found && !YOLO_found && !CV_lost){
-                CV_lost_timer = ros::Time::now().toSec();
-                CV_lost = true;
-            }
-            if(CV_lost_timer - ros::Time::now().toSec() < -10){
-                KF_init = false;
-                KFok.data = false;
-                KF_PosePub(Zero7);
-            }
         }
+
+        KFok_indicator();
         KFok_pub.publish(KFok);
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
