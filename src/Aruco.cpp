@@ -105,7 +105,7 @@ void LED_PosePub(Vec6 rpyxyz){
     LED_pose_realsense.pose.orientation.y = UAVq.y();
     LED_pose_realsense.pose.orientation.z = UAVq.z();
 }
-void Aruco_process(Mat image_rgb, Mat image_dep){
+void Aruco_Depth_process(Mat image_rgb, Mat image_dep){
     cv::Mat ArucoOutput = image_rgb.clone();
     std::vector<int> markerIds;
     std::vector<Vec8I> markerConerABCDs;
@@ -154,6 +154,49 @@ void Aruco_process(Mat image_rgb, Mat image_dep){
     // cv::imshow("uav", ArucoOutput);
     // cv::waitKey(1);
 }
+void Aruco_process(Mat image_rgb){
+    cv::Mat ArucoOutput = image_rgb.clone();
+    std::vector<int> markerIds;
+    std::vector<Vec8I> markerConerABCDs;
+    Vec2I markerCenter,last_markerCenter;
+    Vec8I markerConerABCD;
+    Vec8I last_markerConerABCD;
+    std::vector<std::vector<cv::Point2f>> markerCorners, rejectedCandidates;
+    std::vector<cv::Point2f> markerCorner;
+    std::vector<cv::Vec3d> rvecs, tvecs;
+    cv::Vec3d rvec, tvec;
+    rvecs.clear();tvecs.clear();
+    cv::Ptr<cv::aruco::DetectorParameters> parameters = cv::aruco::DetectorParameters::create();
+    cv::Ptr<cv::aruco::Dictionary> dictionary = cv::aruco::getPredefinedDictionary(cv::aruco::DICT_6X6_250);
+    cv::aruco::detectMarkers(image_rgb, dictionary, markerCorners, markerIds, parameters, rejectedCandidates);
+    if (markerIds.size() > 0){
+        markerConerABCDs.clear();
+        Aruco_init = true;
+        Aruco_found = true;
+        cv::aruco::drawDetectedMarkers(ArucoOutput, markerCorners, markerIds);
+        cv::aruco::estimatePoseSingleMarkers(markerCorners, 0.045, cameraMatrix, distCoeffs, rvecs, tvecs);
+        for(unsigned int i=0; i<markerIds.size(); i++){
+            cv::aruco::drawAxis(ArucoOutput, cameraMatrix, distCoeffs, rvecs[i], tvecs[i], 0.1);
+            markerCorner = markerCorners[i];
+            for (unsigned int j=0; j<markerCorner.size();j++){
+                cv::Point2f MC = markerCorner[j];
+                markerConerABCD[j*2] = MC.x;
+                markerConerABCD[j*2+1] = MC.y;
+            }
+            markerConerABCDs.push_back(markerConerABCD);
+        }
+    }else{Aruco_found = false; ArucoLostcounter++;}
+    if (Aruco_init){
+        if(Aruco_found){
+            rvec = rvecs.front();
+            tvec = tvecs.front();
+            Vec3 Aruco_translation_camera(tvec(0),tvec(1),tvec(2));
+            Aruco_PosePub(Camera2World(Aruco_translation_camera,Camera_lp));
+        }
+    }
+    // cv::imshow("uav", ArucoOutput);
+    // cv::waitKey(1);
+}
 void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs::ImageConstPtr &depth){
     /* Image initialize */
     cv::Mat image_rgb,image_dep;
@@ -167,7 +210,29 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
         return;
     }
     /* Aruco */
-    Aruco_process(image_rgb,image_dep);
+    Aruco_Depth_process(image_rgb,image_dep);
+    /* LED PNP */
+    // Vec6 LEDtvecrvec = LEDTvecRvec(image_rgb);  
+    // LED_PosePub(Camera2World(Vec3(LEDtvecrvec[3],LEDtvecrvec[4],LEDtvecrvec[5]),Vec3(LEDtvecrvec[0],LEDtvecrvec[1],LEDtvecrvec[2])));
+    // cout << "Aruco Tvec: " << tvec*1000 << endl;
+    /* ROS timer */
+    auto TimerT = ros::Time::now().toSec();
+    cout << "---------------------------------------------------" << endl;
+    cout << "Aruco_Hz: " << 1/(TimerT-TimerLastT) << endl;
+    TimerLastT = TimerT;
+}
+void camera_rgb_cb(const sensor_msgs::CompressedImageConstPtr &rgb){
+    /* Image initialize */
+    cv::Mat image_rgb;
+    try{
+        image_rgb = cv::imdecode(cv::Mat(rgb->data),1);
+    }
+    catch(cv_bridge::Exception& e){
+        ROS_ERROR("cv_bridge exception: %s", e.what());
+        return;
+    }
+    /* Aruco */
+    Aruco_process(image_rgb);
     /* LED PNP */
     // Vec6 LEDtvecrvec = LEDTvecRvec(image_rgb);  
     // LED_PosePub(Camera2World(Vec3(LEDtvecrvec[3],LEDtvecrvec[4],LEDtvecrvec[5]),Vec3(LEDtvecrvec[0],LEDtvecrvec[1],LEDtvecrvec[2])));
@@ -197,11 +262,12 @@ int main(int argc, char **argv){
     ros::Publisher ArucoPose_pub = nh.advertise<geometry_msgs::PoseStamped>("ArucoPose",1);
     ros::Publisher DepthPose_pub = nh.advertise<geometry_msgs::PoseStamped>("DepthPose",1);
     // ros::Publisher LEDPose_pub = nh.advertise<geometry_msgs::PoseStamped>("LEDPose",1);
-    message_filters::Subscriber<CompressedImage> rgb_sub(nh, "/camera/color/image_raw/compressed", 1);
-    message_filters::Subscriber<Image> dep_sub(nh, "/camera/aligned_depth_to_color/image_raw", 1);
-    typedef sync_policies::ApproximateTime<CompressedImage, Image> MySyncPolicy;
-    Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), rgb_sub, dep_sub);
-    sync.registerCallback(boost::bind(&callback, _1, _2));
+    ros::Subscriber camera_rgb_sub = nh.subscribe<CompressedImage>("/camera/color/image_raw/compressed",1,camera_rgb_cb);
+    // message_filters::Subscriber<CompressedImage> rgb_sub(nh, "/camera/color/image_raw/compressed", 1);
+    // message_filters::Subscriber<Image> dep_sub(nh, "/camera/aligned_depth_to_color/image_raw", 1);
+    // typedef sync_policies::ApproximateTime<CompressedImage, Image> MySyncPolicy;
+    // Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), rgb_sub, dep_sub);
+    // sync.registerCallback(boost::bind(&callback, _1, _2));
     // PNP3Dpoints();
     remove("/home/jeremy/realsense_ws/src/Aruco&Depth_raw.csv");
 
@@ -210,7 +276,7 @@ int main(int argc, char **argv){
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
         // LEDPose_pub.publish(LED_pose_realsense);
-        datalogger();
+        // datalogger();
     }
     return 0;
 }
