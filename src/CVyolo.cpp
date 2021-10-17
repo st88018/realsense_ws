@@ -56,6 +56,7 @@ bool KF_init = false;
 bool KF_use_Depth = false;
 double CV_lost_timer;
 bool CV_lost = false;
+bool Do_Aruco,Do_Yolo;
 std_msgs::Bool KFok;
 /* YOLO */
 static run_yolo Yolonet(cfgpath, weightpath, classnamepath, float(0.7));
@@ -236,9 +237,13 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
         return;
     }
     /* Aruco */
-    Aruco_process(image_rgb,image_dep);
+    if(Do_Aruco){
+        Aruco_process(image_rgb,image_dep);
+    }
     /* YOLO */
-    Yolo_process(image_rgb,image_dep);
+    if(Do_Yolo){
+        Yolo_process(image_rgb,image_dep);
+    }
     /* image plot */
     // cv::imshow("dep_out", image_dep);
 }
@@ -298,7 +303,11 @@ int main(int argc, char **argv){
     sync.registerCallback(boost::bind(&callback, _1, _2));
     PNP3Dpoints();
     remove("/home/jeremy/realsense_ws/src/log.csv");
+    
+    /* System Params */
     ros::Rate loop_rate(100); /* ROS system Hz */
+    Do_Aruco = true;
+    Do_Yolo = false;
 
     /* Kalman Filter */
     int stateSize = 6; // (x,y,z,vx,vy,vz)
@@ -396,9 +405,9 @@ int main(int argc, char **argv){
         /* ROS timer */
         auto TimerT = ros::Time::now().toSec();
         KFdT = TimerT-TimerLastT;
+        cout << "---------------------------------------------------" << endl;
         cout << "System_Hz: " << 1/(TimerT-TimerLastT) << " dt: " << KFdT << endl;
-        bool KFokbool = KFok.data;
-        cout << "KFLOST_time: " << CV_lost_timer - ros::Time::now().toSec() << " KFok.data: " << KFokbool << " KF_init: " << KF_init << endl;
+        cout << "KFLOST_time: " << CV_lost_timer - ros::Time::now().toSec() << " KF_init: " << KF_init << endl;
         cout << "     X: " <<KF_pose.pose.position.x << " Y: " <<KF_pose.pose.position.y << " Z: " <<KF_pose.pose.position.z << endl;
         cout << "diff_X: " <<KF_pose.pose.position.x - UAV_pose_sub.pose.position.x <<
                     " Y: " <<KF_pose.pose.position.y - UAV_pose_sub.pose.position.y << 
@@ -407,6 +416,7 @@ int main(int argc, char **argv){
                      pow((KF_pose.pose.position.y-UAV_pose_sub.pose.position.y),2)+
                      pow((KF_pose.pose.position.z-UAV_pose_sub.pose.position.z),2));
         cout << "error: " << Error_lp << endl;
+        cout << "---------------------------------------------------" << endl;
         TimerLastT = TimerT;
         loop_rate.sleep();
 
