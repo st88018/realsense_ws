@@ -450,7 +450,7 @@ void Finite_state_machine(){
         double horizontal_dist = 1;
         double vertical_dist = 0.5;
         Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM3rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM3rpy[2]));
-        pub_trajpose = false; pub_pidtwist = true; UseKFpose = true;
+        pub_trajpose = false; pub_pidtwist = true; UseKFpose = false;
         Pos_setpoint << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGVrpy[2];
         PID_duration = 0;
         if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) < horizontal_dist+0.3 && !FSM_finished){

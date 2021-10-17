@@ -60,9 +60,10 @@ std_msgs::Bool KFok;
 /* YOLO */
 static run_yolo Yolonet(cfgpath, weightpath, classnamepath, float(0.7));
 bool YOLO_found = false;
+double Error_lp;
 
 Vec3 uav_real_pose(Vec3 xyz){ // Move the surface pose backward a bit
-    double horizontal_dist = 0.05;
+    double horizontal_dist = 0.02;
     Vec3 UAVrpy = Q2rpy(UAVq);
     Vec2 uavxy = Vec2(UAV_lp[0]-horizontal_dist*cos(UAVrpy[2]),UAV_lp[1]-horizontal_dist*sin(UAVrpy[2]));
     return(Vec3(uavxy[0],uavxy[1],xyz[2]));
@@ -163,9 +164,7 @@ void Aruco_process(Mat image_rgb, Mat image_dep){
     cv::aruco::detectMarkers(image_rgb, dictionary, markerCorners, markerIds, parameters, rejectedCandidates);
     if (markerIds.size() > 0){
         markerConerABCDs.clear();
-        Aruco_init = true;
         Aruco_found = true;
-        KF_init = true;
         cv::aruco::drawDetectedMarkers(ArucoOutput, markerCorners, markerIds);
         cv::aruco::estimatePoseSingleMarkers(markerCorners, 0.045, cameraMatrix, distCoeffs, rvecs, tvecs);
         for(unsigned int i=0; i<markerIds.size(); i++){
@@ -178,23 +177,18 @@ void Aruco_process(Mat image_rgb, Mat image_dep){
             }
             markerConerABCDs.push_back(markerConerABCD);
         }
-    }else{Aruco_found = false; ArucoLostcounter++;}
-    if (Aruco_init){
-        Vec3 Depthtvecs;
-        if(Aruco_found){
-            rvec = rvecs.front();
-            tvec = tvecs.front();
-            Vec3 Aruco_translation_camera(tvec(0),tvec(1),tvec(2));
-            Vec3 Aruco_rpy_camera(rvec(0),rvec(1),rvec(2));
-            Aruco_PosePub(Camera2World(Aruco_translation_camera,Camera_lp));
-            double ArucoDepth = find_depth_avg(image_dep,markerConerABCDs.back());
-            last_markerConerABCD = markerConerABCDs.back();
-            Depthtvecs = camerapixel2tvec(FindMarkerCenter(last_markerConerABCD),ArucoDepth,CamParameters);
-            Depth_PosePub(Camera2World(Depthtvecs,Camera_lp));
-        }
+        rvec = rvecs.front();
+        tvec = tvecs.front();
+        Vec3 Aruco_translation_camera(tvec(0),tvec(1),tvec(2));
+        Vec3 Aruco_rpy_camera(rvec(0),rvec(1),rvec(2));
+        Aruco_PosePub(Camera2World(Aruco_translation_camera,Camera_lp));
+        double ArucoDepth = find_depth_avg(image_dep,markerConerABCDs.back());
+        last_markerConerABCD = markerConerABCDs.back();
+        Vec3 Depthtvecs = camerapixel2tvec(FindMarkerCenter(last_markerConerABCD),ArucoDepth,CamParameters);
+        Depth_PosePub(Camera2World(Depthtvecs,Camera_lp));
     }
-    cv::imshow("uav", ArucoOutput);
-    cv::waitKey(1);
+    // cv::imshow("uav", ArucoOutput);
+    // cv::waitKey(1);
 }
 void Yolo_process(Mat image_rgb, Mat image_dep){
     Yolonet.getdepthdata(image_dep);
@@ -205,7 +199,6 @@ void Yolo_process(Mat image_rgb, Mat image_dep){
         if(Yolonet.obj_vector.size()!=0){
             got.data = true;
             YOLO_found = true;
-            KF_init = true;
         }
         if(got.data){
             std_msgs::Int32 classname;
@@ -217,19 +210,19 @@ void Yolo_process(Mat image_rgb, Mat image_dep){
                     temp_depth = what.depth;
                 }
             }
-        if(temp.classnameofdetection == "nano"){
-            classname.data = 0;
-        }else if (temp.classnameofdetection == "talon"){
-            classname.data = 1;
-        }else if (temp.classnameofdetection == "F450"){
-            classname.data = 2;
-        }
+            if(temp.classnameofdetection == "nano"){
+                classname.data = 0;
+            }else if (temp.classnameofdetection == "talon"){
+                classname.data = 1;
+            }else if (temp.classnameofdetection == "F450"){
+                classname.data = 2;
+            }
         Vec3 Yolotvecs = camerapixel2tvec(Vec2I(temp.boundingbox.x + temp.boundingbox.width / 2,temp.boundingbox.y + temp.boundingbox.height / 2),temp.depth,CamParameters);
         YOLO_PosePub(Camera2World(Yolotvecs,Camera_lp));
-        // cv::imshow("uav", YoloOutput);
-        // cv::waitKey(1);
         }
     }
+    // cv::imshow("uav", YoloOutput);
+    // cv::waitKey(1);
 }
 void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs::ImageConstPtr &depth){
     /* Image initialize */
@@ -260,18 +253,26 @@ void datalogger(){
 }
 bool KFok_indicator(){
     bool output;
-    if(Aruco_found || YOLO_found){ //Visualize of UAV KF OK
+    if(Aruco_found){ //Visualize of UAV KF OK
         CV_lost = false;
         output = true;
-    }else if(UAV_twist[0]==0 && UAV_twist[1]==0 && UAV_twist[2]==0){ //No twist input KF no OK
+        KF_init = true;
+    }
+    if(YOLO_found){ //Visualize of UAV KF OK
+        CV_lost = false;
+        output = true;
+        KF_init = true;
+    }
+    
+    if(UAV_twist[0]==0 && UAV_twist[1]==0 && UAV_twist[2]==0){ //No twist input KF no OK
         output = false;
     }
 
-    if(!Aruco_found && !YOLO_found && !CV_lost){
+    if(!CV_lost){
         CV_lost_timer = ros::Time::now().toSec();
         CV_lost = true;
     }
-    if(CV_lost_timer - ros::Time::now().toSec() < -10 && CV_lost){ //Visualize of UAV lost for 10 seceonds KF no OK
+    if(CV_lost_timer - ros::Time::now().toSec() < -10){ //Visualize of UAV lost for 10 seceonds KF no OK
         KF_init = false;
         output = false;
         KF_PosePub(Zero7);
@@ -283,8 +284,8 @@ int main(int argc, char **argv){
     ros::NodeHandle nh;
     ros::Subscriber camera_info_sub = nh.subscribe("/camera/aligned_depth_to_color/camera_info",1,camera_info_cb);
     ros::Subscriber camerapose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_d455/pose", 1, camera_pose_sub);
-    ros::Subscriber uavtwist_sub = nh.subscribe<geometry_msgs::TwistStamped>("mavros/local_position/velocity_body", 1, uav_twist_sub);
-    ros::Subscriber uavpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("mavros/local_position/pose", 1, uav_pose_sub);
+    ros::Subscriber uavtwist_sub = nh.subscribe<geometry_msgs::TwistStamped>("/mavros/local_position/velocity_body", 1, uav_twist_sub);
+    ros::Subscriber uavpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 1, uav_pose_sub);
     ros::Publisher ArucoPose_pub = nh.advertise<geometry_msgs::PoseStamped>("ArucoPose",1);
     ros::Publisher DepthPose_pub = nh.advertise<geometry_msgs::PoseStamped>("DepthPose",1);
     ros::Publisher YOLOPose_pub = nh.advertise<geometry_msgs::PoseStamped>("YoloPose",1);
@@ -330,6 +331,8 @@ int main(int argc, char **argv){
     KFok.data = false;
 
     while(ros::ok()){
+        ros::spinOnce();
+        KFok.data = KFok_indicator();
         if(KF_init){
             /* Kalman Filter */
             KF.transitionMatrix.at<float>(3)  = KFdT; //update Mat A
@@ -383,8 +386,6 @@ int main(int argc, char **argv){
             /* update */
             KF.correct(measurement);
         }
-
-        KFok.data = KFok_indicator();
         KFok_pub.publish(KFok);
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
@@ -395,17 +396,20 @@ int main(int argc, char **argv){
         /* ROS timer */
         auto TimerT = ros::Time::now().toSec();
         KFdT = TimerT-TimerLastT;
-        cout << "System_Hz: " << 1/(TimerT-TimerLastT) << " dt: " << KFdT << " KFok: " << KFok.data << endl;
+        cout << "System_Hz: " << 1/(TimerT-TimerLastT) << " dt: " << KFdT << endl;
+        bool KFokbool = KFok.data;
+        cout << "KFLOST_time: " << CV_lost_timer - ros::Time::now().toSec() << " KFok.data: " << KFokbool << " KF_init: " << KF_init << endl;
         cout << "     X: " <<KF_pose.pose.position.x << " Y: " <<KF_pose.pose.position.y << " Z: " <<KF_pose.pose.position.z << endl;
         cout << "diff_X: " <<KF_pose.pose.position.x - UAV_pose_sub.pose.position.x <<
                     " Y: " <<KF_pose.pose.position.y - UAV_pose_sub.pose.position.y << 
                     " Z: " <<KF_pose.pose.position.z -UAV_pose_sub.pose.position.z << endl;
-        cout << "error: " << sqrt(pow((KF_pose.pose.position.x-UAV_pose_sub.pose.position.x),2)+
-                                  pow((KF_pose.pose.position.y-UAV_pose_sub.pose.position.y),2)+
-                                  pow((KF_pose.pose.position.z-UAV_pose_sub.pose.position.z),2)) << endl;
+        Error_lp = sqrt(pow((KF_pose.pose.position.x-UAV_pose_sub.pose.position.x),2)+
+                     pow((KF_pose.pose.position.y-UAV_pose_sub.pose.position.y),2)+
+                     pow((KF_pose.pose.position.z-UAV_pose_sub.pose.position.z),2));
+        cout << "error: " << Error_lp << endl;
         TimerLastT = TimerT;
-        ros::spinOnce();
         loop_rate.sleep();
+
     }
     return 0;
 }
