@@ -6,7 +6,7 @@
     <node name="CV_node" pkg="real" type="CVyolo" output="screen">
     </node>
 
-    <node pkg="rosbag" type="play" name="rosbag" args="-l $(find real)/bag/Car_D455_nano_aruco_0.bag">
+    <node pkg="rosbag" type="play" name="rosbag" args="-l $(find real)/bag/Car_D455_nano_aruco_1.bag">
     </node>
 
 </launch>   

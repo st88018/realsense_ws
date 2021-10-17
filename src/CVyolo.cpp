@@ -241,11 +241,9 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
         Aruco_process(image_rgb,image_dep);
     }
     /* YOLO */
-    if(Do_Yolo){
-        Yolo_process(image_rgb,image_dep);
-    }
-    /* image plot */
-    // cv::imshow("dep_out", image_dep);
+    // if(Do_Yolo){
+    //     Yolo_process(image_rgb,image_dep);
+    // }
 }
 void datalogger(){ 
     logger_time = ros::Time::now().toSec();
@@ -282,6 +280,8 @@ bool KFok_indicator(){
         output = false;
         KF_PosePub(Zero7);
     }
+    cout << "Aruco_found: " << Aruco_found << " YOLO_found: " << YOLO_found << endl;
+    cout << "---------------------------------------------------" << endl;
     return(output);
 }
 int main(int argc, char **argv){
@@ -307,7 +307,7 @@ int main(int argc, char **argv){
     /* System Params */
     ros::Rate loop_rate(100); /* ROS system Hz */
     Do_Aruco = true;
-    Do_Yolo = false;
+    Do_Yolo = true;
 
     /* Kalman Filter */
     int stateSize = 6; // (x,y,z,vx,vy,vz)
@@ -332,9 +332,9 @@ int main(int argc, char **argv){
     // MeasureV.at<float>(35) = 1;
     setIdentity(KF.processNoiseCov, Scalar::all(1e-3)); 
     setIdentity(KF.measurementNoiseCov, Scalar::all(2e-1));
-    KF.measurementNoiseCov.at<float>(21) = 1e-1;
-    KF.measurementNoiseCov.at<float>(28) = 1e-1;
-    KF.measurementNoiseCov.at<float>(35) = 1e-1;
+    // KF.measurementNoiseCov.at<float>(21) = 1e-1;
+    // KF.measurementNoiseCov.at<float>(28) = 1e-1;
+    // KF.measurementNoiseCov.at<float>(35) = 1e-1;
     setIdentity(KF.errorCovPost, Scalar::all(1));
     randn(KF.statePost, Scalar::all(0), Scalar::all(0.1));
     KFok.data = false;
@@ -354,18 +354,20 @@ int main(int argc, char **argv){
             /* update KF measurement */
             Mat measurement = Mat::zeros(measSize, 1, CV_32F);
             
-            if(YOLO_found){    
-                measurement.at<float>(0) = YOLO_pose_realsense.pose.position.x;
-                measurement.at<float>(1) = YOLO_pose_realsense.pose.position.y;
-                measurement.at<float>(2) = YOLO_pose_realsense.pose.position.z;
-                measurement.at<float>(3) = UAV_twist[0];
-                measurement.at<float>(4) = UAV_twist[1];
-                measurement.at<float>(5) = UAV_twist[2];
-                // KF.measurementMatrix = MeasureP;
-                YOLO_found = false;
-                CV_lost = false;
-            }
-            if(Aruco_found && !KF_use_Depth){
+            // if(YOLO_found){    
+            //     measurement.at<float>(0) = YOLO_pose_realsense.pose.position.x;
+            //     measurement.at<float>(1) = YOLO_pose_realsense.pose.position.y;
+            //     measurement.at<float>(2) = YOLO_pose_realsense.pose.position.z;
+            //     measurement.at<float>(3) = UAV_twist[0];
+            //     measurement.at<float>(4) = UAV_twist[1];
+            //     measurement.at<float>(5) = UAV_twist[2];
+            //     YOLO_found = false;
+            //     CV_lost = false;
+            //     KF.correct(measurement);
+            //     Yolonet.obj_vector.clear();
+            // }
+
+            if(Aruco_found){
                 Aruco_found = false;
                 measurement.at<float>(0) = Aruco_pose_realsense.pose.position.x;
                 measurement.at<float>(1) = Aruco_pose_realsense.pose.position.y;
@@ -373,16 +375,8 @@ int main(int argc, char **argv){
                 measurement.at<float>(3) = UAV_twist[0];
                 measurement.at<float>(4) = UAV_twist[1];
                 measurement.at<float>(5) = UAV_twist[2];
-                KF_use_Depth = !KF_use_Depth;
-            }else if(Aruco_found && KF_use_Depth){
+                KF.correct(measurement);
                 Aruco_found = false;
-                measurement.at<float>(0) = Depth_pose_realsense.pose.position.x;
-                measurement.at<float>(1) = Depth_pose_realsense.pose.position.y;
-                measurement.at<float>(2) = Depth_pose_realsense.pose.position.z;
-                measurement.at<float>(3) = UAV_twist[0];
-                measurement.at<float>(4) = UAV_twist[1];
-                measurement.at<float>(5) = UAV_twist[2];
-                KF_use_Depth = !KF_use_Depth;
             }else{
                 measurement.at<float>(0) = prediction.at<float>(0);
                 measurement.at<float>(1) = prediction.at<float>(1);
@@ -390,10 +384,21 @@ int main(int argc, char **argv){
                 measurement.at<float>(3) = UAV_twist[0];
                 measurement.at<float>(4) = UAV_twist[1];
                 measurement.at<float>(5) = UAV_twist[2];
-                // KF.measurementMatrix = MeasureV;
+                KF.correct(measurement);
             }
-            /* update */
-            KF.correct(measurement);
+            //     KF_use_Depth = !KF_use_Depth;
+            // }else if(Aruco_found && KF_use_Depth){
+            //     Aruco_found = false;
+            //     measurement.at<float>(0) = Depth_pose_realsense.pose.position.x;
+            //     measurement.at<float>(1) = Depth_pose_realsense.pose.position.y;
+            //     measurement.at<float>(2) = Depth_pose_realsense.pose.position.z;
+            //     measurement.at<float>(3) = UAV_twist[0];
+            //     measurement.at<float>(4) = UAV_twist[1];
+            //     measurement.at<float>(5) = UAV_twist[2];
+            //     KF.correct(measurement);
+            //     Aruco_found = false;
+            //     KF_use_Depth = !KF_use_Depth;
+            
         }
         KFok_pub.publish(KFok);
         ArucoPose_pub.publish(Aruco_pose_realsense);
@@ -401,7 +406,7 @@ int main(int argc, char **argv){
         YOLOPose_pub.publish(YOLO_pose_realsense);
         KFPose_pub.publish(KF_pose);
         datalogger();
-        Yolonet.obj_vector.clear();
+        
         /* ROS timer */
         auto TimerT = ros::Time::now().toSec();
         KFdT = TimerT-TimerLastT;
@@ -416,7 +421,6 @@ int main(int argc, char **argv){
                      pow((KF_pose.pose.position.y-UAV_pose_sub.pose.position.y),2)+
                      pow((KF_pose.pose.position.z-UAV_pose_sub.pose.position.z),2));
         cout << "error: " << Error_lp << endl;
-        cout << "---------------------------------------------------" << endl;
         TimerLastT = TimerT;
         loop_rate.sleep();
 
