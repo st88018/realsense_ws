@@ -79,13 +79,13 @@ void aruco_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     Aruco_lp[6] = pose->pose.orientation.z;
 }
 void depth_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
-    Aruco_lp[0] = pose->pose.position.x;
-    Aruco_lp[1] = pose->pose.position.y;
-    Aruco_lp[2] = pose->pose.position.z;
-    Aruco_lp[3] = pose->pose.orientation.w;
-    Aruco_lp[4] = pose->pose.orientation.x;
-    Aruco_lp[5] = pose->pose.orientation.y;
-    Aruco_lp[6] = pose->pose.orientation.z;
+    Depth_lp[0] = pose->pose.position.x;
+    Depth_lp[1] = pose->pose.position.y;
+    Depth_lp[2] = pose->pose.position.z;
+    Depth_lp[3] = pose->pose.orientation.w;
+    Depth_lp[4] = pose->pose.orientation.x;
+    Depth_lp[5] = pose->pose.orientation.y;
+    Depth_lp[6] = pose->pose.orientation.z;
 }
 void yolo_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     Yolo_lp[0] = pose->pose.position.x;
@@ -202,65 +202,63 @@ int main(int argc, char **argv){
 
     while(ros::ok()){
         ros::spinOnce();
-        KFok.data = KFok_indicator();
-        if(KF_init){
-            /* Kalman Filter */
-            KF.transitionMatrix.at<float>(3)  = KFdT; //update Mat A
-            KF.transitionMatrix.at<float>(10) = KFdT; 
-            KF.transitionMatrix.at<float>(17) = KFdT;
-            /* KF prediction */
-            Mat prediction = KF.predict();
-            KF_pub << prediction.at<float>(0),prediction.at<float>(1),prediction.at<float>(2),UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6];
-            KF_PosePub(KF_pub);
-            /* update KF measurement */
-            Mat measurement = Mat::zeros(measSize, 1, CV_32F);
+        // KFok.data = KFok_indicator();
+        // if(KF_init){
+        //     /* Kalman Filter */
+        //     KF.transitionMatrix.at<float>(3)  = KFdT; //update Mat A
+        //     KF.transitionMatrix.at<float>(10) = KFdT; 
+        //     KF.transitionMatrix.at<float>(17) = KFdT;
+        //     /* KF prediction */
+        //     Mat prediction = KF.predict();
+        //     KF_pub << prediction.at<float>(0),prediction.at<float>(1),prediction.at<float>(2),UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6];
+        //     KF_PosePub(KF_pub);
+        //     /* update KF measurement */
+        //     Mat measurement = Mat::zeros(measSize, 1, CV_32F);
             
-            // if(YOLO_found){    
-            //     measurement.at<float>(0) = YOLO_pose_realsense.pose.position.x;
-            //     measurement.at<float>(1) = YOLO_pose_realsense.pose.position.y;
-            //     measurement.at<float>(2) = YOLO_pose_realsense.pose.position.z;
-            //     measurement.at<float>(3) = UAV_twist[0];
-            //     measurement.at<float>(4) = UAV_twist[1];
-            //     measurement.at<float>(5) = UAV_twist[2];
-            //     YOLO_found = false;
-            //     CV_lost = false;
-            //     KF.correct(measurement);
-            //     Yolonet.obj_vector.clear();
-            // }
-
-            if(Aruco_found){
-                Aruco_found = false;
-                measurement.at<float>(0) = Aruco_pose_realsense.pose.position.x;
-                measurement.at<float>(1) = Aruco_pose_realsense.pose.position.y;
-                measurement.at<float>(2) = Aruco_pose_realsense.pose.position.z;
-                measurement.at<float>(3) = UAV_twist[0];
-                measurement.at<float>(4) = UAV_twist[1];
-                measurement.at<float>(5) = UAV_twist[2];
-                KF.correct(measurement);
-                Aruco_found = false;
-            }else{
-                measurement.at<float>(0) = prediction.at<float>(0);
-                measurement.at<float>(1) = prediction.at<float>(1);
-                measurement.at<float>(2) = prediction.at<float>(2);
-                measurement.at<float>(3) = UAV_twist[0];
-                measurement.at<float>(4) = UAV_twist[1];
-                measurement.at<float>(5) = UAV_twist[2];
-                KF.correct(measurement);
-            }
-            //     KF_use_Depth = !KF_use_Depth;
-            // }else if(Aruco_found && KF_use_Depth){
-            //     Aruco_found = false;
-            //     measurement.at<float>(0) = Depth_pose_realsense.pose.position.x;
-            //     measurement.at<float>(1) = Depth_pose_realsense.pose.position.y;
-            //     measurement.at<float>(2) = Depth_pose_realsense.pose.position.z;
-            //     measurement.at<float>(3) = UAV_twist[0];
-            //     measurement.at<float>(4) = UAV_twist[1];
-            //     measurement.at<float>(5) = UAV_twist[2];
-            //     KF.correct(measurement);
-            //     Aruco_found = false;
-            //     KF_use_Depth = !KF_use_Depth;
+        //     if(YOLO_found){    
+        //         measurement.at<float>(0) = YOLO_pose_realsense.pose.position.x;
+        //         measurement.at<float>(1) = YOLO_pose_realsense.pose.position.y;
+        //         measurement.at<float>(2) = YOLO_pose_realsense.pose.position.z;
+        //         measurement.at<float>(3) = UAV_twist[0];
+        //         measurement.at<float>(4) = UAV_twist[1];
+        //         measurement.at<float>(5) = UAV_twist[2];
+        //         YOLO_found = false;
+        //         CV_lost = false;
+        //         KF.correct(measurement);
+        //     }
+        //     if(Aruco_found){
+        //         Aruco_found = false;
+        //         measurement.at<float>(0) = Aruco_pose_realsense.pose.position.x;
+        //         measurement.at<float>(1) = Aruco_pose_realsense.pose.position.y;
+        //         measurement.at<float>(2) = Aruco_pose_realsense.pose.position.z;
+        //         measurement.at<float>(3) = UAV_twist[0];
+        //         measurement.at<float>(4) = UAV_twist[1];
+        //         measurement.at<float>(5) = UAV_twist[2];
+        //         KF.correct(measurement);
+        //         Aruco_found = false;
+        //     }else{
+        //         measurement.at<float>(0) = prediction.at<float>(0);
+        //         measurement.at<float>(1) = prediction.at<float>(1);
+        //         measurement.at<float>(2) = prediction.at<float>(2);
+        //         measurement.at<float>(3) = UAV_twist[0];
+        //         measurement.at<float>(4) = UAV_twist[1];
+        //         measurement.at<float>(5) = UAV_twist[2];
+        //         KF.correct(measurement);
+        //     }
+        //     //     KF_use_Depth = !KF_use_Depth;
+        //     // }else if(Aruco_found && KF_use_Depth){
+        //     //     Aruco_found = false;
+        //     //     measurement.at<float>(0) = Depth_pose_realsense.pose.position.x;
+        //     //     measurement.at<float>(1) = Depth_pose_realsense.pose.position.y;
+        //     //     measurement.at<float>(2) = Depth_pose_realsense.pose.position.z;
+        //     //     measurement.at<float>(3) = UAV_twist[0];
+        //     //     measurement.at<float>(4) = UAV_twist[1];
+        //     //     measurement.at<float>(5) = UAV_twist[2];
+        //     //     KF.correct(measurement);
+        //     //     Aruco_found = false;
+        //     //     KF_use_Depth = !KF_use_Depth;
             
-        }
+        // }
         KFok_pub.publish(KFok);
         KFPose_pub.publish(KF_pose);
         datalogger();
@@ -272,12 +270,13 @@ int main(int argc, char **argv){
         cout << "System_Hz: " << 1/(TimerT-TimerLastT) << " dt: " << KFdT << endl;
         cout << "KFLOST_time: " << CV_lost_timer - ros::Time::now().toSec() << " KF_init: " << KF_init << endl;
         cout << "     X: " <<KF_pose.pose.position.x << " Y: " <<KF_pose.pose.position.y << " Z: " <<KF_pose.pose.position.z << endl;
-        cout << "diff_X: " <<KF_pose.pose.position.x - UAV_pose_sub.pose.position.x <<
-                    " Y: " <<KF_pose.pose.position.y - UAV_pose_sub.pose.position.y << 
-                    " Z: " <<KF_pose.pose.position.z -UAV_pose_sub.pose.position.z << endl;
-        Error_lp = sqrt(pow((KF_pose.pose.position.x-UAV_pose_sub.pose.position.x),2)+
-                     pow((KF_pose.pose.position.y-UAV_pose_sub.pose.position.y),2)+
-                     pow((KF_pose.pose.position.z-UAV_pose_sub.pose.position.z),2));
+        cout << "Aruco_lp: " << Aruco_lp << endl;
+        // cout << "diff_X: " <<KF_pose.pose.position.x - UAV_pose_sub.pose.position.x <<
+        //             " Y: " <<KF_pose.pose.position.y - UAV_pose_sub.pose.position.y << 
+        //             " Z: " <<KF_pose.pose.position.z -UAV_pose_sub.pose.position.z << endl;
+        Error_lp = sqrt(pow((Aruco_lp[0]-UAV_pose_sub.pose.position.x),2)+
+                     pow((Aruco_lp[1]-UAV_pose_sub.pose.position.y),2)+
+                     pow((Aruco_lp[2]-UAV_pose_sub.pose.position.z),2));
         cout << "error: " << Error_lp << endl;
         TimerLastT = TimerT;
         loop_rate.sleep();
