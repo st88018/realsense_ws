@@ -157,7 +157,7 @@ int main(int argc, char **argv){
     ros::Subscriber camera_info_sub = nh.subscribe("/camera/aligned_depth_to_color/camera_info",1,camera_info_cb);
     ros::Subscriber camerapose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_d455/pose", 1, camera_pose_sub);
     ros::Subscriber uavpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 1, uav_pose_sub);
-    ros::Publisher YOLOPose_pub = nh.advertise<geometry_msgs::PoseStamped>("YoloPose",1);
+    ros::Publisher YOLOPose_pub = nh.advertise<geometry_msgs::PoseStamped>("/YoloPose",1);
     message_filters::Subscriber<CompressedImage> rgb_sub(nh, "/camera/color/image_raw/compressed", 1);
     message_filters::Subscriber<Image> dep_sub(nh, "/camera/aligned_depth_to_color/image_raw", 1);
     typedef sync_policies::ApproximateTime<CompressedImage, Image> MySyncPolicy;

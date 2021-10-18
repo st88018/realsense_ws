@@ -58,12 +58,12 @@ ${catkin_LIBRARIES}
 ${Sophus_LIBRARIES}
 )
 
-#add_executable(KalmanFilter src/KalmanFilter.cpp)
-#target_link_libraries(KalmanFilter
-#${OpenCV_LIBRARIES}
-#${catkin_LIBRARIES}
-#${Sophus_LIBRARIES}
-#)
+add_executable(KalmanFilter src/KalmanFilter.cpp)
+target_link_libraries(KalmanFilter
+${OpenCV_LIBRARIES}
+${catkin_LIBRARIES}
+${Sophus_LIBRARIES}
+)
 
 add_executable(Yolo src/Yolo.cpp
                     src/utils/run_yolo.cpp)
