@@ -3,7 +3,7 @@
 
 yolo = readmatrix('Yolo_raw.csv');
 kf = readmatrix('KF.csv');
-aruco = readmatrix('Aruco&Depth_raw.csv');
+aruco = readmatrix('Aruco_raw.csv');
 groundtruth = readmatrix('Groundtruth.csv');
 
 figure('Name','Position Estimation','Position',[0 0 850 850]);

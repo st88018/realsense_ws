@@ -144,20 +144,20 @@ void KF_PosePub(Vec7 KF_pub){
     KF_pose_pub.pose.orientation.z = KF_pub(6);
 }
 bool KFok_indicator(){
-    // bool output;  
-    // if(UAV_twist[0]==0 && UAV_twist[1]==0 && UAV_twist[2]==0){ //No twist input KF no OK
-    //     output = false;
-    // }
-    // if(!CV_lost){
-    //     CV_lost_timer = ros::Time::now().toSec();
-    //     CV_lost = true;
-    // }
-    // if(CV_lost_timer - ros::Time::now().toSec() < -10){ //Visualize of UAV lost for 10 seceonds KF no OK
-    //     KF_init = false;
-    //     output = false;
-    //     KF_PosePub(Zero7);
-    // }
-    // return(output);
+    bool output;  
+    if(UAV_twist[0]==0 && UAV_twist[1]==0 && UAV_twist[2]==0){ //No twist input KF no OK
+        output = false;
+    }
+    if(!CV_lost){
+        CV_lost_timer = ros::Time::now().toSec();
+        CV_lost = true;
+    }
+    if(CV_lost_timer - ros::Time::now().toSec() < -10){ //Visualize of UAV lost for 10 seceonds KF no OK
+        KF_init = false;
+        output = false;
+        KF_PosePub(Zero7);
+    }
+    return(output);
 }
 void datalogger(){ 
     logger_time = ros::Time::now().toSec();
@@ -210,11 +210,11 @@ int main(int argc, char **argv){
     // MeasureV.at<float>(21) = 1;
     // MeasureV.at<float>(28) = 1;
     // MeasureV.at<float>(35) = 1;
-    setIdentity(KF.processNoiseCov, Scalar::all(1e-3)); 
-    setIdentity(KF.measurementNoiseCov, Scalar::all(3e-1));
-    // KF.measurementNoiseCov.at<float>(21) = 1e-1;
-    // KF.measurementNoiseCov.at<float>(28) = 1e-1;
-    // KF.measurementNoiseCov.at<float>(35) = 1e-1;
+    setIdentity(KF.processNoiseCov, Scalar::all(1e-2)); 
+    setIdentity(KF.measurementNoiseCov, Scalar::all(1e-1));
+    KF.measurementNoiseCov.at<float>(21) = 3e-1;
+    KF.measurementNoiseCov.at<float>(28) = 3e-1;
+    KF.measurementNoiseCov.at<float>(35) = 3e-1;
     setIdentity(KF.errorCovPost, Scalar::all(1));
     randn(KF.statePost, Scalar::all(0), Scalar::all(0.1));
     KFok.data = false;
@@ -226,19 +226,16 @@ int main(int argc, char **argv){
         KFdT = TimerT-TimerLastT;
         cout << "---------------------------------------------------" << endl;
         cout << "System_Hz: " << 1/(TimerT-TimerLastT) << " dt: " << KFdT << endl;
-        cout << "KFLOST_time: " << CV_lost_timer - ros::Time::now().toSec() << " KF_init: " << KF_init << endl;
+        cout << "Visual_LOST_time: " << CV_lost_timer - ros::Time::now().toSec() << " KF_init: " << KF_init << " " << KFok_indicator() << endl;
         cout << "Aruco Flag: " << Aruco_updated << " Yolo Flag: " << Yolo_updated << endl;
         cout << "     X: " <<KF_pose_pub.pose.position.x << " Y: " <<KF_pose_pub.pose.position.y << " Z: " <<KF_pose_pub.pose.position.z << endl;
-        cout << "Aruco_lp: " << Aruco_lp << endl;
-        // cout << "diff_X: " <<KF_pose_pub.pose.position.x - UAV_pose_sub.pose.position.x <<
-        //             " Y: " <<KF_pose_pub.pose.position.y - UAV_pose_sub.pose.position.y << 
-        //             " Z: " <<KF_pose_pub.pose.position.z -UAV_pose_sub.pose.position.z << endl;
         Error_lp = sqrt(pow((Aruco_lp[0]-UAV_pose_sub.pose.position.x),2)+
                      pow((Aruco_lp[1]-UAV_pose_sub.pose.position.y),2)+
                      pow((Aruco_lp[2]-UAV_pose_sub.pose.position.z),2));
         cout << "error: " << Error_lp << endl;
         TimerLastT = TimerT;
-        // KFok.data = KFok_indicator();
+        KFok.data = KFok_indicator();
+        KFok_pub.publish(KFok);
         
         if(KF_init){
             /* Kalman Filter */
@@ -280,7 +277,6 @@ int main(int argc, char **argv){
             }
             KF.correct(measurement);
         }
-        // KFok_pub.publish(KFok);
         KFPose_pub.publish(KF_pose_pub);
         datalogger();
         loop_rate.sleep();
