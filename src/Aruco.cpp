@@ -231,12 +231,7 @@ void camera_rgb_cb(const sensor_msgs::CompressedImageConstPtr &rgb){
         ROS_ERROR("cv_bridge exception: %s", e.what());
         return;
     }
-    /* Aruco */
     Aruco_process(image_rgb);
-    /* LED PNP */
-    // Vec6 LEDtvecrvec = LEDTvecRvec(image_rgb);  
-    // LED_PosePub(Camera2World(Vec3(LEDtvecrvec[3],LEDtvecrvec[4],LEDtvecrvec[5]),Vec3(LEDtvecrvec[0],LEDtvecrvec[1],LEDtvecrvec[2])));
-    // cout << "Aruco Tvec: " << tvec*1000 << endl;
     /* ROS timer */
     auto TimerT = ros::Time::now().toSec();
     cout << "---------------------------------------------------" << endl;

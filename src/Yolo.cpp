@@ -37,16 +37,12 @@ using namespace message_filters;
 
 /*uav local parameter*/
 static geometry_msgs::PoseStamped YOLO_pose_realsense,Camera_pose_sub,UAV_pose_sub;
-static Vec6 UAV_twist;
 static Vec7 UAV_lp,Camera_lp;
 Quaterniond UAVq;
 /* System */
-cv::Mat image_rgb,image_dep;
-int coutcounter = 0;
 static Vec7 Zero7;
 static Vec4 Zero4;
 double TimerLastT,logger_time,logger_time_last;
-int logger_counter = 0;
 /* YOLO */
 static run_yolo Yolonet(cfgpath, weightpath, classnamepath, float(0.7));
 bool YOLO_found = false;
@@ -93,7 +89,7 @@ void YOLO_PosePub(Vec3 xyz){
     YOLO_pose_realsense.pose.orientation.y = UAVq.y();
     YOLO_pose_realsense.pose.orientation.z = UAVq.z();
 }
-void Yolo_process(Mat image_rgb, Mat image_dep){
+void YOLO_process(Mat image_rgb, Mat image_dep){
     Yolonet.getdepthdata(image_dep);
     cv::Mat YoloOutput = image_rgb.clone();
     if(!YoloOutput.empty()){
@@ -138,7 +134,7 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
         ROS_ERROR("cv_bridge exception: %s", e.what());
         return;
     }
-    Yolo_process(image_rgb,image_dep);
+    YOLO_process(image_rgb,image_dep);
     /* ROS timer */
     auto TimerT = ros::Time::now().toSec();
     cout << "---------------------------------------------------" << endl;
