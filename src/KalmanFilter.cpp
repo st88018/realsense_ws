@@ -217,7 +217,25 @@ int main(int argc, char **argv){
 
     while(ros::ok()){
         ros::spinOnce();
+        /* ROS timer */
+        auto TimerT = ros::Time::now().toSec();
+        KFdT = TimerT-TimerLastT;
+        cout << "---------------------------------------------------" << endl;
+        cout << "System_Hz: " << 1/(TimerT-TimerLastT) << " dt: " << KFdT << endl;
+        cout << "KFLOST_time: " << CV_lost_timer - ros::Time::now().toSec() << " KF_init: " << KF_init << endl;
+        cout << "Aruco Flag: " << Aruco_updated << " Yolo Flag: " << Yolo_updated << endl;
+        cout << "     X: " <<KF_pose_pub.pose.position.x << " Y: " <<KF_pose_pub.pose.position.y << " Z: " <<KF_pose_pub.pose.position.z << endl;
+        cout << "Aruco_lp: " << Aruco_lp << endl;
+        // cout << "diff_X: " <<KF_pose_pub.pose.position.x - UAV_pose_sub.pose.position.x <<
+        //             " Y: " <<KF_pose_pub.pose.position.y - UAV_pose_sub.pose.position.y << 
+        //             " Z: " <<KF_pose_pub.pose.position.z -UAV_pose_sub.pose.position.z << endl;
+        Error_lp = sqrt(pow((Aruco_lp[0]-UAV_pose_sub.pose.position.x),2)+
+                     pow((Aruco_lp[1]-UAV_pose_sub.pose.position.y),2)+
+                     pow((Aruco_lp[2]-UAV_pose_sub.pose.position.z),2));
+        cout << "error: " << Error_lp << endl;
+        TimerLastT = TimerT;
         // KFok.data = KFok_indicator();
+        
         if(KF_init){
             /* Kalman Filter */
             KF.transitionMatrix.at<float>(3)  = KFdT; //update Mat A
@@ -261,26 +279,7 @@ int main(int argc, char **argv){
         // KFok_pub.publish(KFok);
         KFPose_pub.publish(KF_pose_pub);
         datalogger();
-        
-        /* ROS timer */
-        auto TimerT = ros::Time::now().toSec();
-        KFdT = TimerT-TimerLastT;
-        cout << "---------------------------------------------------" << endl;
-        cout << "System_Hz: " << 1/(TimerT-TimerLastT) << " dt: " << KFdT << endl;
-        cout << "KFLOST_time: " << CV_lost_timer - ros::Time::now().toSec() << " KF_init: " << KF_init << endl;
-        cout << "Aruco Flag: " << Aruco_updated << " Yolo Flag: " << Yolo_updated << endl;
-        cout << "     X: " <<KF_pose_pub.pose.position.x << " Y: " <<KF_pose_pub.pose.position.y << " Z: " <<KF_pose_pub.pose.position.z << endl;
-        cout << "Aruco_lp: " << Aruco_lp << endl;
-        // cout << "diff_X: " <<KF_pose_pub.pose.position.x - UAV_pose_sub.pose.position.x <<
-        //             " Y: " <<KF_pose_pub.pose.position.y - UAV_pose_sub.pose.position.y << 
-        //             " Z: " <<KF_pose_pub.pose.position.z -UAV_pose_sub.pose.position.z << endl;
-        Error_lp = sqrt(pow((Aruco_lp[0]-UAV_pose_sub.pose.position.x),2)+
-                     pow((Aruco_lp[1]-UAV_pose_sub.pose.position.y),2)+
-                     pow((Aruco_lp[2]-UAV_pose_sub.pose.position.z),2));
-        cout << "error: " << Error_lp << endl;
-        TimerLastT = TimerT;
         loop_rate.sleep();
-
     }
     return 0;
 }
