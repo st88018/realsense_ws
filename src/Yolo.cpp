@@ -125,6 +125,7 @@ void YOLO_process(Mat image_rgb, Mat image_dep){
 }
 void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs::ImageConstPtr &depth){
     /* Image initialize */
+    cv::Mat image_rgb,image_dep;
     try{
         image_rgb = cv::imdecode(cv::Mat(rgb->data),1);
         cv_bridge::CvImageConstPtr depth_ptr  = cv_bridge::toCvCopy(depth, depth->encoding);
