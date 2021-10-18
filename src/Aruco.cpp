@@ -197,6 +197,16 @@ void Aruco_process(Mat image_rgb){
     // cv::imshow("uav", ArucoOutput);
     // cv::waitKey(1);
 }
+void datalogger(){ 
+    logger_time = ros::Time::now().toSec();
+    // if(logger_time-logger_time_last > 0.01){
+        ofstream save("/home/jeremy/realsense_ws/src/Aruco&Depth_raw.csv", ios::app);
+        save<<std::setprecision(20)<<logger_time<<","<<Aruco_pose_realsense.pose.position.x <<","<< Aruco_pose_realsense.pose.position.y <<","<< Aruco_pose_realsense.pose.position.z <<
+                           ","<<Depth_pose_realsense.pose.position.x <<","<< Depth_pose_realsense.pose.position.y <<","<< Depth_pose_realsense.pose.position.z <<endl;
+        save.close();
+        // logger_time_last = logger_time;
+    // }
+}
 void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs::ImageConstPtr &depth){
     /* Image initialize */
     cv::Mat image_rgb,image_dep;
@@ -237,16 +247,7 @@ void camera_rgb_cb(const sensor_msgs::CompressedImageConstPtr &rgb){
     cout << "---------------------------------------------------" << endl;
     cout << "Aruco_Hz: " << 1/(TimerT-TimerLastT) << endl;
     TimerLastT = TimerT;
-}
-void datalogger(){ 
-    logger_time = ros::Time::now().toSec();
-    if(logger_time-logger_time_last > 0.01){
-        ofstream save("/home/jeremy/realsense_ws/src/Aruco&Depth_raw.csv", ios::app);
-        save<<std::setprecision(20)<<logger_time<<","<<Aruco_pose_realsense.pose.position.x <<","<< Aruco_pose_realsense.pose.position.y <<","<< Aruco_pose_realsense.pose.position.z <<
-                           ","<<Depth_pose_realsense.pose.position.x <<","<< Depth_pose_realsense.pose.position.y <<","<< Depth_pose_realsense.pose.position.z <<endl;
-        save.close();
-        logger_time_last = logger_time;
-    }
+    datalogger();
 }
 int main(int argc, char **argv){
     ros::init(argc, argv, "Aruco");
@@ -271,7 +272,7 @@ int main(int argc, char **argv){
         ArucoPose_pub.publish(Aruco_pose_realsense);
         DepthPose_pub.publish(Depth_pose_realsense);
         // LEDPose_pub.publish(LED_pose_realsense);
-        datalogger();
+        // datalogger();
     }
     return 0;
 }

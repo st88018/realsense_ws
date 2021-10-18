@@ -123,6 +123,15 @@ void YOLO_process(Mat image_rgb, Mat image_dep){
     // cv::imshow("uav", YoloOutput);
     // cv::waitKey(1);
 }
+void datalogger(){ 
+    logger_time = ros::Time::now().toSec();
+    // if(logger_time-logger_time_last > 0.01){
+        ofstream save("/home/jeremy/realsense_ws/src/Yolo_raw.csv", ios::app);
+        save << std::setprecision(20) << logger_time <<","<< YOLO_pose_realsense.pose.position.x <<","<< YOLO_pose_realsense.pose.position.y <<","<< YOLO_pose_realsense.pose.position.z << endl;
+        save.close();
+    //     logger_time_last = logger_time;
+    // }
+}
 void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs::ImageConstPtr &depth){
     /* Image initialize */
     cv::Mat image_rgb,image_dep;
@@ -141,15 +150,7 @@ void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs
     cout << "---------------------------------------------------" << endl;
     cout << "Yolo_Hz: " << 1/(TimerT-TimerLastT) << endl;
     TimerLastT = TimerT;
-}
-void datalogger(){ 
-    logger_time = ros::Time::now().toSec();
-    if(logger_time-logger_time_last > 0.01){
-        ofstream save("/home/jeremy/realsense_ws/src/Yolo_raw.csv", ios::app);
-        save << std::setprecision(20) << logger_time <<","<< YOLO_pose_realsense.pose.position.x <<","<< YOLO_pose_realsense.pose.position.y <<","<< YOLO_pose_realsense.pose.position.z << endl;
-        save.close();
-        logger_time_last = logger_time;
-    }
+    datalogger();
 }
 int main(int argc, char **argv){
     ros::init(argc, argv, "Yolo");
@@ -168,7 +169,7 @@ int main(int argc, char **argv){
     while(ros::ok()){
         ros::spinOnce();
         YOLOPose_pub.publish(YOLO_pose_realsense);
-        datalogger();
+        // datalogger();
     }
     return 0;
 }

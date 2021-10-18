@@ -3,10 +3,13 @@
            args="-d $(find real)/rviz/CV_sim.rviz"> 
     </node>
 
-    <node name="YOLO_node" pkg="real" type="Yolo" output="screen">
+    <node name="YOLO_node" pkg="real" type="Yolo">
     </node>
 
-    <node name="Aruco_node" pkg="real" type="Aruco" output="screen">
+    <node name="Aruco_node" pkg="real" type="Aruco">
+    </node>
+
+    <node name="kf_node" pkg="real" type="KalmanFilter" output="screen">
     </node>
 
     <node pkg="rosbag" type="play" name="rosbag" args="-l $(find real)/bag/Car_D455_nano_aruco_0.bag">
