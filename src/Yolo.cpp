@@ -126,7 +126,7 @@ void YOLO_process(Mat image_rgb, Mat image_dep){
 void datalogger(){ 
     logger_time = ros::Time::now().toSec();
     // if(logger_time-logger_time_last > 0.01){
-        ofstream save("/home/jeremy/realsense_ws/src/Yolo_raw.csv", ios::app);
+        ofstream save("/home/jeremy/realsense_ws/src/realsense_ws/logs/Yolo_raw.csv", ios::app);
         save << std::setprecision(20) << logger_time <<","<< YOLO_pose_realsense.pose.position.x <<","<< YOLO_pose_realsense.pose.position.y <<","<< YOLO_pose_realsense.pose.position.z << endl;
         save.close();
     //     logger_time_last = logger_time;
@@ -164,7 +164,7 @@ int main(int argc, char **argv){
     typedef sync_policies::ApproximateTime<CompressedImage, Image> MySyncPolicy;
     Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), rgb_sub, dep_sub);
     sync.registerCallback(boost::bind(&callback, _1, _2));
-    remove("/home/jeremy/realsense_ws/src/Yolo_raw.csv");
+    remove("/home/jeremy/realsense_ws/src/realsense_ws/logs/Yolo_raw.csv");
 
     while(ros::ok()){
         ros::spinOnce();

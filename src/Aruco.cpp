@@ -200,7 +200,7 @@ void Aruco_process(Mat image_rgb){
 void datalogger(){ 
     logger_time = ros::Time::now().toSec();
     // if(logger_time-logger_time_last > 0.01){
-        ofstream save("/home/jeremy/realsense_ws/src/Aruco_raw.csv", ios::app);
+        ofstream save("/home/jeremy/realsense_ws/src/realsense_ws/logs/Aruco_raw.csv", ios::app);
         save<<std::setprecision(20)<<logger_time<<","<<Aruco_pose_realsense.pose.position.x <<","<< Aruco_pose_realsense.pose.position.y <<","<< Aruco_pose_realsense.pose.position.z << endl;
         save.close();
         // logger_time_last = logger_time;
@@ -264,7 +264,7 @@ int main(int argc, char **argv){
     // Synchronizer<MySyncPolicy> sync(MySyncPolicy(10), rgb_sub, dep_sub);
     // sync.registerCallback(boost::bind(&callback, _1, _2));
     // PNP3Dpoints();
-    remove("/home/jeremy/realsense_ws/src/Aruco_raw.csv");
+    remove("/home/jeremy/realsense_ws/src/realsense_ws/logs/Aruco_raw.csv");
 
     while(ros::ok()){
         ros::spinOnce();
