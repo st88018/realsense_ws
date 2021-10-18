@@ -1,6 +1,5 @@
 #include <ros/ros.h>
 #include <image_transport/image_transport.h>
-
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -37,11 +36,13 @@ using namespace sensor_msgs;
 using namespace message_filters;
 
 /*uav local parameter*/
-static geometry_msgs::PoseStamped Aruco_pose_realsense,Depth_pose_realsense,LED_pose_realsense,YOLO_pose_realsense,KF_pose,Camera_pose_sub,UAV_pose_sub;
+static geometry_msgs::PoseStamped KF_pose_pub,Camera_pose_sub,UAV_pose_sub;
 static geometry_msgs::TwistStamped  UGV_twist_sub,UAV_twist_sub;
 static Vec6 UAV_twist;
 static Vec7 UAV_lp,Camera_lp;
 static Vec7 Depth_lp,Aruco_lp,Yolo_lp;
+static Vec7 Depth_lp_last,Aruco_lp_last,Yolo_lp_last;
+static bool Depth_updated,Aruco_updated,Yolo_updated;
 Quaterniond UAVq;
 /* System */
 int coutcounter = 0;
@@ -77,6 +78,11 @@ void aruco_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     Aruco_lp[4] = pose->pose.orientation.x;
     Aruco_lp[5] = pose->pose.orientation.y;
     Aruco_lp[6] = pose->pose.orientation.z;
+    if(Aruco_lp_last != Aruco_lp){
+        Aruco_lp_last = Aruco_lp;
+        Aruco_updated = true;
+        KF_init = true;
+    }
 }
 void depth_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     Depth_lp[0] = pose->pose.position.x;
@@ -86,6 +92,10 @@ void depth_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     Depth_lp[4] = pose->pose.orientation.x;
     Depth_lp[5] = pose->pose.orientation.y;
     Depth_lp[6] = pose->pose.orientation.z;
+    if(Depth_lp_last != Depth_lp){
+        Depth_lp_last = Depth_lp;
+        Depth_updated = true;
+    }
 }
 void yolo_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     Yolo_lp[0] = pose->pose.position.x;
@@ -95,6 +105,11 @@ void yolo_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     Yolo_lp[4] = pose->pose.orientation.x;
     Yolo_lp[5] = pose->pose.orientation.y;
     Yolo_lp[6] = pose->pose.orientation.z;
+    if(Yolo_lp_last != Yolo_lp){
+        Yolo_lp_last = Yolo_lp;
+        Yolo_updated = true;
+        KF_init = true;
+    }
 }
 void uav_twist_sub(const geometry_msgs::TwistStamped::ConstPtr& twist){
     UAV_twist_sub.twist.linear.x = twist->twist.linear.x;
@@ -118,31 +133,31 @@ void camera_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
                  Camera_pose_sub.pose.orientation.w,Camera_pose_sub.pose.orientation.x,Camera_pose_sub.pose.orientation.y,Camera_pose_sub.pose.orientation.z;
 }
 void KF_PosePub(Vec7 KF_pub){
-    KF_pose.header.stamp = ros::Time::now();
-    KF_pose.header.frame_id = "world";
-    KF_pose.pose.position.x = KF_pub(0);
-    KF_pose.pose.position.y = KF_pub(1);
-    KF_pose.pose.position.z = KF_pub(2);
-    KF_pose.pose.orientation.w = KF_pub(3);
-    KF_pose.pose.orientation.x = KF_pub(4);
-    KF_pose.pose.orientation.y = KF_pub(5);
-    KF_pose.pose.orientation.z = KF_pub(6);
+    KF_pose_pub.header.stamp = ros::Time::now();
+    KF_pose_pub.header.frame_id = "world";
+    KF_pose_pub.pose.position.x = KF_pub(0);
+    KF_pose_pub.pose.position.y = KF_pub(1);
+    KF_pose_pub.pose.position.z = KF_pub(2);
+    KF_pose_pub.pose.orientation.w = KF_pub(3);
+    KF_pose_pub.pose.orientation.x = KF_pub(4);
+    KF_pose_pub.pose.orientation.y = KF_pub(5);
+    KF_pose_pub.pose.orientation.z = KF_pub(6);
 }
 bool KFok_indicator(){
-    bool output;  
-    if(UAV_twist[0]==0 && UAV_twist[1]==0 && UAV_twist[2]==0){ //No twist input KF no OK
-        output = false;
-    }
-    if(!CV_lost){
-        CV_lost_timer = ros::Time::now().toSec();
-        CV_lost = true;
-    }
-    if(CV_lost_timer - ros::Time::now().toSec() < -10){ //Visualize of UAV lost for 10 seceonds KF no OK
-        KF_init = false;
-        output = false;
-        KF_PosePub(Zero7);
-    }
-    return(output);
+    // bool output;  
+    // if(UAV_twist[0]==0 && UAV_twist[1]==0 && UAV_twist[2]==0){ //No twist input KF no OK
+    //     output = false;
+    // }
+    // if(!CV_lost){
+    //     CV_lost_timer = ros::Time::now().toSec();
+    //     CV_lost = true;
+    // }
+    // if(CV_lost_timer - ros::Time::now().toSec() < -10){ //Visualize of UAV lost for 10 seceonds KF no OK
+    //     KF_init = false;
+    //     output = false;
+    //     KF_PosePub(Zero7);
+    // }
+    // return(output);
 }
 void datalogger(){ 
     logger_time = ros::Time::now().toSec();
@@ -203,64 +218,48 @@ int main(int argc, char **argv){
     while(ros::ok()){
         ros::spinOnce();
         // KFok.data = KFok_indicator();
-        // if(KF_init){
-        //     /* Kalman Filter */
-        //     KF.transitionMatrix.at<float>(3)  = KFdT; //update Mat A
-        //     KF.transitionMatrix.at<float>(10) = KFdT; 
-        //     KF.transitionMatrix.at<float>(17) = KFdT;
-        //     /* KF prediction */
-        //     Mat prediction = KF.predict();
-        //     KF_pub << prediction.at<float>(0),prediction.at<float>(1),prediction.at<float>(2),UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6];
-        //     KF_PosePub(KF_pub);
-        //     /* update KF measurement */
-        //     Mat measurement = Mat::zeros(measSize, 1, CV_32F);
+        if(KF_init){
+            /* Kalman Filter */
+            KF.transitionMatrix.at<float>(3)  = KFdT; //update Mat A
+            KF.transitionMatrix.at<float>(10) = KFdT; 
+            KF.transitionMatrix.at<float>(17) = KFdT;
+            /* KF prediction */
+            Mat prediction = KF.predict();
+            KF_pub << prediction.at<float>(0),prediction.at<float>(1),prediction.at<float>(2),UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6];
+            KF_PosePub(KF_pub);
+            /* update KF measurement */
+            Mat measurement = Mat::zeros(measSize, 1, CV_32F);
             
-        //     if(YOLO_found){    
-        //         measurement.at<float>(0) = YOLO_pose_realsense.pose.position.x;
-        //         measurement.at<float>(1) = YOLO_pose_realsense.pose.position.y;
-        //         measurement.at<float>(2) = YOLO_pose_realsense.pose.position.z;
-        //         measurement.at<float>(3) = UAV_twist[0];
-        //         measurement.at<float>(4) = UAV_twist[1];
-        //         measurement.at<float>(5) = UAV_twist[2];
-        //         YOLO_found = false;
-        //         CV_lost = false;
-        //         KF.correct(measurement);
-        //     }
-        //     if(Aruco_found){
-        //         Aruco_found = false;
-        //         measurement.at<float>(0) = Aruco_pose_realsense.pose.position.x;
-        //         measurement.at<float>(1) = Aruco_pose_realsense.pose.position.y;
-        //         measurement.at<float>(2) = Aruco_pose_realsense.pose.position.z;
-        //         measurement.at<float>(3) = UAV_twist[0];
-        //         measurement.at<float>(4) = UAV_twist[1];
-        //         measurement.at<float>(5) = UAV_twist[2];
-        //         KF.correct(measurement);
-        //         Aruco_found = false;
-        //     }else{
-        //         measurement.at<float>(0) = prediction.at<float>(0);
-        //         measurement.at<float>(1) = prediction.at<float>(1);
-        //         measurement.at<float>(2) = prediction.at<float>(2);
-        //         measurement.at<float>(3) = UAV_twist[0];
-        //         measurement.at<float>(4) = UAV_twist[1];
-        //         measurement.at<float>(5) = UAV_twist[2];
-        //         KF.correct(measurement);
-        //     }
-        //     //     KF_use_Depth = !KF_use_Depth;
-        //     // }else if(Aruco_found && KF_use_Depth){
-        //     //     Aruco_found = false;
-        //     //     measurement.at<float>(0) = Depth_pose_realsense.pose.position.x;
-        //     //     measurement.at<float>(1) = Depth_pose_realsense.pose.position.y;
-        //     //     measurement.at<float>(2) = Depth_pose_realsense.pose.position.z;
-        //     //     measurement.at<float>(3) = UAV_twist[0];
-        //     //     measurement.at<float>(4) = UAV_twist[1];
-        //     //     measurement.at<float>(5) = UAV_twist[2];
-        //     //     KF.correct(measurement);
-        //     //     Aruco_found = false;
-        //     //     KF_use_Depth = !KF_use_Depth;
-            
-        // }
-        KFok_pub.publish(KFok);
-        KFPose_pub.publish(KF_pose);
+            if(Yolo_updated){    
+                measurement.at<float>(0) = Yolo_lp[0];
+                measurement.at<float>(1) = Yolo_lp[1];
+                measurement.at<float>(2) = Yolo_lp[2];
+                measurement.at<float>(3) = UAV_twist[0];
+                measurement.at<float>(4) = UAV_twist[1];
+                measurement.at<float>(5) = UAV_twist[2];
+                Yolo_updated = false;
+                CV_lost = false;
+            }else if(Aruco_updated){
+                Aruco_found = false;
+                measurement.at<float>(0) = Aruco_lp[0];
+                measurement.at<float>(1) = Aruco_lp[1];
+                measurement.at<float>(2) = Aruco_lp[2];
+                measurement.at<float>(3) = UAV_twist[0];
+                measurement.at<float>(4) = UAV_twist[1];
+                measurement.at<float>(5) = UAV_twist[2];
+                Aruco_updated = false;
+            }else{
+                measurement.at<float>(0) = prediction.at<float>(0);
+                measurement.at<float>(1) = prediction.at<float>(1);
+                measurement.at<float>(2) = prediction.at<float>(2);
+                measurement.at<float>(3) = UAV_twist[0];
+                measurement.at<float>(4) = UAV_twist[1];
+                measurement.at<float>(5) = UAV_twist[2];
+            }
+            KF.correct(measurement);
+        }
+        // KFok_pub.publish(KFok);
+        KFPose_pub.publish(KF_pose_pub);
         datalogger();
         
         /* ROS timer */
@@ -269,11 +268,12 @@ int main(int argc, char **argv){
         cout << "---------------------------------------------------" << endl;
         cout << "System_Hz: " << 1/(TimerT-TimerLastT) << " dt: " << KFdT << endl;
         cout << "KFLOST_time: " << CV_lost_timer - ros::Time::now().toSec() << " KF_init: " << KF_init << endl;
-        cout << "     X: " <<KF_pose.pose.position.x << " Y: " <<KF_pose.pose.position.y << " Z: " <<KF_pose.pose.position.z << endl;
+        cout << "Aruco Flag: " << Aruco_updated << " Yolo Flag: " << Yolo_updated << endl;
+        cout << "     X: " <<KF_pose_pub.pose.position.x << " Y: " <<KF_pose_pub.pose.position.y << " Z: " <<KF_pose_pub.pose.position.z << endl;
         cout << "Aruco_lp: " << Aruco_lp << endl;
-        // cout << "diff_X: " <<KF_pose.pose.position.x - UAV_pose_sub.pose.position.x <<
-        //             " Y: " <<KF_pose.pose.position.y - UAV_pose_sub.pose.position.y << 
-        //             " Z: " <<KF_pose.pose.position.z -UAV_pose_sub.pose.position.z << endl;
+        // cout << "diff_X: " <<KF_pose_pub.pose.position.x - UAV_pose_sub.pose.position.x <<
+        //             " Y: " <<KF_pose_pub.pose.position.y - UAV_pose_sub.pose.position.y << 
+        //             " Z: " <<KF_pose_pub.pose.position.z -UAV_pose_sub.pose.position.z << endl;
         Error_lp = sqrt(pow((Aruco_lp[0]-UAV_pose_sub.pose.position.x),2)+
                      pow((Aruco_lp[1]-UAV_pose_sub.pose.position.y),2)+
                      pow((Aruco_lp[2]-UAV_pose_sub.pose.position.z),2));
