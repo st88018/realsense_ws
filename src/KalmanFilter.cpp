@@ -187,7 +187,7 @@ int main(int argc, char **argv){
     remove("/home/jeremy/realsense_ws/src/Groundtruth.csv");
     
     /* System Params */
-    ros::Rate loop_rate(100); /* ROS system Hz */
+    ros::Rate loop_rate(50); /* ROS system Hz */
 
     /* Kalman Filter */
     int stateSize = 6; // (x,y,z,vx,vy,vz)
@@ -211,7 +211,7 @@ int main(int argc, char **argv){
     // MeasureV.at<float>(28) = 1;
     // MeasureV.at<float>(35) = 1;
     setIdentity(KF.processNoiseCov, Scalar::all(1e-3)); 
-    setIdentity(KF.measurementNoiseCov, Scalar::all(2e-1));
+    setIdentity(KF.measurementNoiseCov, Scalar::all(3e-1));
     // KF.measurementNoiseCov.at<float>(21) = 1e-1;
     // KF.measurementNoiseCov.at<float>(28) = 1e-1;
     // KF.measurementNoiseCov.at<float>(35) = 1e-1;
