@@ -56,7 +56,7 @@ bool KF_init = false;
 double CV_lost_timer;
 bool CV_lost = false;
 std_msgs::Bool KFok;
-double Error_lp;
+double Error_lp,dist2UAV;
 
 void uav_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UAV_pose_sub.pose.position.x = pose->pose.position.x;
@@ -225,11 +225,15 @@ int main(int argc, char **argv){
         Error_lp = sqrt(pow((KF_pub[0]-UAV_pose_sub.pose.position.x),2)+
                      pow((KF_pub[1]-UAV_pose_sub.pose.position.y),2)+
                      pow((KF_pub[2]-UAV_pose_sub.pose.position.z),2));
-        cout << "error: " << Error_lp << endl;
+        cout << "error: " << Error_lp << " dist2UAV: " << dist2UAV << endl;
         TimerLastT = TimerT;
         KFok_indicator();
         KFok.data = KF_init;
         KFok_pub.publish(KFok);
+
+        dist2UAV = sqrt(pow((KF_pub[0]-Camera_lp[0]),2)+
+                     pow((KF_pub[1]-Camera_lp[1]),2)+
+                     pow((KF_pub[2]-Camera_lp[2]),2));
         
         if(KF_init){
             /* Kalman Filter */
@@ -242,33 +246,59 @@ int main(int argc, char **argv){
             KF_PosePub(KF_pub);
             /* update KF measurement */
             Mat measurement = Mat::zeros(measSize, 1, CV_32F);
-            
-            if(Yolo_updated){    
-                measurement.at<float>(0) = Yolo_lp[0];
-                measurement.at<float>(1) = Yolo_lp[1];
-                measurement.at<float>(2) = Yolo_lp[2];
-                measurement.at<float>(3) = UAV_twist[0];
-                measurement.at<float>(4) = UAV_twist[1];
-                measurement.at<float>(5) = UAV_twist[2];
-                Yolo_updated = false;
-            }else if(Aruco_updated){
-                Aruco_found = false;
-                measurement.at<float>(0) = Aruco_lp[0];
-                measurement.at<float>(1) = Aruco_lp[1];
-                measurement.at<float>(2) = Aruco_lp[2];
-                measurement.at<float>(3) = UAV_twist[0];
-                measurement.at<float>(4) = UAV_twist[1];
-                measurement.at<float>(5) = UAV_twist[2];
-                Aruco_updated = false;
+            if(dist2UAV < 0.5 ){
+                if(Aruco_updated){
+                    measurement.at<float>(0) = Aruco_lp[0];
+                    measurement.at<float>(1) = Aruco_lp[1];
+                    measurement.at<float>(2) = Aruco_lp[2];
+                    measurement.at<float>(3) = UAV_twist[0];
+                    measurement.at<float>(4) = UAV_twist[1];
+                    measurement.at<float>(5) = UAV_twist[2];
+                    Aruco_updated = false; 
+                }else if(Yolo_updated){
+                    measurement.at<float>(0) = Yolo_lp[0];
+                    measurement.at<float>(1) = Yolo_lp[1];
+                    measurement.at<float>(2) = Yolo_lp[2];
+                    measurement.at<float>(3) = UAV_twist[0];
+                    measurement.at<float>(4) = UAV_twist[1];
+                    measurement.at<float>(5) = UAV_twist[2];
+                    Yolo_updated = false;
+                }else{
+                    measurement.at<float>(0) = prediction.at<float>(0);
+                    measurement.at<float>(1) = prediction.at<float>(1);
+                    measurement.at<float>(2) = prediction.at<float>(2);
+                    measurement.at<float>(3) = UAV_twist[0];
+                    measurement.at<float>(4) = UAV_twist[1];
+                    measurement.at<float>(5) = UAV_twist[2];
+                }
+                KF.correct(measurement);
             }else{
-                measurement.at<float>(0) = prediction.at<float>(0);
-                measurement.at<float>(1) = prediction.at<float>(1);
-                measurement.at<float>(2) = prediction.at<float>(2);
-                measurement.at<float>(3) = UAV_twist[0];
-                measurement.at<float>(4) = UAV_twist[1];
-                measurement.at<float>(5) = UAV_twist[2];
+                if(Yolo_updated){    
+                    measurement.at<float>(0) = Yolo_lp[0];
+                    measurement.at<float>(1) = Yolo_lp[1];
+                    measurement.at<float>(2) = Yolo_lp[2];
+                    measurement.at<float>(3) = UAV_twist[0];
+                    measurement.at<float>(4) = UAV_twist[1];
+                    measurement.at<float>(5) = UAV_twist[2];
+                    Yolo_updated = false;
+                }else if(Aruco_updated){
+                    measurement.at<float>(0) = Aruco_lp[0];
+                    measurement.at<float>(1) = Aruco_lp[1];
+                    measurement.at<float>(2) = Aruco_lp[2];
+                    measurement.at<float>(3) = UAV_twist[0];
+                    measurement.at<float>(4) = UAV_twist[1];
+                    measurement.at<float>(5) = UAV_twist[2];
+                    Aruco_updated = false;
+                }else{
+                    measurement.at<float>(0) = prediction.at<float>(0);
+                    measurement.at<float>(1) = prediction.at<float>(1);
+                    measurement.at<float>(2) = prediction.at<float>(2);
+                    measurement.at<float>(3) = UAV_twist[0];
+                    measurement.at<float>(4) = UAV_twist[1];
+                    measurement.at<float>(5) = UAV_twist[2];
+                }
+                KF.correct(measurement);
             }
-            KF.correct(measurement);
         }
         KFPose_pub.publish(KF_pose_pub);
         datalogger();
