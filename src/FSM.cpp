@@ -1,5 +1,9 @@
 #include <ros/ros.h>
 #include <string>
+#include <fstream>
+#include <iostream>
+#include <istream>
+#include <sstream>
 #include <numeric>
 #include <Eigen/Core>
 #include <Eigen/Geometry>
@@ -574,6 +578,16 @@ void Finite_state_machine(){
 
     }
 }
+void datalogger(){
+    ofstream save("/home/jeremy/realsense_ws/src/realsense_ws/logs/FSM.csv", ios::app);
+    // save<<std::setprecision(20)<<ros::Time::now().toSec()<<
+    //     ","<<UAV_lp(0)<<","<<UAV_lp(1)<<","<<UAV_lp(2)<<
+    //     ","<<UAV_kf_lp(0)<<","<<UAV_kf_lp(1)<<","<<UAV_kf_lp(2)<<
+    //     ","<<UGV_lp(0)<<","<<UGV_lp(1)<<","<<UGV_lp(2)<<
+    //     ","<<UAV_twist_pub.linear.x<<","<<UAV_twist_pub.linear.y<<","<<UAV_twist_pub.linear.z<<
+    //     ","<<UAV_pose_pub.pose.position.x<<","<<UAV_pose_pub.pose.position.y<<","<<UAV_pose_pub.pose.position.z<<endl;
+    save.close();
+}
 int main(int argc, char **argv)
 {
     ros::init(argc, argv, "FSM");
@@ -600,6 +614,7 @@ int main(int argc, char **argv)
     Zero7 << 0,0,0,0,0,0,0;
     UAV_AttitudeTarget.thrust = 0.3;
     ros::Rate loop_rate(50); /* ROS system Hz */
+    remove("/home/jeremy/realsense_ws/src/realsense_ws/logs/FSM.csv");
 
     while(ros::ok()){
         /* System initailize ***************************************************/
@@ -676,7 +691,7 @@ int main(int argc, char **argv)
         if(pub_trajpose&&!ForcePIDcontroller){uav_pos_pub.publish(UAV_pose_pub);}
         if(FSM_state == 2){uav_pos_pub.publish(UAV_pose_pub);}
         /*Mission information cout**********************************************/
-        if(coutcounter > 75 && FSMinit && !ShutDown && !soft_ShutDown){ //reduce cout rate
+        if(coutcounter > 50 && FSMinit && !ShutDown && !soft_ShutDown){ //reduce cout rate
             if (FSM_state == 0){
                 cout << "Status: "<< armstatus() << "    Mode: " << current_state.mode <<endl;
                 cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
