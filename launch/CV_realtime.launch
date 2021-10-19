@@ -1,0 +1,15 @@
+<launch>
+    <node name="rviz" pkg="rviz" type="rviz"
+           args="-d $(find real)/rviz/CV_sim.rviz"> 
+    </node>
+
+    <node name="YOLO_node" pkg="real" type="Yolo">
+    </node>
+
+    <node name="Aruco_node" pkg="real" type="Aruco">
+    </node>
+
+    <node name="kf_node" pkg="real" type="KalmanFilter" output="screen">
+    </node>
+
+</launch>   

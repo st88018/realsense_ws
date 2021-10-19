@@ -95,6 +95,7 @@ void depth_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     if(Depth_lp_last != Depth_lp){
         Depth_lp_last = Depth_lp;
         Depth_updated = true;
+        CV_lost = false;
     }
 }
 void yolo_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
@@ -109,6 +110,7 @@ void yolo_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
         Yolo_lp_last = Yolo_lp;
         Yolo_updated = true;
         KF_init = true;
+        CV_lost = false;
     }
 }
 void uav_twist_sub(const geometry_msgs::TwistStamped::ConstPtr& twist){
@@ -144,28 +146,26 @@ void KF_PosePub(Vec7 KF_pub){
     KF_pose_pub.pose.orientation.z = KF_pub(6);
 }
 bool KFok_indicator(){
-    bool output;  
-    if(UAV_twist[0]==0 && UAV_twist[1]==0 && UAV_twist[2]==0){ //No twist input KF no OK
-        output = false;
-    }
-    if(!CV_lost){
-        CV_lost_timer = ros::Time::now().toSec();
-        CV_lost = true;
-    }
+    bool output;
     if(CV_lost_timer - ros::Time::now().toSec() < -10){ //Visualize of UAV lost for 10 seceonds KF no OK
         KF_init = false;
         output = false;
         KF_PosePub(Zero7);
+    }
+    if(!CV_lost){
+        CV_lost_timer = ros::Time::now().toSec();
+        output = true;
+        CV_lost = true;
     }
     return(output);
 }
 void datalogger(){ 
     logger_time = ros::Time::now().toSec();
     // if(logger_time-logger_time_last > 0.02){
-        ofstream save("/home/jeremy/realsense_ws/src/realsense_ws/logs/KF.csv", ios::app);
+        ofstream save("/home/patty/realsense_ws/src/realsense_ws/logs/KF.csv", ios::app);
         save<<std::setprecision(20)<<logger_time<<","<<KF_pub(0)<<","<<KF_pub(1)<<","<<KF_pub(2)<<endl;                                      
         save.close();
-        ofstream save2("/home/jeremy/realsense_ws/src/realsense_ws/logs/Groundtruth.csv", ios::app);
+        ofstream save2("/home/patty/realsense_ws/src/realsense_ws/logs/Groundtruth.csv", ios::app);
         save2<<std::setprecision(20)<<logger_time<<","<<UAV_lp(0)<<","<<UAV_lp(1)<<","<<UAV_lp(2)<<endl;
         save2.close();
         // logger_time_last = logger_time;
@@ -183,8 +183,8 @@ int main(int argc, char **argv){
     ros::Subscriber yolopose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/YoloPose", 1, yolo_pose_sub);
     ros::Publisher KFPose_pub = nh.advertise<geometry_msgs::PoseStamped>("/KalmanFilterPose",1);
     ros::Publisher KFok_pub = nh.advertise<std_msgs::Bool>("/KFok",1);
-    remove("/home/jeremy/realsense_ws/src/realsense_ws/logs/KF.csv");
-    remove("/home/jeremy/realsense_ws/src/realsense_ws/logs/Groundtruth.csv");
+    remove("/home/patty/realsense_ws/src/realsense_ws/logs/KF.csv");
+    remove("/home/patty/realsense_ws/src/realsense_ws/logs/Groundtruth.csv");
     
     /* System Params */
     ros::Rate loop_rate(50); /* ROS system Hz */
@@ -202,14 +202,6 @@ int main(int argc, char **argv){
     //       0,0,0,0,1,0,
     //       0,0,0,0,0,1);
     setIdentity(KF.measurementMatrix);
-    // Mat MeasureP = Mat::zeros(measSize, measSize, CV_32F);
-    // MeasureP.at<float>(0) = 1;
-    // MeasureP.at<float>(7) = 1;
-    // MeasureP.at<float>(14) = 1;
-    // Mat MeasureV = Mat::zeros(measSize, measSize, CV_32F);
-    // MeasureV.at<float>(21) = 1;
-    // MeasureV.at<float>(28) = 1;
-    // MeasureV.at<float>(35) = 1;
     setIdentity(KF.processNoiseCov, Scalar::all(1e-2)); 
     setIdentity(KF.measurementNoiseCov, Scalar::all(1e-1));
     KF.measurementNoiseCov.at<float>(21) = 3e-1;
@@ -226,15 +218,17 @@ int main(int argc, char **argv){
         KFdT = TimerT-TimerLastT;
         cout << "---------------------------------------------------" << endl;
         cout << "System_Hz: " << 1/(TimerT-TimerLastT) << " dt: " << KFdT << endl;
-        cout << "Visual_LOST_time: " << CV_lost_timer - ros::Time::now().toSec() << " KF_init: " << KF_init << " " << KFok_indicator() << endl;
+        bool KF_ok = KFok.data;
+        cout << "Visual_LOST_time: " << CV_lost_timer - ros::Time::now().toSec() << " KF_init: " << KF_init << " " << KF_ok << " " << CV_lost << endl;
         cout << "Aruco Flag: " << Aruco_updated << " Yolo Flag: " << Yolo_updated << endl;
         cout << "     X: " <<KF_pose_pub.pose.position.x << " Y: " <<KF_pose_pub.pose.position.y << " Z: " <<KF_pose_pub.pose.position.z << endl;
-        Error_lp = sqrt(pow((Aruco_lp[0]-UAV_pose_sub.pose.position.x),2)+
-                     pow((Aruco_lp[1]-UAV_pose_sub.pose.position.y),2)+
-                     pow((Aruco_lp[2]-UAV_pose_sub.pose.position.z),2));
+        Error_lp = sqrt(pow((KF_pub[0]-UAV_pose_sub.pose.position.x),2)+
+                     pow((KF_pub[1]-UAV_pose_sub.pose.position.y),2)+
+                     pow((KF_pub[2]-UAV_pose_sub.pose.position.z),2));
         cout << "error: " << Error_lp << endl;
         TimerLastT = TimerT;
-        KFok.data = KFok_indicator();
+        KFok_indicator();
+        KFok.data = KF_init;
         KFok_pub.publish(KFok);
         
         if(KF_init){
@@ -257,7 +251,6 @@ int main(int argc, char **argv){
                 measurement.at<float>(4) = UAV_twist[1];
                 measurement.at<float>(5) = UAV_twist[2];
                 Yolo_updated = false;
-                CV_lost = false;
             }else if(Aruco_updated){
                 Aruco_found = false;
                 measurement.at<float>(0) = Aruco_lp[0];

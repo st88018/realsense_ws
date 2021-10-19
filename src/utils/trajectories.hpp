@@ -94,6 +94,12 @@ void AM_traj_pos(vector<Vector3d> WPs,Vec7 UAV_lp, Vec4 UAV_twist){
     // }
 }
 
+double Q2yaw(Vec4 inputQ){
+    Quaterniond q(inputQ[0],inputQ[1],inputQ[2],inputQ[3]);
+    Vec3 rpy = Q2rpy(q);
+    return(rpy[2]);
+}
+
 void AM_traj_vel(vector<Vector3d> WPs,Vec7 UAV_lp, Vec4 UAV_twist){
     Quaterniond localq(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]);
     Vec3 localrpy = Q2rpy(localq);
