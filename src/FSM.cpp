@@ -10,6 +10,7 @@
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/State.h>
 #include <mavros_msgs/AttitudeTarget.h>
+#include <std_msgs/Bool.h>
 #include "utils/kinetic_math.hpp"
 #include "utils/uav_mission.hpp"
 #include "utils/trajectories.hpp"
@@ -61,6 +62,8 @@ bool   Force_start   = false;
 bool   ShutDown      = false;
 bool   soft_ShutDown = false;
 bool   UseKFpose     = false;
+bool   ForcePIDcontroller = false;
+bool   KFok;
 
 void failsafe(bool Failsafe_trigger){
     if(Failsafe_trigger){
@@ -121,7 +124,7 @@ Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){ //XYZyaw
     Vec4 error,u_p,u_i,u_d,output,derivative;
     double iteration_time = ros::Time::now().toSec() - Last_time;
     // cout << "iteration_time: " << iteration_time << endl;
-    Vec4 K_p(2,2,1,1);
+    Vec4 K_p(1.5,1.5,1,1);
     Vec4 K_i(0.05,0.05,0.05,0.05);
     Vec4 K_d(0,0,0,0);
     error = setpoint-pose;
@@ -160,7 +163,7 @@ void uav_twist_sub(const geometry_msgs::TwistStamped::ConstPtr& twist){
                  UAV_twist_sub.twist.linear.z,UAV_twist_sub.twist.angular.z;
 }
 void uav_state_sub(const mavros_msgs::State::ConstPtr& msg){
-    current_state = *msg;
+    current_state = *msg;   
 }
 void uav_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UAV_pose_sub.pose.position.x = pose->pose.position.x;
@@ -185,6 +188,9 @@ void uav_kf_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UAV_kf_lp << UAV_kf_sub.pose.position.x,UAV_kf_sub.pose.position.y,UAV_kf_sub.pose.position.z,
                  UAV_kf_sub.pose.orientation.w,UAV_kf_sub.pose.orientation.x,UAV_kf_sub.pose.orientation.y,UAV_kf_sub.pose.orientation.z;
 }
+void KFflag_sub(const std_msgs::Bool::ConstPtr& msg){
+    KFok = msg->data;
+}
 void uav_pose_pub(Vec7 posepub){
     UAV_pose_pub.header.frame_id = "world";
     UAV_pose_pub.pose.position.x = posepub[0];
@@ -208,10 +214,21 @@ void uav_pub(bool pub_trajpose, bool pub_pidtwist){
             trajectory_pos.pop_front();
             traj_pos_deque_front = trajectory_pos.front();
         }
-        Vec7 uavposepub;
-        uavposepub << traj_pos_deque_front[1],traj_pos_deque_front[2],traj_pos_deque_front[3],
-                        traj_pos_deque_front[4],traj_pos_deque_front[5],traj_pos_deque_front[6],traj_pos_deque_front[7];
-        uav_pose_pub(uavposepub);
+        if(ForcePIDcontroller){
+            Pos_setpoint << traj_pos_deque_front[1],traj_pos_deque_front[2],traj_pos_deque_front[3],Q2yaw(Vec4(traj_pos_deque_front[4],traj_pos_deque_front[5],traj_pos_deque_front[6],traj_pos_deque_front[7]));
+            Vec4 xyzyaw;
+            if(UseKFpose){
+                xyzyaw << UAV_kf_lp[0],UAV_kf_lp[1],UAV_kf_lp[2],Q2yaw(Vec4(UAV_kf_lp[3],UAV_kf_lp[4],UAV_kf_lp[5],UAV_kf_lp[6]));
+            }else{
+                xyzyaw << UAV_lp[0],UAV_lp[1],UAV_lp[2],Q2yaw(Vec4(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]));
+            }
+            uav_twist_pub(uav_poistion_controller_PID(xyzyaw,Pos_setpoint));
+        }else{
+            Vec7 uavposepub;
+            uavposepub << traj_pos_deque_front[1],traj_pos_deque_front[2],traj_pos_deque_front[3],
+                          traj_pos_deque_front[4],traj_pos_deque_front[5],traj_pos_deque_front[6],traj_pos_deque_front[7];
+            uav_pose_pub(uavposepub);
+        }
         if (traj_pos_deque_front[0] > traj_pos_information[1] && FSM_state == 0){
             Mission_stage++;
             trajectory_pos.clear();
@@ -223,9 +240,9 @@ void uav_pub(bool pub_trajpose, bool pub_pidtwist){
         Vec3 localrpy = Q2rpy(localq);
         Vec4 xyzyaw;
         if(UseKFpose){
-            xyzyaw << UAV_kf_sub.pose.position.x,UAV_kf_sub.pose.position.y,UAV_kf_sub.pose.position.z,localrpy[2];
+            xyzyaw << UAV_kf_lp[0],UAV_kf_lp[1],UAV_kf_lp[2],localrpy[2];
         }else{
-            xyzyaw << UAV_pose_sub.pose.position.x,UAV_pose_sub.pose.position.y,UAV_pose_sub.pose.position.z,localrpy[2];
+            xyzyaw << UAV_lp[0],UAV_lp[1],UAV_lp[2],localrpy[2];
         }
         if(Mission_state == 7){  //Follow the UGV
             Vec7 UGV_pred_lp = ugv_pred_land_pose(1);
@@ -397,7 +414,7 @@ void Finite_stage_mission(){  // Main FSM
     }
 }
 void Finite_state_machine(){
-    if(FSM_state==1){ //Free Flying (position hold while triggered)
+    if(FSM_state==1){ //Follow 1.1 (using GPS) stay at horizontal_dist, vertical_dist
         // Vec7 FSM_1_pose;
         // Quaterniond FSM1q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
         // Vec3 FSM1rpy = Q2rpy(FSM1q);
@@ -420,7 +437,7 @@ void Finite_state_machine(){
         //     FSM_finished = false;
         // }
     }
-    if(FSM_state==2){ //Follow 1 (using GPS or vicon) stay at horizontal_dist, vertical_dist
+    if(FSM_state==2){ //Follow 1.2 (using vicon) stay at horizontal_dist, vertical_dist
         Vec7 FSM_2_pose;
         Quaterniond FSM2q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
         Vec3 FSM2rpy = Q2rpy(FSM2q);
@@ -435,7 +452,7 @@ void Finite_state_machine(){
             FSM_finish_time = ros::Time::now().toSec();
             FSM_finished = true;
         }
-        if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3){
+        if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3  && !KFok){
             FSM_finished = false;
         }
         if(FSM_finish_time - ros::Time::now().toSec() < -3 && FSM_finished){
@@ -443,16 +460,19 @@ void Finite_state_machine(){
             FSM_finished = false;
         }
     }
-    if(FSM_state==3){ //Follow 2 (using PID)
+    if(FSM_state==3){ //Follow 2 (using PID & KF pose)
         Vec7 FSM_3_pose;
         Quaterniond FSM3q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
         Vec3 FSM3rpy = Q2rpy(FSM3q);
         double horizontal_dist = 1;
         double vertical_dist = 0.5;
         Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM3rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM3rpy[2]));
-        pub_trajpose = false; pub_pidtwist = true; UseKFpose = false;
+        pub_trajpose = false; pub_pidtwist = true; UseKFpose = true;
         Pos_setpoint << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGVrpy[2];
         PID_duration = 0;
+        if(!KFok){
+            FSM_state--;
+        }
         if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) < horizontal_dist+0.3 && !FSM_finished){
             // cout << "start count down" << endl;
             FSM_finish_time = ros::Time::now().toSec();
@@ -467,32 +487,13 @@ void Finite_state_machine(){
             FSM_finished = false;
         }
     }
-    // if(FSM_state==4){ //continuous vel_traj
-    //     Vec7 FSM_4_pose;
-    //     Quaterniond FSM4q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
-    //     Vec3 FSM4rpy = Q2rpy(FSM4q);
-    //     double horizontal_dist = 1;
-    //     double vertical_dist = 0.5;
-    //     Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM4rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM4rpy[2]));
-    //     pub_trajpose = false; pub_pidtwist = false; pub_trajtwist = true;
-    //     Quaterniond UGVq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
-    //     Vec3 UGVrpy = Q2rpy(UGVq);
-    //     Pos_setpoint << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGVrpy[2];
-    //     PID_duration = 0;
-    //     vector<Vector3d> WPs;
-    //     WPs.clear();
-    //     Vector3d StartP(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
-    //     WPs.push_back(StartP);
-    //     Vector3d EndP(Pos_setpoint[0],Pos_setpoint[1],Pos_setpoint[2]);
-    //     AM_traj_vel(WPs,UAV_lp, UAV_twist);
-    // }
     if(FSM_state==4){ //Land trajectory
         Vec2 desxy;
         double Des_dist = 0.05;
         desxy = Vec2(UGV_lp[0]+Des_dist*cos(UGVrpy[2]),UGV_lp[1]+Des_dist*sin(UGVrpy[2]));
         if(!FSM_init){
             FSM_init = true;
-            pub_trajpose = true;  pub_pidtwist = false;
+            pub_trajpose = true;  pub_pidtwist = false; ForcePIDcontroller = true; UseKFpose = true;
             Traj_init_UGVrpy = UGVrpy;
             // double mid_dist = 1.5;
             // Vec2 midxy = Vec2(UGV_lp[0]-mid_dist*cos(UGVrpy[2]),UGV_lp[1]-mid_dist*sin(UGVrpy[2]));
@@ -535,6 +536,7 @@ void Finite_state_machine(){
                  << "------------------UGV not stable-------------------" << endl
                  << "---------------------------------------------------" << endl;
             FSM_state--;
+            ForcePIDcontroller = false; UseKFpose = false;
             FSM_init = false;
         }
         if(Traj_leftT < -2){
@@ -542,6 +544,7 @@ void Finite_state_machine(){
                  << "---------------Landing Traj Timeout----------------" << endl
                  << "---------------------------------------------------" << endl;
             FSM_state--;
+            ForcePIDcontroller = false; UseKFpose = false;
             FSM_init = false;
         }
         if(UAVinUGV[2] < 0.05 && Dist_horizontal < 0.5){
@@ -549,6 +552,7 @@ void Finite_state_machine(){
                  << "-----Vertical distance not enough to approach------" << endl
                  << "---------------------------------------------------" << endl;
             FSM_state--;
+            ForcePIDcontroller = false; UseKFpose = false;
             FSM_init = false;
         }
         if(UAVinUGV[0] > 0.15 ){
@@ -556,11 +560,13 @@ void Finite_state_machine(){
                  << "--------------UAV overshoots UGV-------------------" << endl
                  << "---------------------------------------------------" << endl;
             FSM_state--;
+            ForcePIDcontroller = false;
             FSM_init = false;
         }
         if(Traj_leftT <  1 && UAVinUGV[0] > -0.05 && abs(UAVinUGV[1]) < 0.1 && UAVinUGV[2] < 0.15 ){ 
             ShutDown = false;
             soft_ShutDown = true;
+            ForcePIDcontroller = false;
             FSM_state++;
         }
     }
@@ -578,6 +584,7 @@ int main(int argc, char **argv)
     ros::Subscriber uavKF_sub = nh.subscribe<geometry_msgs::PoseStamped>("KalmanFilterPose", 1, uav_kf_sub);
     ros::Subscriber uavtwist_sub = nh.subscribe<geometry_msgs::TwistStamped>("/mavros/local_position/velocity_local", 5, uav_twist_sub);
     ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>("/mavros/state", 10, uav_state_sub);
+    ros::Subscriber KFok_sub = nh.subscribe<std_msgs::Bool>("/KFok",1,KFflag_sub);
     ros::ServiceClient arming_client = nh.serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");
     ros::ServiceClient set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("mavros/set_mode");
     ros::Publisher uav_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 5); 
@@ -592,7 +599,7 @@ int main(int argc, char **argv)
     Zero4 << 0,0,0,0;
     Zero7 << 0,0,0,0,0,0,0;
     UAV_AttitudeTarget.thrust = 0.3;
-    ros::Rate loop_rate(100); /* ROS system Hz */
+    ros::Rate loop_rate(50); /* ROS system Hz */
 
     while(ros::ok()){
         /* System initailize ***************************************************/
@@ -665,8 +672,8 @@ int main(int argc, char **argv)
             cout << "thrust: " << UAV_AttitudeTarget.thrust << endl;
             uav_AttitudeTarget.publish(UAV_AttitudeTarget);
         }
-        if(pub_pidtwist){uav_vel_pub.publish(UAV_twist_pub);}
-        if(pub_trajpose){uav_pos_pub.publish(UAV_pose_pub);}
+        if(pub_pidtwist ||ForcePIDcontroller){uav_vel_pub.publish(UAV_twist_pub);}
+        if(pub_trajpose&&!ForcePIDcontroller){uav_pos_pub.publish(UAV_pose_pub);}
         if(FSM_state == 2){uav_pos_pub.publish(UAV_pose_pub);}
         /*Mission information cout**********************************************/
         if(coutcounter > 75 && FSMinit && !ShutDown && !soft_ShutDown){ //reduce cout rate
@@ -675,14 +682,16 @@ int main(int argc, char **argv)
                 cout << "Mission_Stage: " << Mission_stage << "    Mission_total_stage: " << waypoints.size() << endl;
                 cout << "Mission_State: " << statestatus() << endl;
             }else{
-                cout << "FSM State: "<< FSM_state << endl;
+                cout << "FSM State: "<< FSM_state << " KFok:" << KFok << endl;
             }
             cout << "vicon__pos_x: " << UAV_lp[0] << " y: " << UAV_lp[1] << " z: "<< UAV_lp[2] << endl;
+            cout << "KF_____pos_x: " << UAV_kf_lp[0] << " y: " << UAV_kf_lp[1] << " z: "<< UAV_kf_lp[2] << endl;
             if(pub_trajpose){
                 cout << "desiredpos___x: " << UAV_pose_pub.pose.position.x << " y: " << UAV_pose_pub.pose.position.y << " z: "<< UAV_pose_pub.pose.position.z << endl;
                 cout << "Traj countdown: " << traj_pos_information[1] - ros::Time::now().toSec() << endl;
             }
             if(pub_pidtwist){
+                cout << "DES____pos_x: " << Pos_setpoint[0] <<  " y: " << Pos_setpoint[1] << " z: "<< Pos_setpoint[2] << endl;
                 cout << "des__twist_x: " << UAV_twist_pub.linear.x << " y: " << UAV_twist_pub.linear.y << " z: "<< UAV_twist_pub.linear.z << " az: " << UAV_twist_pub.angular.z << endl;
                 cout << "UseKFpose: " << UseKFpose << endl;
                 if (FSM_state == 0){

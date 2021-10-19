@@ -12,7 +12,4 @@
     <node name="kf_node" pkg="real" type="KalmanFilter" output="screen">
     </node>
 
-    <node pkg="rosbag" type="play" name="rosbag" args="$(find real)/bag/Car_D455_nano_aruco_3.bag">
-    </node>
-
 </launch>   
