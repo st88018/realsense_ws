@@ -10,6 +10,7 @@
 #include <mavros_msgs/SetMode.h>
 #include <mavros_msgs/State.h>
 #include <mavros_msgs/AttitudeTarget.h>
+#include <std_msgs/Bool.h>
 #include "utils/kinetic_math.hpp"
 #include "utils/uav_mission.hpp"
 #include "utils/trajectories.hpp"
@@ -61,6 +62,7 @@ bool   Force_start   = false;
 bool   ShutDown      = false;
 bool   soft_ShutDown = false;
 bool   UseKFpose     = false;
+bool   KFok;
 
 void failsafe(bool Failsafe_trigger){
     if(Failsafe_trigger){
@@ -160,7 +162,7 @@ void uav_twist_sub(const geometry_msgs::TwistStamped::ConstPtr& twist){
                  UAV_twist_sub.twist.linear.z,UAV_twist_sub.twist.angular.z;
 }
 void uav_state_sub(const mavros_msgs::State::ConstPtr& msg){
-    current_state = *msg;
+    current_state = *msg;   
 }
 void uav_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UAV_pose_sub.pose.position.x = pose->pose.position.x;
@@ -184,6 +186,9 @@ void uav_kf_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UAV_kf_sub.pose.orientation.z = pose->pose.orientation.z;
     UAV_kf_lp << UAV_kf_sub.pose.position.x,UAV_kf_sub.pose.position.y,UAV_kf_sub.pose.position.z,
                  UAV_kf_sub.pose.orientation.w,UAV_kf_sub.pose.orientation.x,UAV_kf_sub.pose.orientation.y,UAV_kf_sub.pose.orientation.z;
+}
+void KFflag_sub(const std_msgs::Bool::ConstPtr& msg){
+    KFok = msg->data;
 }
 void uav_pose_pub(Vec7 posepub){
     UAV_pose_pub.header.frame_id = "world";
@@ -397,7 +402,7 @@ void Finite_stage_mission(){  // Main FSM
     }
 }
 void Finite_state_machine(){
-    if(FSM_state==1){ //Free Flying (position hold while triggered)
+    if(FSM_state==1){ //Follow 1.1 (using GPS) stay at horizontal_dist, vertical_dist
         // Vec7 FSM_1_pose;
         // Quaterniond FSM1q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
         // Vec3 FSM1rpy = Q2rpy(FSM1q);
@@ -420,7 +425,7 @@ void Finite_state_machine(){
         //     FSM_finished = false;
         // }
     }
-    if(FSM_state==2){ //Follow 1 (using GPS or vicon) stay at horizontal_dist, vertical_dist
+    if(FSM_state==2){ //Follow 1.2 (using vicon) stay at horizontal_dist, vertical_dist
         Vec7 FSM_2_pose;
         Quaterniond FSM2q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
         Vec3 FSM2rpy = Q2rpy(FSM2q);
@@ -435,7 +440,7 @@ void Finite_state_machine(){
             FSM_finish_time = ros::Time::now().toSec();
             FSM_finished = true;
         }
-        if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3){
+        if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3  && KFok){
             FSM_finished = false;
         }
         if(FSM_finish_time - ros::Time::now().toSec() < -3 && FSM_finished){
@@ -443,16 +448,19 @@ void Finite_state_machine(){
             FSM_finished = false;
         }
     }
-    if(FSM_state==3){ //Follow 2 (using PID)
+    if(FSM_state==3){ //Follow 2 (using PID & KF pose)
         Vec7 FSM_3_pose;
-        Quaterniond FSM3q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
+        Quaterniond FSM3q(UAV_kf_lp[3],UAV_kf_lp[4],UAV_kf_lp[5],UAV_kf_lp[6]);
         Vec3 FSM3rpy = Q2rpy(FSM3q);
         double horizontal_dist = 1;
         double vertical_dist = 0.5;
-        Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM3rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM3rpy[2]));
+        Vec2 uavxy = Vec2(UAV_kf_lp[0]-horizontal_dist*cos(FSM3rpy[2]),UAV_kf_lp[1]-horizontal_dist*sin(FSM3rpy[2]));
         pub_trajpose = false; pub_pidtwist = true; UseKFpose = false;
         Pos_setpoint << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGVrpy[2];
         PID_duration = 0;
+        if(!KFok){
+            FSM_state--;
+        }
         if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) < horizontal_dist+0.3 && !FSM_finished){
             // cout << "start count down" << endl;
             FSM_finish_time = ros::Time::now().toSec();
@@ -467,25 +475,6 @@ void Finite_state_machine(){
             FSM_finished = false;
         }
     }
-    // if(FSM_state==4){ //continuous vel_traj
-    //     Vec7 FSM_4_pose;
-    //     Quaterniond FSM4q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
-    //     Vec3 FSM4rpy = Q2rpy(FSM4q);
-    //     double horizontal_dist = 1;
-    //     double vertical_dist = 0.5;
-    //     Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM4rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM4rpy[2]));
-    //     pub_trajpose = false; pub_pidtwist = false; pub_trajtwist = true;
-    //     Quaterniond UGVq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
-    //     Vec3 UGVrpy = Q2rpy(UGVq);
-    //     Pos_setpoint << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGVrpy[2];
-    //     PID_duration = 0;
-    //     vector<Vector3d> WPs;
-    //     WPs.clear();
-    //     Vector3d StartP(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
-    //     WPs.push_back(StartP);
-    //     Vector3d EndP(Pos_setpoint[0],Pos_setpoint[1],Pos_setpoint[2]);
-    //     AM_traj_vel(WPs,UAV_lp, UAV_twist);
-    // }
     if(FSM_state==4){ //Land trajectory
         Vec2 desxy;
         double Des_dist = 0.05;
@@ -578,6 +567,7 @@ int main(int argc, char **argv)
     ros::Subscriber uavKF_sub = nh.subscribe<geometry_msgs::PoseStamped>("KalmanFilterPose", 1, uav_kf_sub);
     ros::Subscriber uavtwist_sub = nh.subscribe<geometry_msgs::TwistStamped>("/mavros/local_position/velocity_local", 5, uav_twist_sub);
     ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>("/mavros/state", 10, uav_state_sub);
+    ros::Subscriber KFok_sub = nh.subscribe<std_msgs::Bool>("/KFok",1,KFflag_sub);
     ros::ServiceClient arming_client = nh.serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");
     ros::ServiceClient set_mode_client = nh.serviceClient<mavros_msgs::SetMode>("mavros/set_mode");
     ros::Publisher uav_pos_pub = nh.advertise<geometry_msgs::PoseStamped>("/mavros/setpoint_position/local", 5); 
@@ -592,7 +582,7 @@ int main(int argc, char **argv)
     Zero4 << 0,0,0,0;
     Zero7 << 0,0,0,0,0,0,0;
     UAV_AttitudeTarget.thrust = 0.3;
-    ros::Rate loop_rate(100); /* ROS system Hz */
+    ros::Rate loop_rate(50); /* ROS system Hz */
 
     while(ros::ok()){
         /* System initailize ***************************************************/
