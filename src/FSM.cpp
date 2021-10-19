@@ -580,12 +580,13 @@ void Finite_state_machine(){
 }
 void datalogger(){
     ofstream save("/home/jeremy/realsense_ws/src/realsense_ws/logs/FSM.csv", ios::app);
-    // save<<std::setprecision(20)<<ros::Time::now().toSec()<<
-    //     ","<<UAV_lp(0)<<","<<UAV_lp(1)<<","<<UAV_lp(2)<<
-    //     ","<<UAV_kf_lp(0)<<","<<UAV_kf_lp(1)<<","<<UAV_kf_lp(2)<<
-    //     ","<<UGV_lp(0)<<","<<UGV_lp(1)<<","<<UGV_lp(2)<<
-    //     ","<<UAV_twist_pub.linear.x<<","<<UAV_twist_pub.linear.y<<","<<UAV_twist_pub.linear.z<<
-    //     ","<<UAV_pose_pub.pose.position.x<<","<<UAV_pose_pub.pose.position.y<<","<<UAV_pose_pub.pose.position.z<<endl;
+    save<<std::setprecision(20)<<ros::Time::now().toSec()<<
+        ","<<UAV_lp(0)<<","<<UAV_lp(1)<<","<<UAV_lp(2)<<
+        ","<<UAV_kf_lp(0)<<","<<UAV_kf_lp(1)<<","<<UAV_kf_lp(2)<<
+        ","<<UGV_lp(0)<<","<<UGV_lp(1)<<","<<UGV_lp(2)<<
+        ","<<Pos_setpoint(0)<<","<<Pos_setpoint(1)<<","<<Pos_setpoint(2)<<
+        ","<<UAV_twist_pub.linear.x<<","<<UAV_twist_pub.linear.y<<","<<UAV_twist_pub.linear.z<<
+        ","<<UAV_pose_pub.pose.position.x<<","<<UAV_pose_pub.pose.position.y<<","<<UAV_pose_pub.pose.position.z<<endl;
     save.close();
 }
 int main(int argc, char **argv)
@@ -723,6 +724,7 @@ int main(int argc, char **argv)
         // auto currentT = ros::Time::now().toSec();
         // cout << "System_Hz: " << 1/(currentT-LastT) << endl;
         // LastT = currentT;
+        datalogger();
         ros::spinOnce();
         loop_rate.sleep();
     }
