@@ -162,10 +162,10 @@ bool KFok_indicator(){
 void datalogger(){ 
     logger_time = ros::Time::now().toSec();
     // if(logger_time-logger_time_last > 0.02){
-        ofstream save("/home/jeremy/realsense_ws/src/realsense_ws/logs/KF.csv", ios::app);
+        ofstream save("/home/patty/realsense_ws/src/realsense_ws/logs/KF.csv", ios::app);
         save<<std::setprecision(20)<<logger_time<<","<<KF_pub(0)<<","<<KF_pub(1)<<","<<KF_pub(2)<<endl;                                      
         save.close();
-        ofstream save2("/home/jeremy/realsense_ws/src/realsense_ws/logs/Groundtruth.csv", ios::app);
+        ofstream save2("/home/patty/realsense_ws/src/realsense_ws/logs/Groundtruth.csv", ios::app);
         save2<<std::setprecision(20)<<logger_time<<","<<UAV_lp(0)<<","<<UAV_lp(1)<<","<<UAV_lp(2)<<endl;
         save2.close();
         // logger_time_last = logger_time;
@@ -183,8 +183,8 @@ int main(int argc, char **argv){
     ros::Subscriber yolopose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/YoloPose", 1, yolo_pose_sub);
     ros::Publisher KFPose_pub = nh.advertise<geometry_msgs::PoseStamped>("/KalmanFilterPose",1);
     ros::Publisher KFok_pub = nh.advertise<std_msgs::Bool>("/KFok",1);
-    remove("/home/jeremy/realsense_ws/src/realsense_ws/logs/KF.csv");
-    remove("/home/jeremy/realsense_ws/src/realsense_ws/logs/Groundtruth.csv");
+    remove("/home/patty/realsense_ws/src/realsense_ws/logs/KF.csv");
+    remove("/home/patty/realsense_ws/src/realsense_ws/logs/Groundtruth.csv");
     
     /* System Params */
     ros::Rate loop_rate(50); /* ROS system Hz */

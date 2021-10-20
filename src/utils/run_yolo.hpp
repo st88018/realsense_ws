@@ -36,9 +36,9 @@
 #include <cmath>
 #include <eigen3/Eigen/Dense>
 
-static cv::String weightpath ="/home/jeremy/realsense_ws/src/realsense_ws/src/utils/yolo/uav.weights";
-static cv::String cfgpath ="/home/jeremy/realsense_ws/src/realsense_ws/src/utils/yolo/uav.cfg";
-static cv::String classnamepath = "/home/jeremy/realsense_ws/src/realsense_ws/src/utils/yolo/uav.names";
+static cv::String weightpath ="/home/patty/pat_ws/src/AUTO/offb/src/include/yolo/uav.weights";
+static cv::String cfgpath ="/home/patty/pat_ws/src/AUTO/offb/src/include/yolo/uav.cfg";
+static cv::String classnamepath = "/home/patty/pat_ws/src/AUTO/offb/src/include/yolo/uav.names";
 
 using namespace std;
 typedef struct objectinfo
