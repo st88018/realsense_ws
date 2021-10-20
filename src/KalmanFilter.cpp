@@ -204,9 +204,9 @@ int main(int argc, char **argv){
     setIdentity(KF.measurementMatrix);
     setIdentity(KF.processNoiseCov, Scalar::all(1e-2)); 
     setIdentity(KF.measurementNoiseCov, Scalar::all(1e-1));
-    KF.measurementNoiseCov.at<float>(21) = 3e-1;
-    KF.measurementNoiseCov.at<float>(28) = 3e-1;
-    KF.measurementNoiseCov.at<float>(35) = 3e-1;
+    KF.measurementNoiseCov.at<float>(21) = 2e-1;
+    KF.measurementNoiseCov.at<float>(28) = 2e-1;
+    KF.measurementNoiseCov.at<float>(35) = 2e-1;
     setIdentity(KF.errorCovPost, Scalar::all(1));
     randn(KF.statePost, Scalar::all(0), Scalar::all(0.1));
     KFok.data = false;

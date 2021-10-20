@@ -128,9 +128,9 @@ Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){ //XYZyaw
     Vec4 error,u_p,u_i,u_d,output,derivative;
     double iteration_time = ros::Time::now().toSec() - Last_time;
     // cout << "iteration_time: " << iteration_time << endl;
-    Vec4 K_p(1.5,1.5,1,1);
-    Vec4 K_i(0.05,0.05,0.05,0.05);
-    Vec4 K_d(0,0,0,0);
+    Vec4 K_p(1.2,1.2,0.7,1);
+    Vec4 K_i(0.08,0.08,0.05,0.05);
+    Vec4 K_d(0.05,0.05,0,0);
     error = setpoint-pose;
     if (error[3]>=M_PI){error[3]-=2*M_PI;}
     if (error[3]<=-M_PI){error[3]+=2*M_PI;}
@@ -446,7 +446,7 @@ void Finite_state_machine(){
         Quaterniond FSM2q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
         Vec3 FSM2rpy = Q2rpy(FSM2q);
         double horizontal_dist = 1;
-        double vertical_dist = 0.5;
+        double vertical_dist = 0.6;
         Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM2rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM2rpy[2]));
         FSM_2_pose << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6];
         uav_pose_pub(FSM_2_pose);
@@ -459,7 +459,7 @@ void Finite_state_machine(){
         if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3  && !KFok){
             FSM_finished = false;
         }
-        if(FSM_finish_time - ros::Time::now().toSec() < -3 && FSM_finished){
+        if(FSM_finish_time - ros::Time::now().toSec() < -1 && FSM_finished){
             FSM_state++;
             FSM_finished = false;
         }
@@ -469,7 +469,7 @@ void Finite_state_machine(){
         Quaterniond FSM3q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
         Vec3 FSM3rpy = Q2rpy(FSM3q);
         double horizontal_dist = 1;
-        double vertical_dist = 0.5;
+        double vertical_dist = 0.6;
         Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM3rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM3rpy[2]));
         pub_trajpose = false; pub_pidtwist = true; UseKFpose = true;
         Pos_setpoint << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGVrpy[2];
@@ -485,7 +485,7 @@ void Finite_state_machine(){
         if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3){
             FSM_finished = false;
         }
-        if(FSM_finish_time - ros::Time::now().toSec() < -6 && FSM_finished){
+        if(FSM_finish_time - ros::Time::now().toSec() < -8 && FSM_finished){
             FSM_state++;
             UseKFpose = false;
             FSM_finished = false;
@@ -494,29 +494,29 @@ void Finite_state_machine(){
     if(FSM_state==4){ //Land trajectory
         Vec2 desxy;
         double Des_dist = 0.05;
-        desxy = Vec2(UGV_lp[0]+Des_dist*cos(UGVrpy[2]),UGV_lp[1]+Des_dist*sin(UGVrpy[2]));
         if(!FSM_init){
             FSM_init = true;
             pub_trajpose = true;  pub_pidtwist = false; ForcePIDcontroller = true; UseKFpose = true;
             Traj_init_UGVrpy = UGVrpy;
-            // double mid_dist = 1.5;
-            // Vec2 midxy = Vec2(UGV_lp[0]-mid_dist*cos(UGVrpy[2]),UGV_lp[1]-mid_dist*sin(UGVrpy[2]));
             vector<Vector3d> WPs;
             WPs.clear();
-            Vector3d StartP(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
+            Vector3d StartP(UAV_kf_lp[0],UAV_kf_lp[1],UAV_kf_lp[2]);
             WPs.push_back(StartP);
-            Vector3d MidP(UAV_lp[0],UAV_lp[1],UAV_lp[2]-0.1);
+            Vector3d MidP(UAV_kf_lp[0],UAV_kf_lp[1],UAV_kf_lp[2]-0.1);
             WPs.push_back(MidP);
-            Vector3d EndP(desxy[0],desxy[1],UGV_lp[2]+0.1);
+            desxy = Vec2(UGV_lp[0]+Des_dist*cos(UGVrpy[2]),UGV_lp[1]+Des_dist*sin(UGVrpy[2]));
+            Vector3d EndP(desxy[0],desxy[1],UGV_lp[2]+0.05);
             WPs.push_back(EndP);
             AM_traj_pos(WPs,UAV_lp,UAV_twist);
 
             Vec7 UGV_pred_lp = ugv_pred_land_pose(AM_traj_pos_duration);
             WPs.clear();
+            StartP = Vec3(UAV_kf_lp[0],UAV_kf_lp[1],UAV_kf_lp[2]);
             WPs.push_back(StartP);
+            MidP = Vec3(UAV_kf_lp[0],UAV_kf_lp[1],UAV_kf_lp[2]-0.1);
             WPs.push_back(MidP);
             desxy = Vec2(UGV_pred_lp[0]+Des_dist*cos(UGVrpy[2]),UGV_pred_lp[1]+Des_dist*sin(UGVrpy[2]));
-            EndP = Vector3d(desxy[0],desxy[1],UGV_lp[2]+0.1);
+            EndP = Vector3d(desxy[0],desxy[1],UGV_lp[2]+0.05);
             WPs.push_back(EndP);
             AM_traj_pos(WPs,UAV_lp,UAV_twist);
 
@@ -551,7 +551,7 @@ void Finite_state_machine(){
             ForcePIDcontroller = false; UseKFpose = false;
             FSM_init = false;
         }
-        if(UAVinUGV[2] < 0.05 && Dist_horizontal < 0.5){
+        if(UAVinUGV[2] < 0.04 && Dist_horizontal < 0.6){
             cout << "---------------------------------------------------" << endl
                  << "-----Vertical distance not enough to approach------" << endl
                  << "---------------------------------------------------" << endl;
@@ -579,7 +579,7 @@ void Finite_state_machine(){
     }
 }
 void datalogger(){
-    ofstream save("/home/jeremy/realsense_ws/src/realsense_ws/logs/FSM.csv", ios::app);
+    ofstream save("/home/patty/realsense_ws/src/realsense_ws/logs/FSM.csv", ios::app);
     save<<std::setprecision(20)<<ros::Time::now().toSec()<<
         ","<<UAV_lp(0)<<","<<UAV_lp(1)<<","<<UAV_lp(2)<<
         ","<<UAV_kf_lp(0)<<","<<UAV_kf_lp(1)<<","<<UAV_kf_lp(2)<<
@@ -615,7 +615,7 @@ int main(int argc, char **argv)
     Zero7 << 0,0,0,0,0,0,0;
     UAV_AttitudeTarget.thrust = 0.3;
     ros::Rate loop_rate(50); /* ROS system Hz */
-    remove("/home/jeremy/realsense_ws/src/realsense_ws/logs/FSM.csv");
+    remove("/home/patty/realsense_ws/src/realsense_ws/logs/FSM.csv");
 
     while(ros::ok()){
         /* System initailize ***************************************************/

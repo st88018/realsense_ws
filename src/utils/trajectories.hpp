@@ -65,7 +65,7 @@ void AM_traj_pos(vector<Vector3d> WPs,Vec7 UAV_lp, Vec4 UAV_twist){
     Trajectory am_traj;
     desq = rpy2Q(desrpy);
     //(weightT,weightAcc,weightJerk,maxVelRate,maxAccRate,iterations,epsilon);
-    AmTraj amTrajOpt(256,16,0.4,0.8,3,100,0.02);
+    AmTraj amTrajOpt(256,16,0.4,1,3,100,0.02);
     Vector3d twistxyz(UAV_twist[0],UAV_twist[1],UAV_twist[2]);
     Vector3d zero3(0.0, 0.0, 0.0);
     am_traj = amTrajOpt.genOptimalTrajDTC(WPs, twistxyz, zero3, zero3, zero3);
