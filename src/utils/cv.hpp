@@ -219,32 +219,6 @@ Vec3 Camera2World(const Vec3 tvecs,Vec7 Camera_lp){ // camera coordinate to worl
     output << translation_world[0],translation_world[1],translation_world[2];
     return(output);
 }
-
-Eigen::Matrix3d zyxToRotationMatrix(Eigen::Vector3d zyx)
-{
-    // 计算旋转矩阵的X分量
-    Eigen::Matrix3d R_x;
-    R_x << 1,            0,             0,
-           0,  cos(zyx[2]),  -sin(zyx[2]),
-           0,  sin(zyx[2]),   cos(zyx[2]);
-
-    // 计算旋转矩阵的Y分量
-    Eigen::Matrix3d R_y;
-    R_y << cos(zyx[1]),  0,  sin(zyx[1]),
-                     0,  1,            0,
-          -sin(zyx[1]),  0,  cos(zyx[1]);
-
-    // 计算旋转矩阵的Z分量
-    Eigen::Matrix3d R_z;
-    R_z << cos(zyx[0]),  -sin(zyx[0]),  0,
-           sin(zyx[0]),   cos(zyx[0]),  0,
-                     0,             0,  1;
-
-    // 依次左乘，合并
-    Eigen::Matrix3d R = R_z*R_y*R_x;
-    return R;
-}
-
 Vec7 GenerateCameraLP(Vec7 UGV_lp){
     Eigen::Quaterniond CARq;
     CARq.w() = UGV_lp[3];
@@ -256,11 +230,8 @@ Vec7 GenerateCameraLP(Vec7 UGV_lp){
     Vec3 CAR_Translation_world(UGV_lp[0], UGV_lp[1], UGV_lp[2]);
     Vec3 UGV_2Cam(0.5676,0,0);
     Vec3 CAM_Translation_world = CAR_Rotation_world * UGV_2Cam + CAR_Translation_world;
-
     Vec3 CARrpy = Q2rpy(CARq);
-
-    Eigen::Matrix3d CAM_Rotation = zyxToRotationMatrix(Vec3(CV_PI/6,0,CV_PI/2));
-    Vec3 CAMrpy =Vec3(CARrpy[0] + CV_PI/6,CARrpy[1],CARrpy[2] + CV_PI/2);//= CAM_Rotation*CARrpy;
+    Vec3 CAMrpy =Vec3(CARrpy[0]-CV_PI*7/18,CARrpy[1],CARrpy[2]+CV_PI/2);
     Eigen::Quaterniond CAMq;
     CAMq = rpy2Q(CAMrpy);
     Vec7 CAM_lp;
