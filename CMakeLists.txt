@@ -46,10 +46,10 @@ target_link_libraries(FSM
 ${catkin_LIBRARIES}
 )
 
-add_executable(Failsafe src/Failsafe.cpp)
-target_link_libraries(Failsafe
-${catkin_LIBRARIES}
-)
+#add_executable(Failsafe src/Failsafe.cpp)
+#target_link_libraries(Failsafe
+#${catkin_LIBRARIES}
+#)
 
 add_executable(Aruco src/Aruco.cpp)
 target_link_libraries(Aruco
