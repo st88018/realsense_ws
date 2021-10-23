@@ -24,7 +24,7 @@ static mavros_msgs::AttitudeTarget  UAV_AttitudeTarget;
 static geometry_msgs::PoseStamped   UAV_pose_sub,UAV_kf_sub,UGV_pose_sub,UAV_pose_pub,UGV_pose_pub;
 static geometry_msgs::TwistStamped  UGV_twist_sub,UAV_twist_sub;
 static geometry_msgs::Twist         UAV_twist_pub;
-static Vec7 UAV_lp,UAV_kf_lp,UGV_lp;
+static Vec7 UAV_lp,UAV_kf_lp,UGV_lp,Yolo_lp,Aruco_lp;
 static Vec6 UAVinUGV;
 static Vec3 UGVrpy,Traj_init_UGVrpy;
 
@@ -128,8 +128,8 @@ Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){ //XYZyaw
     Vec4 error,u_p,u_i,u_d,output,derivative;
     double iteration_time = ros::Time::now().toSec() - Last_time;
     // cout << "iteration_time: " << iteration_time << endl;
-    Vec4 K_p(1.2,1.2,0.7,1);
-    Vec4 K_i(0.1,0.1,0.05,0.05);
+    Vec4 K_p(1.2,1.2,1.2,1);
+    Vec4 K_i(0.15,0.15,0.1,0.05);
     Vec4 K_d(0.05,0.05,0,0);
     error = setpoint-pose;
     if (error[3]>=M_PI){error[3]-=2*M_PI;}
@@ -191,6 +191,24 @@ void uav_kf_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UAV_kf_sub.pose.orientation.z = pose->pose.orientation.z;
     UAV_kf_lp << UAV_kf_sub.pose.position.x,UAV_kf_sub.pose.position.y,UAV_kf_sub.pose.position.z,
                  UAV_kf_sub.pose.orientation.w,UAV_kf_sub.pose.orientation.x,UAV_kf_sub.pose.orientation.y,UAV_kf_sub.pose.orientation.z;
+}
+void aruco_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
+    Aruco_lp[0] = pose->pose.position.x;
+    Aruco_lp[1] = pose->pose.position.y;
+    Aruco_lp[2] = pose->pose.position.z;
+    Aruco_lp[3] = pose->pose.orientation.w;
+    Aruco_lp[4] = pose->pose.orientation.x;
+    Aruco_lp[5] = pose->pose.orientation.y;
+    Aruco_lp[6] = pose->pose.orientation.z;
+}
+void yolo_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
+    Yolo_lp[0] = pose->pose.position.x;
+    Yolo_lp[1] = pose->pose.position.y;
+    Yolo_lp[2] = pose->pose.position.z;
+    Yolo_lp[3] = pose->pose.orientation.w;
+    Yolo_lp[4] = pose->pose.orientation.x;
+    Yolo_lp[5] = pose->pose.orientation.y;
+    Yolo_lp[6] = pose->pose.orientation.z;
 }
 void KFflag_sub(const std_msgs::Bool::ConstPtr& msg){
     KFok = msg->data;
@@ -586,6 +604,8 @@ void datalogger(){
         ","<<UGV_lp(0)<<","<<UGV_lp(1)<<","<<UGV_lp(2)<<
         ","<<Pos_setpoint(0)<<","<<Pos_setpoint(1)<<","<<Pos_setpoint(2)<<
         ","<<UAV_twist_pub.linear.x<<","<<UAV_twist_pub.linear.y<<","<<UAV_twist_pub.linear.z<<
+        ","<<Yolo_lp(0)<<","<<Yolo_lp(1)<<","<<Yolo_lp(2)<<
+        ","<<Aruco_lp(0)<<","<<Aruco_lp(1)<<","<<Aruco_lp(2)<<
         ","<<UAV_pose_pub.pose.position.x<<","<<UAV_pose_pub.pose.position.y<<","<<UAV_pose_pub.pose.position.z<<endl;
     save.close();
 }
@@ -597,6 +617,8 @@ int main(int argc, char **argv)
     ros::Subscriber ugvtwist_sub = nh.subscribe<geometry_msgs::TwistStamped>("/vrpn_client_node/gh034_car/twist", 5, ugv_twist_sub);
     ros::Subscriber uavpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("mavros/local_position/pose", 1, uav_pose_sub);
     ros::Subscriber uavKF_sub = nh.subscribe<geometry_msgs::PoseStamped>("KalmanFilterPose", 1, uav_kf_sub);
+    ros::Subscriber arucopose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/ArucoPose", 1, aruco_pose_sub);
+    ros::Subscriber yolopose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/YoloPose", 1, yolo_pose_sub);
     ros::Subscriber uavtwist_sub = nh.subscribe<geometry_msgs::TwistStamped>("/mavros/local_position/velocity_local", 5, uav_twist_sub);
     ros::Subscriber state_sub = nh.subscribe<mavros_msgs::State>("/mavros/state", 10, uav_state_sub);
     ros::Subscriber KFok_sub = nh.subscribe<std_msgs::Bool>("/KFok",1,KFflag_sub);
