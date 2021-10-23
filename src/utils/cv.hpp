@@ -219,7 +219,7 @@ Vec3 Camera2World(const Vec3 tvecs,Vec7 Camera_lp){ // camera coordinate to worl
     output << translation_world[0],translation_world[1],translation_world[2];
     return(output);
 }
-Vec7 GenerateCameraLP(Vec7 UGV_lp){
+Vec7 GenerateCameraLP(Vec7 UGV_lp){ /* Special thanks to Jazzy Dorian Feng */
     Eigen::Quaterniond CARq;
     CARq.w() = UGV_lp[3];
     CARq.x() = UGV_lp[4];
@@ -228,14 +228,20 @@ Vec7 GenerateCameraLP(Vec7 UGV_lp){
     Eigen::Matrix3d CAR_Rotation_world = Eigen::Matrix3d::Identity();
     CAR_Rotation_world = CARq.matrix();
     Vec3 CAR_Translation_world(UGV_lp[0], UGV_lp[1], UGV_lp[2]);
-    Vec3 UGV_2Cam(0.5676,0,0);
-    Vec3 CAM_Translation_world = CAR_Rotation_world * UGV_2Cam + CAR_Translation_world;
-    Vec3 CARrpy = Q2rpy(CARq);
-    Vec3 CAMrpy =Vec3(CARrpy[0]-CV_PI*7/18,CARrpy[1],CARrpy[2]+CV_PI/2);
-    Eigen::Quaterniond CAMq;
-    CAMq = rpy2Q(CAMrpy);
+    SE3 T_ugv(CAR_Rotation_world, CAR_Translation_world);
+
+    Mat3x3 r;
+    Vec3 t;
+    r<< 0.0342161,   -0.334618,  -0.941732,
+        0.999403,     0.0159477,  0.0306448,
+        0.00476414,  -0.942219,   0.334964;
+    t << 0.567003, -0.018069, 0.0174849;
+    SE3 T_ugv_cam(r,t);
+    SE3 T_cam = T_ugv * T_ugv_cam;
+
     Vec7 CAM_lp;
-    CAM_lp << CAM_Translation_world[0],CAM_Translation_world[1],CAM_Translation_world[2],CAMq.w(),CAMq.x(),CAMq.y(),CAMq.z();
+    CAM_lp << T_cam.translation().x(), T_cam.translation().y(), T_cam.translation().z(),
+              T_cam.unit_quaternion().w(), T_cam.unit_quaternion().x(), T_cam.unit_quaternion().y(), T_cam.unit_quaternion().z();
     return(CAM_lp);
 }
 #endif 

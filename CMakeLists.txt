@@ -69,4 +69,5 @@ add_executable(Yolo src/Yolo.cpp
                     src/utils/run_yolo.cpp)
 target_link_libraries(Yolo
    ${OpenCV_LIBRARIES}
-   ${catkin_LIBRARIES})
+   ${catkin_LIBRARIES}
+   ${Sophus_LIBRARIES})
