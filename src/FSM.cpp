@@ -489,10 +489,11 @@ void Finite_state_machine(){
         double horizontal_dist = 1;
         double vertical_dist = 0.6;
         Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM3rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM3rpy[2]));
-        pub_trajpose = false; pub_pidtwist = true; UseKFpose = true;
+        pub_trajpose = false; pub_pidtwist = true; UseKFpose = false;
+        if(!UseKFpose){UAV_kf_lp = UAV_lp;}
         Pos_setpoint << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGVrpy[2];
         PID_duration = 0;
-        if(!KFok){
+        if(!KFok && UseKFpose){
             FSM_state--;
         }
         if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) < horizontal_dist+0.3 && !FSM_finished){
@@ -514,7 +515,8 @@ void Finite_state_machine(){
         double Des_dist = 0.05;
         if(!FSM_init){
             FSM_init = true;
-            pub_trajpose = true;  pub_pidtwist = false; ForcePIDcontroller = true; UseKFpose = true;
+            pub_trajpose = true;  pub_pidtwist = false; ForcePIDcontroller = true; UseKFpose = false;
+            if(!UseKFpose){UAV_kf_lp = UAV_lp;}
             Traj_init_UGVrpy = UGVrpy;
             vector<Vector3d> WPs;
             WPs.clear();
@@ -537,9 +539,6 @@ void Finite_state_machine(){
             EndP = Vector3d(desxy[0],desxy[1],UGV_lp[2]+0.05);
             WPs.push_back(EndP);
             AM_traj_pos(WPs,UAV_lp,UAV_twist);
-
-            // FSM_init_time = ros::Time::now().toSec();
-
             /*For CPP deque safety. Default generate 10 second of hover*/
             int hovertime = 10;
             if(trajectory_pos.size()>0){
@@ -551,8 +550,9 @@ void Finite_state_machine(){
                 traj_pos_information = Vec2(ros::Time::now().toSec(), traj_pos[0]-hovertime);
             }
         }
+        if(!UseKFpose){UAV_kf_lp = UAV_lp;}
         double Traj_leftT = traj_pos_information[1] - ros::Time::now().toSec();
-        double Dist_horizontal = sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2));
+        double Dist_horizontal = sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2));
         if(abs(Traj_init_UGVrpy[2]-UGVrpy[2])>0.2){
             cout << "---------------------------------------------------" << endl
                  << "------------------UGV not stable-------------------" << endl
@@ -591,9 +591,6 @@ void Finite_state_machine(){
             ForcePIDcontroller = false;
             FSM_state++;
         }
-    }
-    if(FSM_state==6){ //Back up
-
     }
 }
 void datalogger(){
