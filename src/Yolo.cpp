@@ -48,7 +48,7 @@ static Vec4 Zero4;
 double TimerLastT,logger_time,logger_time_last;
 int logger_counter = 0;
 /* YOLO */
-static run_yolo Yolonet(cfgpath, weightpath, classnamepath, float(0.7));
+static run_yolo Yolonet(cfgpath, weightpath, classnamepath, float(0.2));
 bool YOLO_found = false;
 
 
@@ -124,8 +124,8 @@ void Yolo_process(Mat image_rgb, Mat image_dep){
         YOLO_PosePub(Camera2World(Yolotvecs,Camera_lp));
         }
     }
-    // cv::imshow("uav", YoloOutput);
-    // cv::waitKey(1);
+    cv::imshow("uav", YoloOutput);
+    cv::waitKey(1);
 }
 void callback(const sensor_msgs::CompressedImageConstPtr &rgb, const sensor_msgs::ImageConstPtr &depth){
     /* Image initialize */

@@ -121,9 +121,15 @@ Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){ //XYZyaw
     Vec4 error,u_p,u_i,u_d,output,derivative;
     double iteration_time = ros::Time::now().toSec() - Last_time;
     // cout << "iteration_time: " << iteration_time << endl;
+<<<<<<< Updated upstream
     Vec4 K_p(2,2,1,1);
     Vec4 K_i(0.05,0.05,0.05,0.05);
     Vec4 K_d(0,0,0,0);
+=======
+    Vec4 K_p(1.2,1.2,1.5,1);
+    Vec4 K_i(0.1,0.1,0.05,0.05);
+    Vec4 K_d(0.05,0.05,0,0);
+>>>>>>> Stashed changes
     error = setpoint-pose;
     if (error[3]>=M_PI){error[3]-=2*M_PI;}
     if (error[3]<=-M_PI){error[3]+=2*M_PI;}
@@ -435,7 +441,11 @@ void Finite_state_machine(){
             FSM_finish_time = ros::Time::now().toSec();
             FSM_finished = true;
         }
+<<<<<<< Updated upstream
         if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3){
+=======
+        if(sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3 ){
+>>>>>>> Stashed changes
             FSM_finished = false;
         }
         if(FSM_finish_time - ros::Time::now().toSec() < -3 && FSM_finished){
@@ -453,12 +463,19 @@ void Finite_state_machine(){
         pub_trajpose = false; pub_pidtwist = true; UseKFpose = false;
         Pos_setpoint << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGVrpy[2];
         PID_duration = 0;
+<<<<<<< Updated upstream
         if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) < horizontal_dist+0.3 && !FSM_finished){
+=======
+        // if(!KFok){
+        //     FSM_state--;
+        // }
+        if(sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) < horizontal_dist+0.3 && !FSM_finished){
+>>>>>>> Stashed changes
             // cout << "start count down" << endl;
             FSM_finish_time = ros::Time::now().toSec();
             FSM_finished = true;
         }
-        if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3){
+        if(sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3){
             FSM_finished = false;
         }
         if(FSM_finish_time - ros::Time::now().toSec() < -6 && FSM_finished){
@@ -492,7 +509,11 @@ void Finite_state_machine(){
         desxy = Vec2(UGV_lp[0]+Des_dist*cos(UGVrpy[2]),UGV_lp[1]+Des_dist*sin(UGVrpy[2]));
         if(!FSM_init){
             FSM_init = true;
+<<<<<<< Updated upstream
             pub_trajpose = true;  pub_pidtwist = false;
+=======
+            pub_trajpose = true;  pub_pidtwist = false; ForcePIDcontroller = true; UseKFpose = false;
+>>>>>>> Stashed changes
             Traj_init_UGVrpy = UGVrpy;
             // double mid_dist = 1.5;
             // Vec2 midxy = Vec2(UGV_lp[0]-mid_dist*cos(UGVrpy[2]),UGV_lp[1]-mid_dist*sin(UGVrpy[2]));
@@ -502,16 +523,30 @@ void Finite_state_machine(){
             WPs.push_back(StartP);
             Vector3d MidP(UAV_lp[0],UAV_lp[1],UAV_lp[2]-0.1);
             WPs.push_back(MidP);
+<<<<<<< Updated upstream
             Vector3d EndP(desxy[0],desxy[1],UGV_lp[2]+0.1);
+=======
+            desxy = Vec2(UGV_lp[0]+Des_dist*cos(UGVrpy[2]),UGV_lp[1]+Des_dist*sin(UGVrpy[2]));
+            Vector3d EndP(desxy[0],desxy[1],UGV_lp[2]);
+>>>>>>> Stashed changes
             WPs.push_back(EndP);
             AM_traj_pos(WPs,UAV_lp,UAV_twist);
 
             Vec7 UGV_pred_lp = ugv_pred_land_pose(AM_traj_pos_duration);
             WPs.clear();
+<<<<<<< Updated upstream
             WPs.push_back(StartP);
             WPs.push_back(MidP);
             desxy = Vec2(UGV_pred_lp[0]+Des_dist*cos(UGVrpy[2]),UGV_pred_lp[1]+Des_dist*sin(UGVrpy[2]));
             EndP = Vector3d(desxy[0],desxy[1],UGV_lp[2]+0.1);
+=======
+            StartP = Vec3(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
+            WPs.push_back(StartP);
+            MidP = Vec3(UAV_lp[0],UAV_lp[1],UAV_lp[2]-0.1);
+            WPs.push_back(MidP);
+            desxy = Vec2(UGV_pred_lp[0]+Des_dist*cos(UGVrpy[2]),UGV_pred_lp[1]+Des_dist*sin(UGVrpy[2]));
+            EndP = Vector3d(desxy[0],desxy[1],UGV_lp[2]);
+>>>>>>> Stashed changes
             WPs.push_back(EndP);
             AM_traj_pos(WPs,UAV_lp,UAV_twist);
 
