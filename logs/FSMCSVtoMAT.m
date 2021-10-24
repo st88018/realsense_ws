@@ -1,7 +1,7 @@
 close all,clear all;
 %% Format CSV file to mat
 
-FSM = readmatrix('FSM1.csv');
+FSM = readmatrix('FSM.csv');
 Time = FSM(:,1);
 Time = Time- Time(1);
 UAV_groundtruth = [FSM(:,2),FSM(:,3),FSM(:,4)];

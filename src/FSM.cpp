@@ -276,7 +276,9 @@ void uav_pub(bool pub_trajpose, bool pub_pidtwist){
                 M8start_alt = xyzyaw[2];
             }
             Vec7 UGV_pred_lp = ugv_pred_land_pose(0.5);
-            Pos_setpoint << UGV_pred_lp[0],UGV_pred_lp[1],M8start_alt-=0.002,UGVrpy[2];
+            M8start_alt-=0.002; 
+            if(M8start_alt<UGV_lp[2]){M8start_alt=UGV_lp[2];}
+            Pos_setpoint << UGV_pred_lp[0],UGV_pred_lp[1],M8start_alt,UGVrpy[2];
             if( sqrt(pow((UAV_lp[0]-UGV_lp[0]),2)+pow((UAV_lp[1]-UGV_lp[1]),2)) < 0.15 && sqrt(pow((UAV_lp[2]-UGV_lp[2]),2)) < 0.1 ){
                 ShutDown = false;
                 soft_ShutDown = true;
@@ -489,33 +491,33 @@ void Finite_state_machine(){
         double horizontal_dist = 1;
         double vertical_dist = 0.6;
         Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM3rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM3rpy[2]));
-        pub_trajpose = false; pub_pidtwist = true; UseKFpose = false;
+        pub_trajpose = false; pub_pidtwist = true; UseKFpose = true;
         if(!UseKFpose){UAV_kf_lp = UAV_lp;}
         Pos_setpoint << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGVrpy[2];
         PID_duration = 0;
-        if(!KFok && UseKFpose){
-            FSM_state--;
-        }
-        if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) < horizontal_dist+0.3 && !FSM_finished){
-            // cout << "start count down" << endl;
-            FSM_finish_time = ros::Time::now().toSec();
-            FSM_finished = true;
-        }
-        if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3){
-            FSM_finished = false;
-        }
-        if(FSM_finish_time - ros::Time::now().toSec() < -8 && FSM_finished){
-            FSM_state++;
-            UseKFpose = false;
-            FSM_finished = false;
-        }
+        // if(!KFok && UseKFpose){
+        //     FSM_state--;
+        // }
+        // if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) < horizontal_dist+0.3 && !FSM_finished){
+        //     // cout << "start count down" << endl;
+        //     FSM_finish_time = ros::Time::now().toSec();
+        //     FSM_finished = true;
+        // }
+        // if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3){
+        //     FSM_finished = false;
+        // }
+        // if(FSM_finish_time - ros::Time::now().toSec() < -8 && FSM_finished){
+        //     FSM_state++;
+        //     UseKFpose = false;
+        //     FSM_finished = false;
+        // }
     }
     if(FSM_state==4){ //Land trajectory
         Vec2 desxy;
         double Des_dist = 0.05;
         if(!FSM_init){
             FSM_init = true;
-            pub_trajpose = true;  pub_pidtwist = false; ForcePIDcontroller = true; UseKFpose = false;
+            pub_trajpose = true;  pub_pidtwist = false; ForcePIDcontroller = true; UseKFpose = true;
             if(!UseKFpose){UAV_kf_lp = UAV_lp;}
             Traj_init_UGVrpy = UGVrpy;
             vector<Vector3d> WPs;
