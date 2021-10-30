@@ -36,10 +36,10 @@ using namespace sensor_msgs;
 using namespace message_filters;
 
 /*uav local parameter*/
-static geometry_msgs::PoseStamped   KF_pose_pub,Camera_pose_sub,UAV_pose_sub;
+static geometry_msgs::PoseStamped   KF_pose_pub,Camera_pose_sub,UAV_pose_sub,UGV_pose_sub;
 static geometry_msgs::TwistStamped  UGV_twist_sub,UAV_twist_sub;
 static Vec6 UAV_twist;
-static Vec7 UAV_lp,Camera_lp;
+static Vec7 UAV_lp,UGV_lp,Camera_lp;
 static Vec7 Depth_lp,Aruco_lp,Yolo_lp;
 static Vec7 Depth_lp_last,Aruco_lp_last,Yolo_lp_last;
 static bool Depth_updated,Aruco_updated,Yolo_updated;
@@ -58,6 +58,17 @@ bool CV_lost = false;
 std_msgs::Bool KFok;
 double Error_lp,dist2UAV;
 
+// void camera_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
+//     Camera_pose_sub.pose.position.x = pose->pose.position.x;
+//     Camera_pose_sub.pose.position.y = pose->pose.position.y;
+//     Camera_pose_sub.pose.position.z = pose->pose.position.z;
+//     Camera_pose_sub.pose.orientation.x = pose->pose.orientation.x;
+//     Camera_pose_sub.pose.orientation.y = pose->pose.orientation.y;
+//     Camera_pose_sub.pose.orientation.z = pose->pose.orientation.z;
+//     Camera_pose_sub.pose.orientation.w = pose->pose.orientation.w;
+//     Camera_lp << Camera_pose_sub.pose.position.x,Camera_pose_sub.pose.position.y,Camera_pose_sub.pose.position.z,
+//                  Camera_pose_sub.pose.orientation.w,Camera_pose_sub.pose.orientation.x,Camera_pose_sub.pose.orientation.y,Camera_pose_sub.pose.orientation.z;
+// }
 void uav_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UAV_pose_sub.pose.position.x = pose->pose.position.x;
     UAV_pose_sub.pose.position.y = pose->pose.position.y;
@@ -69,6 +80,18 @@ void uav_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UAV_lp << UAV_pose_sub.pose.position.x,UAV_pose_sub.pose.position.y,UAV_pose_sub.pose.position.z,
               UAV_pose_sub.pose.orientation.w,UAV_pose_sub.pose.orientation.x,UAV_pose_sub.pose.orientation.y,UAV_pose_sub.pose.orientation.z;
     UAVq = Quaterniond(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]);
+}
+void ugv_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
+    UGV_pose_sub.pose.position.x = pose->pose.position.x;
+    UGV_pose_sub.pose.position.y = pose->pose.position.y;
+    UGV_pose_sub.pose.position.z = pose->pose.position.z;
+    UGV_pose_sub.pose.orientation.x = pose->pose.orientation.x;
+    UGV_pose_sub.pose.orientation.y = pose->pose.orientation.y;
+    UGV_pose_sub.pose.orientation.z = pose->pose.orientation.z;
+    UGV_pose_sub.pose.orientation.w = pose->pose.orientation.w;
+    UGV_lp << UGV_pose_sub.pose.position.x,UGV_pose_sub.pose.position.y,UGV_pose_sub.pose.position.z,
+                 UGV_pose_sub.pose.orientation.w,UGV_pose_sub.pose.orientation.x,UGV_pose_sub.pose.orientation.y,UGV_pose_sub.pose.orientation.z;
+    Camera_lp = GenerateCameraLP(UGV_lp);
 }
 void aruco_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     Aruco_lp[0] = pose->pose.position.x;
@@ -123,17 +146,6 @@ void uav_twist_sub(const geometry_msgs::TwistStamped::ConstPtr& twist){
     UAV_twist << UAV_twist_sub.twist.linear.x,UAV_twist_sub.twist.linear.y,UAV_twist_sub.twist.linear.z,
                  UAV_twist_sub.twist.angular.x,UAV_twist_sub.twist.angular.y,UAV_twist_sub.twist.angular.z;
 }
-void camera_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
-    Camera_pose_sub.pose.position.x = pose->pose.position.x;
-    Camera_pose_sub.pose.position.y = pose->pose.position.y;
-    Camera_pose_sub.pose.position.z = pose->pose.position.z;
-    Camera_pose_sub.pose.orientation.x = pose->pose.orientation.x;
-    Camera_pose_sub.pose.orientation.y = pose->pose.orientation.y;
-    Camera_pose_sub.pose.orientation.z = pose->pose.orientation.z;
-    Camera_pose_sub.pose.orientation.w = pose->pose.orientation.w;
-    Camera_lp << Camera_pose_sub.pose.position.x,Camera_pose_sub.pose.position.y,Camera_pose_sub.pose.position.z,
-                 Camera_pose_sub.pose.orientation.w,Camera_pose_sub.pose.orientation.x,Camera_pose_sub.pose.orientation.y,Camera_pose_sub.pose.orientation.z;
-}
 void KF_PosePub(Vec7 KF_pub){
     KF_pose_pub.header.stamp = ros::Time::now();
     KF_pose_pub.header.frame_id = "world";
@@ -175,9 +187,10 @@ int main(int argc, char **argv){
     ros::init(argc, argv, "camera");
     ros::NodeHandle nh;
     ros::Subscriber camera_info_sub = nh.subscribe("/camera/aligned_depth_to_color/camera_info",1,camera_info_cb);
-    ros::Subscriber camerapose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_d455/pose", 1, camera_pose_sub);
+    // ros::Subscriber camerapose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_d455/pose", 1, camera_pose_sub);
     ros::Subscriber uavtwist_sub = nh.subscribe<geometry_msgs::TwistStamped>("/mavros/local_position/velocity_local", 1, uav_twist_sub);
     ros::Subscriber uavpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 1, uav_pose_sub);
+    ros::Subscriber ugvpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/car/mavros/local_position/pose", 1, ugv_pose_sub);
     ros::Subscriber arucopose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/ArucoPose", 1, aruco_pose_sub);
     ros::Subscriber depthpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/DepthPose", 1, depth_pose_sub);
     ros::Subscriber yolopose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/YoloPose", 1, yolo_pose_sub);
