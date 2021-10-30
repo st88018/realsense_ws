@@ -36,7 +36,7 @@ using namespace sensor_msgs;
 using namespace message_filters;
 
 /*uav local parameter*/
-static geometry_msgs::PoseStamped KF_pose_pub,Camera_pose_sub,UAV_pose_sub;
+static geometry_msgs::PoseStamped   KF_pose_pub,Camera_pose_sub,UAV_pose_sub;
 static geometry_msgs::TwistStamped  UGV_twist_sub,UAV_twist_sub;
 static Vec6 UAV_twist;
 static Vec7 UAV_lp,Camera_lp;
@@ -147,7 +147,7 @@ void KF_PosePub(Vec7 KF_pub){
 }
 bool KFok_indicator(){
     bool output;
-    if(CV_lost_timer - ros::Time::now().toSec() < -10){ //Visualize of UAV lost for 10 seceonds KF no OK
+    if(CV_lost_timer - ros::Time::now().toSec() < -5){ //Visualize of UAV lost for 10 seceonds KF no OK
         KF_init = false;
         output = false;
         KF_PosePub(Zero7);
