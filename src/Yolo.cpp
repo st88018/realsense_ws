@@ -131,8 +131,8 @@ void YOLO_process(Mat image_rgb, Mat image_dep){
         YOLO_PosePub(Camera2World(Yolotvecs,Camera_lp));
         }
     }
-    // cv::imshow("uav", YoloOutput);
-    // cv::waitKey(1);
+    cv::imshow("uav", YoloOutput);
+    cv::waitKey(1);
 }
 void datalogger(){ 
     logger_time = ros::Time::now().toSec();

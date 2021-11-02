@@ -495,22 +495,22 @@ void Finite_state_machine(){
         if(!UseKFpose){UAV_kf_lp = UAV_lp;}
         Pos_setpoint << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGVrpy[2];
         PID_duration = 0;
-        // if(!KFok && UseKFpose){
-        //     FSM_state--;
-        // }
-        // if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) < horizontal_dist+0.3 && !FSM_finished){
-        //     // cout << "start count down" << endl;
-        //     FSM_finish_time = ros::Time::now().toSec();
-        //     FSM_finished = true;
-        // }
-        // if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3){
-        //     FSM_finished = false;
-        // }
-        // if(FSM_finish_time - ros::Time::now().toSec() < -8 && FSM_finished){
-        //     FSM_state++;
-        //     UseKFpose = false;
-        //     FSM_finished = false;
-        // }
+        if(!KFok && UseKFpose){
+            FSM_state--;
+        }
+        if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) < horizontal_dist+0.3 && !FSM_finished){
+            // cout << "start count down" << endl;
+            FSM_finish_time = ros::Time::now().toSec();
+            FSM_finished = true;
+        }
+        if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3){
+            FSM_finished = false;
+        }
+        if(FSM_finish_time - ros::Time::now().toSec() < -8 && FSM_finished){
+            FSM_state++;
+            UseKFpose = false;
+            FSM_finished = false;
+        }
     }
     if(FSM_state==4){ //Land trajectory
         Vec2 desxy;
@@ -612,8 +612,8 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "FSM");
     ros::NodeHandle nh;
-    ros::Subscriber ugvpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_car/pose", 5, ugv_pose_sub);
-    ros::Subscriber ugvtwist_sub = nh.subscribe<geometry_msgs::TwistStamped>("/vrpn_client_node/gh034_car/twist", 5, ugv_twist_sub);
+    ros::Subscriber ugvpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/car/mavros/local_position/pose", 5, ugv_pose_sub);
+    ros::Subscriber ugvtwist_sub = nh.subscribe<geometry_msgs::TwistStamped>("/car/mavros/local_position/velocity_local", 5, ugv_twist_sub);
     ros::Subscriber uavpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("mavros/local_position/pose", 1, uav_pose_sub);
     ros::Subscriber uavKF_sub = nh.subscribe<geometry_msgs::PoseStamped>("KalmanFilterPose", 1, uav_kf_sub);
     ros::Subscriber arucopose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/ArucoPose", 1, aruco_pose_sub);

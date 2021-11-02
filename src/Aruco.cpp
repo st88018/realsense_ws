@@ -156,8 +156,8 @@ void Aruco_process(Mat image_rgb){
             Aruco_PosePub(Camera2World(Aruco_translation_camera,Camera_lp));
         }
     }
-    // cv::imshow("uav", ArucoOutput);
-    // cv::waitKey(1);
+    cv::imshow("uav", ArucoOutput);
+    cv::waitKey(1);
 }
 void datalogger(){ 
     logger_time = ros::Time::now().toSec();
