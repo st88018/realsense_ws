@@ -41,8 +41,6 @@ static double PID_duration;
 static double PID_InitTime;
 static double Last_time = 0;
 static Vec4 last_error,integral;
-/* Fail safe (not ready)*/
-bool   Failsafe_trigger  = false;
 /* FSM */
 Vec7 UAV_desP,UAV_takeoffP;
 Vec7 TargetPos;
@@ -69,17 +67,12 @@ bool   UseKFpose     = false;
 bool   ForcePIDcontroller = false;
 bool   KFok;
 
-void failsafe(bool Failsafe_trigger){
-    if(Failsafe_trigger){
-
-    }
-}
 Vec6 uav2ugv(){
     Quaterniond UGVq(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
     Matrix3d UGV_Rotation_world_mat  = UGVq.toRotationMatrix();
     Vec3 UGV_Translation_world(UGV_lp[0],UGV_lp[1],UGV_lp[2]);
-    Vec3 tvecs(UAV_lp[0],UAV_lp[1],UAV_lp[2]);
-    Quaterniond UAVq(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]);
+    Vec3 tvecs(UAV_kf_lp[0],UAV_kf_lp[1],UAV_kf_lp[2]);
+    Quaterniond UAVq(UAV_kf_lp[3],UAV_kf_lp[4],UAV_kf_lp[5],UAV_kf_lp[6]);
     Vec3 rvecs = Q2rpy(UAVq);
     Vec3 Tvecs_ugvframe = UGV_Rotation_world_mat.inverse()*(tvecs-UGV_Translation_world);
     Vec3 Rvecs_ugvframe = UGV_Rotation_world_mat.inverse()*rvecs;
@@ -405,7 +398,7 @@ void Finite_stage_mission(){  // Main FSM
         }
         if (Mission_state == 9){ //state = 9; Switch into Finite state machine
             pub_trajpose = false; pub_pidtwist = false;
-            FSM_state = 2;
+            FSM_state = 3;
         }
         if (Mission_state < 6){
             if (Current_stage_mission[7] != 0){ //Wait after finish stage.
@@ -527,7 +520,7 @@ void Finite_state_machine(){
             Vector3d MidP(UAV_kf_lp[0],UAV_kf_lp[1],UAV_kf_lp[2]-0.1);
             WPs.push_back(MidP);
             desxy = Vec2(UGV_lp[0]+Des_dist*cos(UGVrpy[2]),UGV_lp[1]+Des_dist*sin(UGVrpy[2]));
-            Vector3d EndP(desxy[0],desxy[1],UGV_lp[2]+0.05);
+            Vector3d EndP(desxy[0],desxy[1],UGV_lp[2]+0.1);
             WPs.push_back(EndP);
             AM_traj_pos(WPs,UAV_lp,UAV_twist);
 
@@ -536,9 +529,10 @@ void Finite_state_machine(){
             StartP = Vec3(UAV_kf_lp[0],UAV_kf_lp[1],UAV_kf_lp[2]);
             WPs.push_back(StartP);
             MidP = Vec3(UAV_kf_lp[0],UAV_kf_lp[1],UAV_kf_lp[2]-0.1);
+            // +(UAV_twist[1]*(AM_traj_pos_duration*0.33))
             WPs.push_back(MidP);
             desxy = Vec2(UGV_pred_lp[0]+Des_dist*cos(UGVrpy[2]),UGV_pred_lp[1]+Des_dist*sin(UGVrpy[2]));
-            EndP = Vector3d(desxy[0],desxy[1],UGV_lp[2]+0.05);
+            EndP = Vector3d(desxy[0],desxy[1],UGV_lp[2]+0.1);
             WPs.push_back(EndP);
             AM_traj_pos(WPs,UAV_lp,UAV_twist);
             /*For CPP deque safety. Default generate 10 second of hover*/
@@ -655,7 +649,7 @@ int main(int argc, char **argv)
             System_init = true;
         }
         /* offboard and arm ****************************************************/
-        if((ros::Time::now() - init_time < ros::Duration(20.0))){
+        if((ros::Time::now() - init_time < ros::Duration(5.0))){
             if( current_state.mode != "OFFBOARD" && (ros::Time::now() - last_request > ros::Duration(0.5))){
                 //Set Offboard trigger duration here
                 uav_pos_pub.publish(UAV_pose_pub);
@@ -691,7 +685,6 @@ int main(int argc, char **argv)
         }
         /* FSM *****************************************************************/
         Finite_stage_mission();
-        failsafe(Failsafe_trigger);
         Finite_state_machine();
         uav_pub(pub_trajpose,pub_pidtwist);
         if(ShutDown){ // UAV shut down
@@ -737,7 +730,6 @@ int main(int argc, char **argv)
             }
             cout << "CAr____pos_x: " << UGV_pose_sub.pose.position.x << " y: " << UGV_pose_sub.pose.position.y << " z: " << UGV_pose_sub.pose.position.z << endl;
             cout << "UAV_in_UGVframe_x: " << UAVinUGV[0] << " y: " << UAVinUGV[1] << " z: "<< UAVinUGV[2] << endl;
-            cout << "Failsafe_Syste: " << Failsafe_trigger << endl;
             cout << "---------------------------------------------------" << endl;
             coutcounter = 0;
         }else{coutcounter++;}

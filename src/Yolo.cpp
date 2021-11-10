@@ -89,7 +89,7 @@ void ugv_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     Camera_lp = GenerateCameraLP(UGV_lp);
 }
 void YOLO_PosePub(Vec3 xyz){
-    xyz = uav_real_pose(xyz);
+    // xyz = uav_real_pose(xyz);
     YOLO_pose_realsense.header.stamp = ros::Time::now();
     YOLO_pose_realsense.header.frame_id = "world";
     YOLO_pose_realsense.pose.position.x = xyz(0);

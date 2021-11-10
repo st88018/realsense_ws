@@ -93,7 +93,7 @@ void ugv_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     CAMtest_PosePub(Camera_lp);
 }
 void Aruco_PosePub(Vec3 xyz){
-    xyz = uav_real_pose(xyz);
+    // xyz = uav_real_pose(xyz);
     Aruco_pose_realsense.header.stamp = ros::Time::now();
     Aruco_pose_realsense.header.frame_id = "world";
     Aruco_pose_realsense.pose.position.x = xyz(0);
@@ -105,7 +105,7 @@ void Aruco_PosePub(Vec3 xyz){
     Aruco_pose_realsense.pose.orientation.z = UAVq.z();
 }
 void Depth_PosePub(Vec3 xyz){
-    xyz = uav_real_pose(xyz);
+    // xyz = uav_real_pose(xyz);
     Depth_pose_realsense.header.stamp = ros::Time::now();
     Depth_pose_realsense.header.frame_id = "world";
     Depth_pose_realsense.pose.position.x = xyz(0);
