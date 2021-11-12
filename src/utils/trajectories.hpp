@@ -6,6 +6,7 @@
 deque<Vec8> trajectory_pos;
 deque<Vec8> trajectory_vel;
 double AM_traj_pos_duration;
+std::vector<double> AM_traj_pos_durations;
 double AM_traj_vel_duration;
 Vec2 traj_pos_information;
 Vec2 traj_vel_information;
@@ -57,7 +58,7 @@ void constantVtraj( Vec7 StartPose, Vec7 EndPose, double velocity, double angula
   }
 }
 
-void AM_traj_pos(vector<Vector3d> WPs,Vec7 UAV_lp, Vec4 UAV_twist){
+void AM_traj_pos(vector<Vector3d> WPs,Vec7 UAV_lp, Vec4 UAV_twist, Vec4 End_twist){
     Quaterniond localq(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]);
     Vec3 localrpy = Q2rpy(localq);
     Vec3 desrpy(0,0,localrpy[2]);
@@ -65,10 +66,11 @@ void AM_traj_pos(vector<Vector3d> WPs,Vec7 UAV_lp, Vec4 UAV_twist){
     Trajectory am_traj;
     desq = rpy2Q(desrpy);
     //(weightT,weightAcc,weightJerk,maxVelRate,maxAccRate,iterations,epsilon);
-    AmTraj amTrajOpt(256,16,0.4,1,3,100,0.02);
-    Vector3d twistxyz(UAV_twist[0],UAV_twist[1],UAV_twist[2]);
+    AmTraj amTrajOpt(256,16,0.4,2.5,5,100,0.02);
+    Vector3d twistxyz_begin(UAV_twist[0],UAV_twist[1],UAV_twist[2]);
+    Vector3d twistxyz_end(End_twist[0],End_twist[1],End_twist[2]);
     Vector3d zero3(0.0, 0.0, 0.0);
-    am_traj = amTrajOpt.genOptimalTrajDTC(WPs, twistxyz, zero3, zero3, zero3);
+    am_traj = amTrajOpt.genOptimalTrajDTC(WPs, twistxyz_begin, zero3, twistxyz_end, zero3);
     // cout<< "      WPs.size: " << WPs.size() << endl
     //     << "      Constrained Spatial Optimal Trajectory with Trapezoidal Time Allocation" << endl
     //     << "      Lap Time: " << am_traj.getTotalDuration() << " s" << std::endl
@@ -76,6 +78,7 @@ void AM_traj_pos(vector<Vector3d> WPs,Vec7 UAV_lp, Vec4 UAV_twist){
     //     << "      Maximum Velocity Rate: " << am_traj.getMaxVelRate() << " m/s" << std::endl
     //     << "      Maximum Acceleration Rate: " << am_traj.getMaxAccRate() << " m/s^2" << std::endl;
     AM_traj_pos_duration = am_traj.getTotalDuration();
+    AM_traj_pos_durations = am_traj.getDurations();
     //initialize trajectory
     trajectory_pos.clear();
     double traj_pos_init_time = ros::Time::now().toSec();

@@ -365,7 +365,7 @@ void Finite_stage_mission(){  // Main FSM
                 WP = Vector3d(Current_stage_mission[1],Current_stage_mission[2],Current_stage_mission[3]);
                 WPs.push_back(WP);
             }
-            AM_traj_pos(WPs,UAV_lp,UAV_twist);
+            AM_traj_pos(WPs,UAV_lp,UAV_twist,Vec4(0,0,0,0));
         }
         if (Mission_state == 4){ //state = 4; constant velocity RTL but with altitude
             pub_trajpose = true;  pub_pidtwist = false;
@@ -431,6 +431,10 @@ void Finite_stage_mission(){  // Main FSM
     }
 }
 void Finite_state_machine(){
+    double vertical_dist = 0.6;
+    double safety_altitude = 0.1;
+    double reserved_dist = 0.05;
+    double horizontal_dist = (vertical_dist-safety_altitude)*1.57-reserved_dist;
     if(FSM_state==1){ //Follow 1.1 (using GPS) stay at horizontal_dist, vertical_dist
         // Vec7 FSM_1_pose;
         // Quaterniond FSM1q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
@@ -458,8 +462,6 @@ void Finite_state_machine(){
         Vec7 FSM_2_pose;
         Quaterniond FSM2q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
         Vec3 FSM2rpy = Q2rpy(FSM2q);
-        double horizontal_dist = 1;
-        double vertical_dist = 0.6;
         Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM2rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM2rpy[2]));
         FSM_2_pose << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6];
         uav_pose_pub(FSM_2_pose);
@@ -481,8 +483,6 @@ void Finite_state_machine(){
         Vec7 FSM_3_pose;
         Quaterniond FSM3q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
         Vec3 FSM3rpy = Q2rpy(FSM3q);
-        double horizontal_dist = 1;
-        double vertical_dist = 0.6;
         Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM3rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM3rpy[2]));
         pub_trajpose = false; pub_pidtwist = true; UseKFpose = true;
         if(!UseKFpose){UAV_kf_lp = UAV_lp;}
@@ -507,7 +507,6 @@ void Finite_state_machine(){
     }
     if(FSM_state==4){ //Land trajectory
         Vec2 desxy;
-        double Des_dist = 0.05;
         if(!FSM_init){
             FSM_init = true;
             pub_trajpose = true;  pub_pidtwist = false; ForcePIDcontroller = true; UseKFpose = true;
@@ -517,24 +516,26 @@ void Finite_state_machine(){
             WPs.clear();
             Vector3d StartP(UAV_kf_lp[0],UAV_kf_lp[1],UAV_kf_lp[2]);
             WPs.push_back(StartP);
-            Vector3d MidP(UAV_kf_lp[0],UAV_kf_lp[1],UAV_kf_lp[2]-0.1);
+            double cycloid_mid_xy = ((vertical_dist-safety_altitude)/2)*((M_PI/2)-sin(M_PI/2));
+            double cycloid_mid_z  = ((vertical_dist-safety_altitude)/2)*(1-cos(M_PI/2));
+            Vector3d MidP(UAV_kf_lp[0]+cycloid_mid_xy*cos(UGVrpy[2]),UAV_kf_lp[1]+cycloid_mid_xy*cos(UGVrpy[2]),UAV_kf_lp[2]-cycloid_mid_z);
             WPs.push_back(MidP);
-            desxy = Vec2(UGV_lp[0]+Des_dist*cos(UGVrpy[2]),UGV_lp[1]+Des_dist*sin(UGVrpy[2]));
-            Vector3d EndP(desxy[0],desxy[1],UGV_lp[2]+0.1);
+            desxy = Vec2(UGV_lp[0]+reserved_dist*cos(UGVrpy[2]),UGV_lp[1]+reserved_dist*sin(UGVrpy[2]));
+            Vector3d EndP(desxy[0],desxy[1],UGV_lp[2]+safety_altitude);
             WPs.push_back(EndP);
-            AM_traj_pos(WPs,UAV_lp,UAV_twist);
+            AM_traj_pos(WPs,UAV_lp,UAV_twist,UGV_twist);
 
             Vec7 UGV_pred_lp = ugv_pred_land_pose(AM_traj_pos_duration);
             WPs.clear();
             StartP = Vec3(UAV_kf_lp[0],UAV_kf_lp[1],UAV_kf_lp[2]);
             WPs.push_back(StartP);
-            MidP = Vec3(UAV_kf_lp[0],UAV_kf_lp[1],UAV_kf_lp[2]-0.1);
-            // +(UAV_twist[1]*(AM_traj_pos_duration*0.33))
+            // MidP = Vec3(UAV_kf_lp[0]+(cycloid_mid_xy*cos(UGVrpy[2]),UAV_kf_lp[1]+cycloid_mid_xy*cos(UGVrpy[2]),UAV_kf_lp[2]-cycloid_mid_z);
+            MidP = Vec3(UAV_kf_lp[0]+cycloid_mid_xy*cos(UGVrpy[2])+AM_traj_pos_durations[0]*UAV_twist[0],UAV_kf_lp[1]+cycloid_mid_xy*cos(UGVrpy[2])+AM_traj_pos_durations[0]*UAV_twist[1],UAV_kf_lp[2]-cycloid_mid_z);
             WPs.push_back(MidP);
-            desxy = Vec2(UGV_pred_lp[0]+Des_dist*cos(UGVrpy[2]),UGV_pred_lp[1]+Des_dist*sin(UGVrpy[2]));
-            EndP = Vector3d(desxy[0],desxy[1],UGV_lp[2]+0.1);
+            desxy = Vec2(UGV_pred_lp[0]+reserved_dist*cos(UGVrpy[2]),UGV_pred_lp[1]+reserved_dist*sin(UGVrpy[2]));
+            EndP = Vector3d(desxy[0],desxy[1],UGV_lp[2]+safety_altitude);
             WPs.push_back(EndP);
-            AM_traj_pos(WPs,UAV_lp,UAV_twist);
+            AM_traj_pos(WPs,UAV_lp,UAV_twist,UGV_twist);
             /*For CPP deque safety. Default generate 10 second of hover*/
             int hovertime = 10;
             if(trajectory_pos.size()>0){
