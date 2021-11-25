@@ -67,6 +67,8 @@ deque<Vec8> Mission_generator(){
     waypoints.clear();
     // Waypoints
     Vec8 stage; // state x y z yaw v av waittime
+    stage << 1, 0, 0, 1, 3.14, velocity_mission, velocity_angular, 10;   // state = 1; takeoff
+    waypoints.push_back(stage);
     stage << 9, 0, 0, 1, 3.14, 0, 0, 15;
     waypoints.push_back(stage);
     cout << " Mission generated!" << " Stage count: " << waypoints.size() << endl;

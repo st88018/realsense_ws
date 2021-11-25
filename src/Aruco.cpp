@@ -57,17 +57,17 @@ void uav_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
               UAV_pose_sub.pose.orientation.w,UAV_pose_sub.pose.orientation.x,UAV_pose_sub.pose.orientation.y,UAV_pose_sub.pose.orientation.z;
     UAVq = Quaterniond(UAV_lp[3],UAV_lp[4],UAV_lp[5],UAV_lp[6]);
 }
-// void camera_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
-//     Camera_pose_sub.pose.position.x = pose->pose.position.x;
-//     Camera_pose_sub.pose.position.y = pose->pose.position.y;
-//     Camera_pose_sub.pose.position.z = pose->pose.position.z;
-//     Camera_pose_sub.pose.orientation.x = pose->pose.orientation.x;
-//     Camera_pose_sub.pose.orientation.y = pose->pose.orientation.y;
-//     Camera_pose_sub.pose.orientation.z = pose->pose.orientation.z;
-//     Camera_pose_sub.pose.orientation.w = pose->pose.orientation.w;
-//     Camera_lp << Camera_pose_sub.pose.position.x,Camera_pose_sub.pose.position.y,Camera_pose_sub.pose.position.z,
-//                  Camera_pose_sub.pose.orientation.w,Camera_pose_sub.pose.orientation.x,Camera_pose_sub.pose.orientation.y,Camera_pose_sub.pose.orientation.z;
-// }
+void camera_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
+    Camera_pose_sub.pose.position.x = pose->pose.position.x;
+    Camera_pose_sub.pose.position.y = pose->pose.position.y;
+    Camera_pose_sub.pose.position.z = pose->pose.position.z;
+    Camera_pose_sub.pose.orientation.x = pose->pose.orientation.x;
+    Camera_pose_sub.pose.orientation.y = pose->pose.orientation.y;
+    Camera_pose_sub.pose.orientation.z = pose->pose.orientation.z;
+    Camera_pose_sub.pose.orientation.w = pose->pose.orientation.w;
+    Camera_lp << Camera_pose_sub.pose.position.x,Camera_pose_sub.pose.position.y,Camera_pose_sub.pose.position.z,
+                 Camera_pose_sub.pose.orientation.w,Camera_pose_sub.pose.orientation.x,Camera_pose_sub.pose.orientation.y,Camera_pose_sub.pose.orientation.z;
+}
 void CAMtest_PosePub(Vec7 xyzq){
     CAM_test.header.stamp = ros::Time::now();
     CAM_test.header.frame_id = "world";
@@ -89,8 +89,8 @@ void ugv_pose_sub(const geometry_msgs::PoseStamped::ConstPtr& pose){
     UGV_pose_sub.pose.orientation.w = pose->pose.orientation.w;
     UGV_lp << UGV_pose_sub.pose.position.x,UGV_pose_sub.pose.position.y,UGV_pose_sub.pose.position.z,
                  UGV_pose_sub.pose.orientation.w,UGV_pose_sub.pose.orientation.x,UGV_pose_sub.pose.orientation.y,UGV_pose_sub.pose.orientation.z;
-    Camera_lp = GenerateCameraLP(UGV_lp);
-    CAMtest_PosePub(Camera_lp);
+    // Camera_lp = GenerateCameraLP(UGV_lp);
+    // CAMtest_PosePub(Camera_lp);
 }
 void Aruco_PosePub(Vec3 xyz){
     // xyz = uav_real_pose(xyz);
@@ -187,8 +187,8 @@ int main(int argc, char **argv){
     ros::init(argc, argv, "Aruco");
     ros::NodeHandle nh;
     ros::Subscriber camera_info_sub = nh.subscribe("/camera/aligned_depth_to_color/camera_info",1,camera_info_cb);
-    // ros::Subscriber camerapose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_d455/pose", 1, camera_pose_sub);
-    ros::Subscriber ugvpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/car/mavros/local_position/pose", 1, ugv_pose_sub);
+    ros::Subscriber camerapose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_d455/pose", 1, camera_pose_sub);
+    ros::Subscriber ugvpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/vrpn_client_node/gh034_car/pose", 1, ugv_pose_sub);
     ros::Subscriber uavpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 1, uav_pose_sub);
     ros::Publisher ArucoPose_pub = nh.advertise<geometry_msgs::PoseStamped>("/ArucoPose",1);
     ros::Publisher Camtest_pub = nh.advertise<geometry_msgs::PoseStamped>("/CamPose",1);

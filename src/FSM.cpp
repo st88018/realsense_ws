@@ -37,6 +37,7 @@ static Vec4 Zero4;
 static int coutcounter;
 /* PID Position controller */
 static Vec4   Pos_setpoint,UGV_twist,UAV_twist;
+static double UGV_Horizontal_twist;
 static double PID_duration;
 static double PID_InitTime;
 static double Last_time = 0;
@@ -116,6 +117,7 @@ void ugv_twist_sub(const geometry_msgs::TwistStamped::ConstPtr& twist){
     UGV_twist_sub.twist.angular.z = twist->twist.angular.z;
     UGV_twist << UGV_twist_sub.twist.linear.x,UGV_twist_sub.twist.linear.y,
                  UGV_twist_sub.twist.linear.z,UGV_twist_sub.twist.angular.z;
+    UGV_Horizontal_twist = sqrt(pow(UGV_twist[0],2)+pow(UGV_twist[1],2));
 }
 Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){ //XYZyaw
     Vec4 error,u_p,u_i,u_d,output,derivative;
@@ -398,7 +400,7 @@ void Finite_stage_mission(){  // Main FSM
         }
         if (Mission_state == 9){ //state = 9; Switch into Finite state machine
             pub_trajpose = false; pub_pidtwist = false;
-            FSM_state = 3;
+            FSM_state = 2;
         }
         if (Mission_state < 6){
             if (Current_stage_mission[7] != 0){ //Wait after finish stage.
@@ -432,8 +434,8 @@ void Finite_stage_mission(){  // Main FSM
 }
 void Finite_state_machine(){
     double vertical_dist = 0.6;
-    double safety_altitude = 0.1;
-    double reserved_dist = 0.05;
+    double safety_altitude = 0.12;
+    double reserved_dist = UGV_Horizontal_twist+0.01;
     double horizontal_dist = (vertical_dist-safety_altitude)*1.57-reserved_dist;
     if(FSM_state==1){ //Follow 1.1 (using GPS) stay at horizontal_dist, vertical_dist
         // Vec7 FSM_1_pose;
@@ -474,7 +476,7 @@ void Finite_state_machine(){
         if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3  && !KFok){
             FSM_finished = false;
         }
-        if(FSM_finish_time - ros::Time::now().toSec() < -1 && FSM_finished){
+        if(FSM_finish_time - ros::Time::now().toSec() < -3 && FSM_finished){
             FSM_state++;
             FSM_finished = false;
         }
@@ -499,7 +501,7 @@ void Finite_state_machine(){
         if(sqrt(pow((UAV_kf_lp[0]-UGV_lp[0]),2)+pow((UAV_kf_lp[1]-UGV_lp[1]),2)) > horizontal_dist+0.3){
             FSM_finished = false;
         }
-        if(FSM_finish_time - ros::Time::now().toSec() < -8 && FSM_finished){
+        if(FSM_finish_time - ros::Time::now().toSec() < -3 && FSM_finished){
             FSM_state++;
             UseKFpose = false;
             FSM_finished = false;
@@ -566,7 +568,7 @@ void Finite_state_machine(){
             ForcePIDcontroller = false; UseKFpose = false;
             FSM_init = false;
         }
-        if(UAVinUGV[2] < 0.04 && Dist_horizontal < 0.6){
+        if(UAVinUGV[2] < 0.05 && Dist_horizontal < 0.6){
             cout << "---------------------------------------------------" << endl
                  << "-----Vertical distance not enough to approach------" << endl
                  << "---------------------------------------------------" << endl;
@@ -574,7 +576,7 @@ void Finite_state_machine(){
             ForcePIDcontroller = false; UseKFpose = false;
             FSM_init = false;
         }
-        if(UAVinUGV[0] > 0.15 ){
+        if(UAVinUGV[0] > 0.1 ){
             cout << "---------------------------------------------------" << endl
                  << "--------------UAV overshoots UGV-------------------" << endl
                  << "---------------------------------------------------" << endl;
@@ -582,7 +584,7 @@ void Finite_state_machine(){
             ForcePIDcontroller = false;
             FSM_init = false;
         }
-        if(Traj_leftT <  1 && UAVinUGV[0] > -0.05 && abs(UAVinUGV[1]) < 0.1 && UAVinUGV[2] < 0.15 ){ 
+        if(Traj_leftT <  1 && UAVinUGV[0] > -0.1 && abs(UAVinUGV[1]) < 0.1 && UAVinUGV[2] < 0.15 ){ 
             ShutDown = false;
             soft_ShutDown = true;
             ForcePIDcontroller = false;
@@ -607,8 +609,8 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "FSM");
     ros::NodeHandle nh;
-    ros::Subscriber ugvpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/car/mavros/local_position/pose", 5, ugv_pose_sub);
-    ros::Subscriber ugvtwist_sub = nh.subscribe<geometry_msgs::TwistStamped>("/car/mavros/local_position/velocity_local", 5, ugv_twist_sub);
+    ros::Subscriber ugvpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("//vrpn_client_node/gh034_car/pose", 5, ugv_pose_sub);
+    ros::Subscriber ugvtwist_sub = nh.subscribe<geometry_msgs::TwistStamped>("/vrpn_client_node/gh034_car/twist", 5, ugv_twist_sub);
     ros::Subscriber uavpose_sub = nh.subscribe<geometry_msgs::PoseStamped>("mavros/local_position/pose", 1, uav_pose_sub);
     ros::Subscriber uavKF_sub = nh.subscribe<geometry_msgs::PoseStamped>("KalmanFilterPose", 1, uav_kf_sub);
     ros::Subscriber arucopose_sub = nh.subscribe<geometry_msgs::PoseStamped>("/ArucoPose", 1, aruco_pose_sub);
