@@ -123,8 +123,8 @@ Vec4 uav_poistion_controller_PID(Vec4 pose, Vec4 setpoint){ //XYZyaw
     Vec4 error,u_p,u_i,u_d,output,derivative;
     double iteration_time = ros::Time::now().toSec() - Last_time;
     // cout << "iteration_time: " << iteration_time << endl;
-    Vec4 K_p(1.2,1.2,1.2,1);
-    Vec4 K_i(0.15,0.15,0.1,0.05);
+    Vec4 K_p(1.2,1.2,1.5,1);
+    Vec4 K_i(0.15,0.15,0,0.05);
     Vec4 K_d(0.05,0.05,0,0);
     error = setpoint-pose;
     if (error[3]>=M_PI){error[3]-=2*M_PI;}
@@ -400,7 +400,7 @@ void Finite_stage_mission(){  // Main FSM
         }
         if (Mission_state == 9){ //state = 9; Switch into Finite state machine
             pub_trajpose = false; pub_pidtwist = false;
-            FSM_state = 2;
+            FSM_state = 3;
         }
         if (Mission_state < 6){
             if (Current_stage_mission[7] != 0){ //Wait after finish stage.
@@ -433,9 +433,9 @@ void Finite_stage_mission(){  // Main FSM
     }
 }
 void Finite_state_machine(){
-    double vertical_dist = 0.6;
-    double safety_altitude = 0.12;
-    double reserved_dist = UGV_Horizontal_twist+0.01;
+    double vertical_dist = 0.7;
+    double safety_altitude = 0;
+    double reserved_dist = UGV_Horizontal_twist+0.05;
     double horizontal_dist = (vertical_dist-safety_altitude)*1.57-reserved_dist;
     if(FSM_state==1){ //Follow 1.1 (using GPS) stay at horizontal_dist, vertical_dist
         // Vec7 FSM_1_pose;
@@ -486,7 +486,7 @@ void Finite_state_machine(){
         Quaterniond FSM3q(UGV_lp[3],UGV_lp[4],UGV_lp[5],UGV_lp[6]);
         Vec3 FSM3rpy = Q2rpy(FSM3q);
         Vec2 uavxy = Vec2(UGV_lp[0]-horizontal_dist*cos(FSM3rpy[2]),UGV_lp[1]-horizontal_dist*sin(FSM3rpy[2]));
-        pub_trajpose = false; pub_pidtwist = true; UseKFpose = true;
+        pub_trajpose = false; pub_pidtwist = true; UseKFpose = false;
         if(!UseKFpose){UAV_kf_lp = UAV_lp;}
         Pos_setpoint << uavxy[0],uavxy[1],UGV_lp[2]+vertical_dist,UGVrpy[2];
         PID_duration = 0;
@@ -511,7 +511,7 @@ void Finite_state_machine(){
         Vec2 desxy;
         if(!FSM_init){
             FSM_init = true;
-            pub_trajpose = true;  pub_pidtwist = false; ForcePIDcontroller = true; UseKFpose = true;
+            pub_trajpose = true;  pub_pidtwist = false; ForcePIDcontroller = true; UseKFpose = false;
             if(!UseKFpose){UAV_kf_lp = UAV_lp;}
             Traj_init_UGVrpy = UGVrpy;
             vector<Vector3d> WPs;
@@ -568,7 +568,7 @@ void Finite_state_machine(){
             ForcePIDcontroller = false; UseKFpose = false;
             FSM_init = false;
         }
-        if(UAVinUGV[2] < 0.05 && Dist_horizontal < 0.6){
+        if(UAVinUGV[2] < 0.02 && Dist_horizontal < 0.6){
             cout << "---------------------------------------------------" << endl
                  << "-----Vertical distance not enough to approach------" << endl
                  << "---------------------------------------------------" << endl;

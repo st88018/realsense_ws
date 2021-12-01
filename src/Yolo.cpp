@@ -43,7 +43,7 @@ static Vec7 Zero7;
 static Vec4 Zero4;
 double TimerLastT,logger_time,logger_time_last;
 /* YOLO */
-static run_yolo Yolonet(cfgpath, weightpath, classnamepath, float(0.6));
+static run_yolo Yolonet(cfgpath, weightpath, classnamepath, float(0.9));
 bool YOLO_found = false;
 
 

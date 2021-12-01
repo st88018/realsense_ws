@@ -173,15 +173,14 @@ bool KFok_indicator(){
 }
 void datalogger(){ 
     logger_time = ros::Time::now().toSec();
-    // if(logger_time-logger_time_last > 0.02){
         ofstream save("/home/patty/realsense_ws/src/realsense_ws/logs/KF.csv", ios::app);
-        save<<std::setprecision(20)<<logger_time<<","<<KF_pub(0)<<","<<KF_pub(1)<<","<<KF_pub(2)<<endl;                                      
-        save.close();
-        ofstream save2("/home/patty/realsense_ws/src/realsense_ws/logs/Groundtruth.csv", ios::app);
-        save2<<std::setprecision(20)<<logger_time<<","<<UAV_lp(0)<<","<<UAV_lp(1)<<","<<UAV_lp(2)<<endl;
-        save2.close();
-        // logger_time_last = logger_time;
-    // }
+        save<<std::setprecision(20)<<ros::Time::now().toSec()<<
+        ","<<KF_pub(0)<<","<<KF_pub(1)<<","<<KF_pub(2)<<
+        ","<<UAV_lp(0)<<","<<UAV_lp(1)<<","<<UAV_lp(2)<<
+        ","<<UGV_lp(0)<<","<<UGV_lp(1)<<","<<UGV_lp(2)<<
+        ","<<Yolo_lp(0)<<","<<Yolo_lp(1)<<","<<Yolo_lp(2)<<
+        ","<<Aruco_lp(0)<<","<<Aruco_lp(1)<<","<<Aruco_lp(2)<<endl;
+    save.close();
 }
 int main(int argc, char **argv){
     ros::init(argc, argv, "camera");
